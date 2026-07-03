@@ -18,8 +18,8 @@ export default function Home() {
   }, []);
 
   const slides = [
-    { ...all[0], bannerUrl: '/firstcaroyusel.png', bgClass: 'bg-[#141A29]' },
-    { ...all[34], bannerUrl: '/herocarousel2.jpg', isCustomBanner: true }
+    { ...all[0], bannerUrl: '/hero-events.png', bgClass: 'bg-[#0A0A12]' },
+    { ...all[34], bannerUrl: '/hero-summit.png', bgClass: 'bg-[#0A0A12]' },
   ].map((e) => ({
     slug: e.slug, seed: e.id, title: e.title, bannerUrl: e.bannerUrl, bgClass: e.bgClass || '', isCustomBanner: e.isCustomBanner, isCenterBanner: e.isCenterBanner,
     meta: `${e.dateLabel} · ${e.venue}, ${e.city} · ${e.chapter.name}`,
