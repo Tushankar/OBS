@@ -1,0 +1,87 @@
+<svg width="680" height="820" viewBox="0 0 680 820" xmlns="http://www.w3.org/2000/svg">
+<title>OBS UI screen flow map (MERN)</title>
+<style>
+.th { font: 600 14px Inter, 'Segoe UI', Arial, sans-serif; fill: #3D3D3A; }
+.ts { font: 400 12px Inter, 'Segoe UI', Arial, sans-serif; fill: #73726C; }
+.arr { stroke: #8A897F; stroke-width: 1.5; fill: none; }
+.zone { fill: none; stroke: #B4B2A9; stroke-width: 1; stroke-dasharray: 6 4; }
+.purple { fill: #F3EFFF; stroke: #8B72E8; stroke-width: 1; }
+.teal { fill: #E6F7F5; stroke: #2AA79B; stroke-width: 1; }
+.coral { fill: #FDEDEA; stroke: #E5735C; stroke-width: 1; }
+.gray { fill: #F5F4F0; stroke: #A5A39A; stroke-width: 1; }
+</style>
+<rect x="0" y="0" width="680" height="820" fill="#FFFFFF"/>
+<defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8A897F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect class="zone" x="40" y="40" width="600" height="276" rx="12"/>
+<text class="th" x="56" y="69">Public site · BookMyShow style</text>
+<rect class="purple" x="56" y="84" width="130" height="56" rx="8"/>
+<text class="th" x="121" y="107" text-anchor="middle">Home</text>
+<text class="ts" x="121" y="126" text-anchor="middle">featured · chips</text>
+<line x1="190" y1="112" x2="204" y2="112" class="arr" marker-end="url(#a)"/>
+<rect class="purple" x="210" y="84" width="150" height="56" rx="8"/>
+<text class="th" x="285" y="107" text-anchor="middle">Chapters</text>
+<text class="ts" x="285" y="126" text-anchor="middle">tier groups · join</text>
+<line x1="364" y1="112" x2="378" y2="112" class="arr" marker-end="url(#a)"/>
+<rect class="purple" x="384" y="84" width="150" height="56" rx="8"/>
+<text class="th" x="459" y="107" text-anchor="middle">Event listing</text>
+<text class="ts" x="459" y="126" text-anchor="middle">filter rail · sort</text>
+<path d="M459 140 L459 151 L136 151 L136 158" class="arr" marker-end="url(#a)"/>
+<rect class="purple" x="56" y="164" width="160" height="56" rx="8"/>
+<text class="th" x="136" y="187" text-anchor="middle">Event details</text>
+<text class="ts" x="136" y="206" text-anchor="middle">sticky booking card</text>
+<line x1="220" y1="192" x2="234" y2="192" class="arr" marker-end="url(#a)"/>
+<rect class="purple" x="240" y="164" width="120" height="56" rx="8"/>
+<text class="th" x="300" y="187" text-anchor="middle">Sign in</text>
+<text class="ts" x="300" y="206" text-anchor="middle">email · Google</text>
+<line x1="364" y1="192" x2="378" y2="192" class="arr" marker-end="url(#a)"/>
+<rect class="purple" x="384" y="164" width="140" height="56" rx="8"/>
+<text class="th" x="454" y="187" text-anchor="middle">Checkout</text>
+<text class="ts" x="454" y="206" text-anchor="middle">15:00 hold · pay</text>
+<line x1="454" y1="220" x2="454" y2="238" class="arr" marker-end="url(#a)"/>
+<rect class="purple" x="384" y="244" width="140" height="56" rx="8"/>
+<text class="th" x="454" y="267" text-anchor="middle">E-ticket</text>
+<text class="ts" x="454" y="286" text-anchor="middle">QR · PDF · success</text>
+<rect class="zone" x="40" y="336" width="600" height="104" rx="12"/>
+<text class="th" x="56" y="365">My account</text>
+<rect class="gray" x="56" y="368" width="120" height="56" rx="8"/>
+<text class="th" x="116" y="391" text-anchor="middle">Profile</text>
+<text class="ts" x="116" y="410" text-anchor="middle">name · avatar</text>
+<rect class="gray" x="200" y="368" width="145" height="56" rx="8"/>
+<text class="th" x="272" y="391" text-anchor="middle">My tickets</text>
+<text class="ts" x="272" y="410" text-anchor="middle">QR · download PDF</text>
+<rect class="gray" x="369" y="368" width="150" height="56" rx="8"/>
+<text class="th" x="444" y="391" text-anchor="middle">Order history</text>
+<text class="ts" x="444" y="410" text-anchor="middle">past registrations</text>
+<rect class="zone" x="40" y="460" width="600" height="112" rx="12"/>
+<text class="th" x="56" y="489">Organizer portal</text>
+<rect class="teal" x="58" y="500" width="120" height="56" rx="8"/>
+<text class="th" x="118" y="523" text-anchor="middle">Dashboard</text>
+<text class="ts" x="118" y="542" text-anchor="middle">KPIs · revenue</text>
+<rect class="teal" x="194" y="500" width="140" height="56" rx="8"/>
+<text class="th" x="264" y="523" text-anchor="middle">Event wizard</text>
+<text class="ts" x="264" y="542" text-anchor="middle">create → submit</text>
+<rect class="teal" x="350" y="500" width="150" height="56" rx="8"/>
+<text class="th" x="425" y="523" text-anchor="middle">Registrations</text>
+<text class="ts" x="425" y="542" text-anchor="middle">attendees · export</text>
+<rect class="teal" x="516" y="500" width="105" height="56" rx="8"/>
+<text class="th" x="568" y="523" text-anchor="middle">Check-in</text>
+<text class="ts" x="568" y="542" text-anchor="middle">QR scanner</text>
+<rect class="zone" x="40" y="596" width="600" height="192" rx="12"/>
+<text class="th" x="56" y="625">Admin panel</text>
+<rect class="coral" x="58" y="636" width="160" height="56" rx="8"/>
+<text class="th" x="138" y="659" text-anchor="middle">Approvals</text>
+<text class="ts" x="138" y="678" text-anchor="middle">organizers · events</text>
+<rect class="coral" x="238" y="636" width="135" height="56" rx="8"/>
+<text class="th" x="305" y="659" text-anchor="middle">Users</text>
+<text class="ts" x="305" y="678" text-anchor="middle">search · suspend</text>
+<rect class="coral" x="393" y="636" width="150" height="56" rx="8"/>
+<text class="th" x="468" y="659" text-anchor="middle">Transactions</text>
+<text class="ts" x="468" y="678" text-anchor="middle">gateway · refunds</text>
+<rect class="coral" x="58" y="716" width="215" height="56" rx="8"/>
+<text class="th" x="165" y="739" text-anchor="middle">Content</text>
+<text class="ts" x="165" y="758" text-anchor="middle">categories · chapters · CMS</text>
+<rect class="coral" x="293" y="716" width="160" height="56" rx="8"/>
+<text class="th" x="373" y="739" text-anchor="middle">Reports</text>
+<text class="ts" x="373" y="758" text-anchor="middle">revenue · top events</text>
+<path d="M264 556 L264 584 L138 584 L138 630" class="arr" stroke-dasharray="4 4" marker-end="url(#a)"/>
+</svg>

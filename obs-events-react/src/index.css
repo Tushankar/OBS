@@ -1,0 +1,108 @@
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  src: url(https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf) format('truetype');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  src: url(https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmEU9fBBc4.ttf) format('truetype');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  src: url(https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.ttf) format('truetype');
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply m-0 p-0 bg-white text-ink-soft antialiased;
+    font-family: 'Roboto', sans-serif !important;
+  }
+  input,
+  button,
+  select,
+  textarea {
+    font-family: 'Roboto', sans-serif !important;
+  }
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  /* hide scrollbars on horizontal rails while keeping scroll */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* shimmer skeleton */
+  .skeleton {
+    background: #f0f0f0;
+    background-image: linear-gradient(90deg, #f0f0f0 0px, #e5e5e5 40px, #f0f0f0 80px);
+    background-size: 400px 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+  .clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .clamp-6 {
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+/* focus ring consistent with brand */
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid #C99E25;
+  outline-offset: 2px;
+}
+
+/* Hero Carousel center-mode container properties */
+.hero-carousel-container {
+  --slide-width: 100vw;
+  --slide-gap: 0px;
+}
+
+@media (min-width: 768px) {
+  .hero-carousel-container {
+    --slide-width: min(85vw, 1240px);
+    --slide-gap: 16px;
+  }
+}
+
+.bg-gold-gradient {
+  background: linear-gradient(90deg, #E5C060 0%, #C99E25 50%, #8E6B1D 100%);
+  background-size: 200% auto;
+  transition: all 0.3s ease;
+}
+.bg-gold-gradient:hover:not(:disabled) {
+  background-position: right center;
+  box-shadow: 0 4px 15px rgba(201, 158, 37, 0.4);
+}
