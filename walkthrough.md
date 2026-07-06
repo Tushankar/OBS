@@ -122,6 +122,9 @@ We have updated the design of the home page elements to match the exact look and
       - **D2C Growth Masterclass**: `d2c_masterclass.jpg`
     - **Integrated into Data Layer**: Added an `EVENT_IMAGES` title-to-path lookup map in `events.js` and modified the `getEvents()` function to automatically assign the appropriate custom local image to these events as both `imageUrl` and `bannerUrl`, replacing the generic Picsum placeholders.
 
+14. **Netlify Deployment Setup (`netlify.toml` & Production Build)**
+    - **Single Page App Redirects**: Created `netlify.toml` in the `obs-events-react` root directory with a rewrite rule (`from = "/*" to = "/index.html" status = 200`) to properly support React Router SPA routes on reload.
+    - **Production Build Execution**: Ran `npm run build` which successfully compiled the application (transforming all modules and styling assets) and populated the production-ready `dist` folder.
+
 ## Verification Screenshot
 ![The best of OBS Category Cards with custom background images](C:/Users/Kyptronix_DEV/.gemini/antigravity-ide/brain/6bac688d-bdf6-4675-bfeb-276bdf856278/webinars_card_verification_1783315335422.png)
-
