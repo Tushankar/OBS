@@ -97,3 +97,31 @@ We have updated the design of the home page elements to match the exact look and
 
 11. **Favicon (`favicon.svg` & `index.html`)**
     - Updated the browser tab favicon to match your reference: a transparent background with red serif `obs` text.
+
+12. **Category Cards Background Images (`CategoryTiles.jsx`)**
+    - **Downloaded Custom Images**: Saved high-quality Unsplash images for six of the event categories to the `/public/images/` directory:
+      - **Summits**: `summits.jpg` (business conference)
+      - **Investor Meetups**: `investors.jpg` (handshake)
+      - **Networking**: `networking.jpg` (networking event)
+      - **Workshops**: `workshops.jpg` (workshop presentation)
+      - **Gala Dinners**: `gala_dinners.jpg` (gala dinner)
+      - **Webinars**: `webinars.jpg` (online meeting/presentation)
+    - **Vibrant Image Backgrounds**: Replaced the original plain gradients with these downloaded images.
+    - **Premium Dark Overlay**: Applied a top-to-bottom dark gradient overlay (`from-black/50 via-black/25 to-black/60`) over the background images to ensure high contrast and legibility for the white text and event counts.
+    - **Zoom Hover Animation**: Added a smooth, subtle hover zoom effect (`group-hover:scale-110` with a `duration-500` transition) on the background images to create a premium, interactive feel.
+
+13. **Custom Event Card Images (`events.js`)**
+    - **Downloaded Custom Images**: Saved high-quality, topic-relevant Unsplash images for the first 8 events to the `/public/images/events/` directory:
+      - **OBS India Investor Summit 2026**: `investor_summit.jpg`
+      - **Founders Networking Night**: `founders_networking.jpg`
+      - **Family Office Roundtable — Dubai**: `family_office.jpg`
+      - **Scale-Up Playbook Workshop**: `scaleup_workshop.jpg`
+      - **OBS Annual Gala Dinner 2026**: `gala_dinner.jpg`
+      - **Global Trade Corridors Summit**: `global_trade.jpg`
+      - **Women in Business Mixer**: `women_mixer.jpg`
+      - **D2C Growth Masterclass**: `d2c_masterclass.jpg`
+    - **Integrated into Data Layer**: Added an `EVENT_IMAGES` title-to-path lookup map in `events.js` and modified the `getEvents()` function to automatically assign the appropriate custom local image to these events as both `imageUrl` and `bannerUrl`, replacing the generic Picsum placeholders.
+
+## Verification Screenshot
+![The best of OBS Category Cards with custom background images](C:/Users/Kyptronix_DEV/.gemini/antigravity-ide/brain/6bac688d-bdf6-4675-bfeb-276bdf856278/webinars_card_verification_1783315335422.png)
+

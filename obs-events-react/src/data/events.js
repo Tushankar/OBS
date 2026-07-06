@@ -124,6 +124,18 @@ function buildTypes(id, price) {
   return types;
 }
 
+// Map of event titles to downloaded custom high-quality Unsplash images
+const EVENT_IMAGES = {
+  'OBS India Investor Summit 2026': '/images/events/investor_summit.jpg',
+  'Founders Networking Night': '/images/events/founders_networking.jpg',
+  'Family Office Roundtable — Dubai': '/images/events/family_office.jpg',
+  'Scale-Up Playbook Workshop': '/images/events/scaleup_workshop.jpg',
+  'OBS Annual Gala Dinner 2026': '/images/events/gala_dinner.jpg',
+  'Global Trade Corridors Summit': '/images/events/global_trade.jpg',
+  'Women in Business Mixer': '/images/events/women_mixer.jpg',
+  'D2C Growth Masterclass': '/images/events/d2c_masterclass.jpg',
+};
+
 // Build the full, memoised event list.
 let _events = null;
 export function getEvents() {
@@ -133,6 +145,7 @@ export function getEvents() {
     const [name, flag, tier] = CHAPTERS[r[7]];
     const online = r[1] === 'Online';
     const price = r[4];
+    const customImg = EVENT_IMAGES[r[0]];
     return {
       id,
       slug: slugify(r[0]),
@@ -146,8 +159,8 @@ export function getEvents() {
       dateLabel: r[6],
       online,
       chapter: { name, flag, tier },
-      imageUrl: `https://picsum.photos/seed/obs-ev-${id}/600/900`,
-      bannerUrl: `https://picsum.photos/seed/obs-ev-${id}-b/1600/600`,
+      imageUrl: customImg || `https://picsum.photos/seed/obs-ev-${id}/600/900`,
+      bannerUrl: customImg || `https://picsum.photos/seed/obs-ev-${id}-b/1600/600`,
       dayOffset: id % 10,
       popularity: (id * 7) % 100,
       types: buildTypes(id, price),
