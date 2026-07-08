@@ -6,6 +6,7 @@ import { AppError, badRequest, forbidden, notFoundError } from '../../utils/erro
 import { loadPayableOrder, safeEqual } from './payments.shared.js';
 import { markPaidAndFulfil } from '../fulfillment/fulfillment.service.js';
 import { releaseHeldOrder } from '../orders/orders.service.js';
+import { completeRefundByGatewayRefundId } from '../refunds/refunds.service.js';
 
 // POST /payments/razorpay/order — open a Razorpay order for a held OBS order.
 export async function createRazorpayOrder(userId, orderId) {
@@ -54,6 +55,15 @@ export async function handleRazorpayWebhook(rawBuffer, signature) {
   try { evt = JSON.parse(rawBuffer.toString('utf8')); } catch { throw badRequest('WEBHOOK_BAD_PAYLOAD', 'Malformed webhook payload'); }
 
   const type = evt.event;
+
+  // Refund completion (§8.5) — arrives on a different payload shape.
+  if (type === 'refund.processed') {
+    const rEntity = evt.payload?.refund?.entity;
+    if (!rEntity?.id) return { ok: true, ignored: 'no_refund_entity' };
+    const result = await completeRefundByGatewayRefundId(rEntity.id);
+    return { ok: true, refund: result };
+  }
+
   const entity = evt.payload?.payment?.entity;
   if (!entity) return { ok: true, ignored: type || 'no_entity' };
 

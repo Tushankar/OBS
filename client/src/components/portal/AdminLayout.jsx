@@ -5,6 +5,7 @@ import PortalShell from './PortalShell';
 const NAV = [
   { to: '/admin/organizers', label: 'Organizers' },
   { to: '/admin/events', label: 'Events' },
+  { to: '/admin/refunds', label: 'Refunds' },
 ];
 
 export default function AdminLayout() {

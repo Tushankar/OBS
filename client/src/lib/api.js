@@ -112,6 +112,10 @@ api.organizerRegistrations = (eventId, params) => unwrap(api.get(`/organizer/eve
 api.registrationsExportBlob = (eventId) => api.get(`/organizer/events/${eventId}/registrations/export`, { responseType: 'blob' }).then((r) => r.data);
 api.checkin = (body) => unwrap(api.post('/organizer/checkin', body));
 api.checkinStats = (eventId) => unwrap(api.get(`/organizer/events/${eventId}/checkin-stats`));
+api.requestRefund = (orderId, reason) => unwrap(api.post(`/orders/${orderId}/refund-request`, { reason })).then((d) => d.refund);
+api.adminRefunds = (params) => unwrap(api.get('/admin/refunds', { params })).then((d) => d.refunds);
+api.approveRefund = (id) => unwrap(api.post(`/admin/refunds/${id}/approve`)).then((d) => d.refund);
+api.rejectRefund = (id, notes) => unwrap(api.post(`/admin/refunds/${id}/reject`, { notes })).then((d) => d.refund);
 
 // Ticket types + promo codes CRUD (Phase 2.1) — nested under an owned event.
 api.eventTicketTypes = (eventId) => unwrap(api.get(`/organizer/events/${eventId}/ticket-types`)).then((d) => d.ticketTypes);

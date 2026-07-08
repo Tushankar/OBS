@@ -12,6 +12,7 @@ import organizerEventRoutes from './modules/events/events.organizer.routes.js';
 import ticketTypeRoutes from './modules/ticketTypes/ticketTypes.routes.js';
 import promoCodeRoutes from './modules/promoCodes/promoCodes.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import refundAdminRoutes from './modules/refunds/refunds.admin.routes.js';
 import checkinRoutes from './modules/checkin/checkin.routes.js';
 import orderRoutes from './modules/orders/orders.routes.js';
 import myOrderRoutes from './modules/orders/orders.me.routes.js';
@@ -65,6 +66,7 @@ export function createApp() {
   app.use('/api/v1/me/orders', myOrderRoutes);
   app.use('/api/v1/me/tickets', myTicketRoutes);
   app.use('/api/v1/payments', paymentRoutes);
+  app.use('/api/v1/admin/refunds', refundAdminRoutes);
   app.use('/api/v1/admin', adminRoutes);
 
   app.use(notFound);

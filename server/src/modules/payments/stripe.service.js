@@ -5,6 +5,7 @@ import { AppError, badRequest } from '../../utils/errors.js';
 import { loadPayableOrder } from './payments.shared.js';
 import { markPaidAndFulfil } from '../fulfillment/fulfillment.service.js';
 import { releaseHeldOrder } from '../orders/orders.service.js';
+import { completeRefundByOrderId } from '../refunds/refunds.service.js';
 
 // POST /payments/stripe/intent — create a PaymentIntent for a held order. Stripe
 // handles both INR (toggle) and non-INR (only option); amounts are already in the
@@ -34,6 +35,17 @@ export async function handleStripeWebhook(rawBuffer, signature) {
     evt = getStripe().webhooks.constructEvent(rawBuffer, signature, env.STRIPE_WEBHOOK_SECRET);
   } catch {
     throw badRequest('WEBHOOK_SIGNATURE_INVALID', 'Invalid webhook signature');
+  }
+
+  // Refund completion (§8.5) — charge.refunded carries a charge (match via its PI).
+  if (evt.type === 'charge.refunded') {
+    const charge = evt.data?.object;
+    const pi = charge?.payment_intent;
+    if (!pi) return { ok: true, ignored: 'no_payment_intent' };
+    const payment = await Payment.findOne({ gateway: 'STRIPE', gatewayOrderId: pi });
+    if (!payment) return { ok: true, ignored: 'unknown_payment' };
+    const result = await completeRefundByOrderId(payment.orderId);
+    return { ok: true, refund: result };
   }
 
   const intent = evt.data?.object;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Seo from '../components/common/Seo';
 import { Icon } from '../components/common/Icon';
@@ -20,18 +20,34 @@ export default function Orders() {
   const navigate = useNavigate();
   const { pushToast } = useApp();
   const [data, setData] = useState(null);
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  useEffect(() => {
-    let alive = true;
-    api.myOrders().then((d) => { if (alive) setData(d); }).catch((e) => { if (alive) { setData({ orders: [], total: 0 }); pushToast(apiError(e), false); } });
-    return () => { alive = false; };
+  const load = useCallback(() => {
+    api.myOrders().then((d) => setData(d)).catch((e) => { setData({ orders: [], total: 0 }); pushToast(apiError(e), false); });
   }, [pushToast]);
+  useEffect(() => { load(); }, [load]);
 
   const openOrder = (o) => {
     if (o.status === 'PENDING') navigate(`/checkout/${o.id}`);
     else if (o.status === 'PAID') navigate(`/checkout/${o.id}/success`);
   };
+
+  async function requestRefund(o) {
+    const reason = window.prompt(`Request a refund for order ${o.orderNumber}? Tell us why (required):`, '');
+    if (reason === null) return;
+    if (reason.trim().length < 3) { pushToast('Please enter a reason (min 3 characters)', false); return; }
+    setBusyId(o.id);
+    try {
+      await api.requestRefund(o.id, reason.trim());
+      pushToast('Refund requested — we’ll review it shortly');
+      load();
+    } catch (e) {
+      pushToast(apiError(e, 'Could not request refund'), false);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-container px-4 pb-12 pt-6 sm:px-6">
@@ -50,20 +66,21 @@ export default function Orders() {
       ) : (
         <div className="mt-5 overflow-hidden rounded-xl border border-line bg-white shadow-card">
           {data.orders.map((o, i) => (
-            <button key={o.id} onClick={() => openOrder(o)} className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-surface/60 ${i > 0 ? 'border-t border-line' : ''}`}>
-              <div className="min-w-0 flex-1">
+            <div key={o.id} className={`flex items-center gap-3 px-4 py-3.5 ${i > 0 ? 'border-t border-line' : ''}`}>
+              <button onClick={() => openOrder(o)} className="min-w-0 flex-1 text-left">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[12px] font-semibold text-ink">{o.orderNumber}</span>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${TONE[o.status] || 'bg-surface text-ink-mute'}`}>{o.status.replace('_', ' ')}</span>
                 </div>
                 <div className="mt-0.5 truncate text-sm font-medium text-ink">{o.event?.title || 'Event'}</div>
                 <div className="mt-0.5 text-[12px] text-ink-mute">{fmtDate(o.createdAt)} · {o.items.reduce((s, it) => s + it.quantity, 0)} ticket(s)</div>
-              </div>
-              <div className="shrink-0 text-right">
+              </button>
+              <div className="flex shrink-0 items-center gap-3">
                 <div className="text-sm font-bold text-ink">{money(o.totalAmount, o.currency)}</div>
-                {(o.status === 'PENDING' || o.status === 'PAID') && <Icon.ChevronRight width={14} height={14} className="ml-auto mt-1 text-ink-faint" />}
+                {o.status === 'PENDING' && <button onClick={() => navigate(`/checkout/${o.id}`)} className="rounded-md border border-brand px-3 py-1.5 text-[12px] font-semibold text-brand transition hover:bg-brand-soft">Resume</button>}
+                {o.status === 'PAID' && o.totalAmount > 0 && <button onClick={() => requestRefund(o)} disabled={busyId === o.id} className="rounded-md border border-line px-3 py-1.5 text-[12px] font-medium text-ink-soft transition hover:border-brand hover:text-brand disabled:opacity-60">Refund</button>}
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}

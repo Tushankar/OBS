@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import * as c from './orders.controller.js';
 import * as schemas from './orders.schemas.js';
+import * as refunds from '../refunds/refunds.controller.js';
+import { refundRequestSchema } from '../refunds/refunds.schemas.js';
 import { validate } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
@@ -11,5 +13,6 @@ router.use(requireAuth);
 
 router.post('/', validate({ body: schemas.createOrderSchema }), asyncHandler(c.create));
 router.post('/:id/cancel', validate({ params: schemas.idParam }), asyncHandler(c.cancel));
+router.post('/:id/refund-request', validate({ params: schemas.idParam, body: refundRequestSchema }), asyncHandler(refunds.request));
 
 export default router;
