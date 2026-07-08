@@ -48,6 +48,7 @@ import CreateChapter from './pages/public/CreateChapter';
 import MyChapters from './pages/account/MyChapters';
 
 import { useApp } from './context/AppContext';
+import { RequireAuth } from './components/guards/RequireAuth';
 
 export default function App() {
   const { authOpen, setAuthOpen } = useApp();
@@ -78,13 +79,13 @@ export default function App() {
                   <Route path="/event/:slug" element={<EventDetail />} />
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/checkout/success" element={<Success />} />
-                  <Route path="/account/tickets" element={<MyTickets />} />
-                  <Route path="/account/tickets/:id" element={<TicketDetail />} />
-                  <Route path="/account/orders" element={<Orders />} />
-                  <Route path="/account" element={<Profile />} />
-                  
+                  <Route path="/account/tickets" element={<RequireAuth><MyTickets /></RequireAuth>} />
+                  <Route path="/account/tickets/:id" element={<RequireAuth><TicketDetail /></RequireAuth>} />
+                  <Route path="/account/orders" element={<RequireAuth><Orders /></RequireAuth>} />
+                  <Route path="/account" element={<RequireAuth><Profile /></RequireAuth>} />
+
                   {/* Account chapters route */}
-                  <Route path="/account/chapters" element={<MyChapters />} />
+                  <Route path="/account/chapters" element={<RequireAuth><MyChapters /></RequireAuth>} />
                   
                   <Route path="/chapters" element={<Chapters />} />
                   <Route path="/chapters/:slug" element={<ChapterDetail />} />

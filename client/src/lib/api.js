@@ -1,0 +1,64 @@
+import axios from 'axios';
+
+// Axios client for the OBS API. The access token lives in memory only (never
+// localStorage); the refresh token is an httpOnly cookie the browser sends
+// automatically because withCredentials is true. On a 401 we transparently
+// hit /auth/refresh once, then retry the original request (silent refresh).
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1',
+  withCredentials: true,
+});
+
+let accessToken = null;
+let onLogout = null;
+
+export const setAccessToken = (t) => { accessToken = t; };
+export const getAccessToken = () => accessToken;
+export const setOnLogout = (fn) => { onLogout = fn; };
+
+// Endpoints where a 401 is a real answer (bad creds / no session), not an
+// expired access token — so we must NOT try to refresh-and-retry them.
+const NO_REFRESH = ['/auth/refresh', '/auth/login', '/auth/register', '/auth/google', '/auth/logout'];
+
+api.interceptors.request.use((config) => {
+  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  return config;
+});
+
+let refreshing = null; // shared promise so concurrent 401s trigger one refresh
+
+api.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const original = error.config;
+    const status = error.response?.status;
+    const skip = !original || original._retry || NO_REFRESH.some((p) => (original.url || '').includes(p));
+
+    if (status === 401 && !skip) {
+      original._retry = true;
+      try {
+        refreshing = refreshing || api.post('/auth/refresh');
+        const { data } = await refreshing;
+        refreshing = null;
+        setAccessToken(data.accessToken);
+        original.headers = original.headers || {};
+        original.headers.Authorization = `Bearer ${data.accessToken}`;
+        return api(original);
+      } catch (e) {
+        refreshing = null;
+        setAccessToken(null);
+        if (onLogout) onLogout();
+        return Promise.reject(e);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Normalize the API's typed error shape { error: { code, message } } → Error.
+export function apiError(err, fallback = 'Something went wrong') {
+  return err?.response?.data?.error?.message || err?.message || fallback;
+}
+
+export default api;

@@ -1,30 +1,59 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Icon } from '../common/Icon';
+import GoogleButton from '../common/GoogleButton';
+import { apiError } from '../../lib/api';
 
 /** Sign in / sign up modal. Controlled by App via `open`/`onClose`. */
 export default function AuthModal({ open, onClose }) {
-  const { signIn, pushToast } = useApp();
+  const { login, register, loginWithGoogle, pushToast } = useApp();
   const [mode, setMode] = useState('in');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
 
   if (!open) return null;
   const isSignup = mode === 'up';
 
-  const submit = () => {
+  const done = (msg) => { pushToast(msg); reset(); onClose(); };
+
+  const submit = async () => {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return setErr('Enter a valid email address');
-    if (pass.length < 6) return setErr('Password must be at least 6 characters');
+    if (pass.length < 8) return setErr('Password must be at least 8 characters');
     if (isSignup && name.trim().length < 2) return setErr('Enter your full name');
-    signIn({ name: name.trim() || 'Bhavesh K', email });
-    pushToast(isSignup ? 'Account created' : 'Signed in');
-    reset();
-    onClose();
+    setErr('');
+    setBusy(true);
+    try {
+      if (isSignup) {
+        await register(name.trim(), email, pass);
+        done('Account created');
+      } else {
+        await login(email, pass);
+        done('Signed in');
+      }
+    } catch (e) {
+      setErr(apiError(e, 'Could not sign in'));
+    } finally {
+      setBusy(false);
+    }
   };
-  const google = () => { signIn({ name: 'Bhavesh K', email: 'bhavesh@example.com' }); pushToast('Signed in with Google'); reset(); onClose(); };
-  const reset = () => { setErr(''); setName(''); setEmail(''); setPass(''); };
+
+  const onGoogle = async (idToken) => {
+    setErr('');
+    setBusy(true);
+    try {
+      await loginWithGoogle(idToken);
+      done('Signed in with Google');
+    } catch (e) {
+      setErr(apiError(e, 'Google sign-in failed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reset = () => { setErr(''); setName(''); setEmail(''); setPass(''); setBusy(false); };
 
   const tab = (active) => `pb-2.5 text-sm font-semibold cursor-pointer border-b-2 transition ${active ? 'border-brand text-brand' : 'border-transparent text-ink-soft'}`;
   const input = 'h-10 w-full rounded-md border border-line px-3.5 text-sm text-ink outline-none transition focus:border-brand';
@@ -41,13 +70,13 @@ export default function AuthModal({ open, onClose }) {
         <div className="flex flex-col gap-3">
           {isSignup && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className={input} />}
           <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" className={input} />
-          <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" placeholder="Password" className={input} />
+          <input value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !busy && submit()} type="password" placeholder="Password" className={input} />
           <div className="min-h-[15px] text-xs text-brand">{err}</div>
-          <button onClick={submit} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark">{isSignup ? 'Create account' : 'Sign in'}</button>
-          <div className="flex items-center gap-3 text-xs text-ink-mute"><div className="h-px flex-1 bg-line" />or<div className="h-px flex-1 bg-line" /></div>
-          <button onClick={google} className="flex h-[42px] items-center justify-center gap-2.5 rounded-md border border-line text-sm font-medium text-ink transition hover:bg-surface">
-            <span className="font-extrabold text-brand">G</span><span>Continue with Google</span>
+          <button onClick={submit} disabled={busy} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60">
+            {busy ? 'Please wait…' : isSignup ? 'Create account' : 'Sign in'}
           </button>
+          <div className="flex items-center gap-3 text-xs text-ink-mute"><div className="h-px flex-1 bg-line" />or<div className="h-px flex-1 bg-line" /></div>
+          <GoogleButton onCredential={onGoogle} onError={() => setErr('Could not load Google sign-in')} />
           <div className="text-center text-xs text-ink-mute">By continuing you agree to the OBS terms of use and privacy policy.</div>
         </div>
       </div>
