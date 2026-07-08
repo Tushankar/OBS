@@ -12,5 +12,6 @@ router.use(requireAuth);
 
 router.post('/razorpay/order', validate({ body: schemas.gatewayOrderSchema }), asyncHandler(c.razorpayOrder));
 router.post('/razorpay/verify', validate({ body: schemas.razorpayVerifySchema }), asyncHandler(c.razorpayVerify));
+router.post('/stripe/intent', validate({ body: schemas.gatewayOrderSchema }), asyncHandler(c.stripeIntent));
 
 export default router;
