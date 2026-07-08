@@ -1,7 +1,7 @@
 # OBS EVENTS — PROGRESS
 
 Current phase: 0
-Last session: 2026-07-08 — Phase 0 code complete (tasks 0.1–0.5 done); EXIT pending Google E2E + browser click-through
+Last session: 2026-07-08 — Phase 0 COMPLETE ✅ (all exit criteria passed: email + Google signup end to end, refresh rotation, seeds). Awaiting go-ahead for Phase 1.
 Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) — see obs-events-build-plan.md v1.1
 
 ## Phase 0 — Foundation
@@ -10,7 +10,7 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 - [x] 0.3 Auth: register/login (bcrypt 12), refresh rotation, Google id_token verify, forgot/reset, middleware (requireAuth, requireRole, zod validate, rate limits), error handler
 - [x] 0.4 Utils: S3 presigned PUT/GET, mailer (Nodemailer SMTP, provider-agnostic, + EmailLog), nextSeq() counters, slugify
 - [x] 0.5 Client base: layout + navbar/footer, auth pages, role guards in layouts, axios client with silent-refresh interceptor
-- [ ] EXIT: email + Google signup verified end to end; refresh rotation works; mongosh shows 108 chapters + 12 categories + admin
+- [x] EXIT: email + Google signup verified end to end; refresh rotation works; mongosh shows 108 chapters + 12 categories + admin — ✅ signed off 2026-07-08 (user confirmed browser sign-in for email + Google)
 
 ## Phase 1 — Public catalog & event lifecycle
 - [ ] 1.1 Organizer apply → admin approve/reject + emails
@@ -71,7 +71,7 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 
 ## Known issues / TODO
 - Atlas is connected (URI in gitignored `server/.env`, db name `obs`). Dev needs `DNS_SERVERS=8.8.8.8,1.1.1.1` in `server/.env` for SRV lookups on this network; production (EC2) won't.
-- **Phase 0 EXIT — one human step left.** ✅ mongosh seeds; ✅ refresh rotation (backend + client-sim silent refresh); ✅ email flow (curl + client-sim); ✅ Google configured in both envs (GOOGLE_CLIENT_ID in server/.env, matching VITE_GOOGLE_CLIENT_ID copied into client/.env) and server-side verified (bogus idToken → 401 GOOGLE_INVALID, i.e. real verification attempted). REMAINING: a human browser sign-in — email signup/login/logout via the AuthModal, and the Google button (Google's consent flow cannot be automated by design). Run `npm run dev:server` + `npm run dev:client`, open http://localhost:5173. Do NOT start Phase 1 until that passes.
+- Phase 0 EXIT ✅ PASSED (2026-07-08): user confirmed browser sign-in — email signup/login/logout via the AuthModal and Google (Continue with Google) both work; refresh rotation + seeds already verified. Phase 0 done. Next: await user go-ahead to start Phase 1 (organizer apply → admin approve; events CRUD/wizard; public catalog).
 - `npm install` reports 2 transitive dev-dep vulnerabilities (vite/esbuild chain) — deferred; fixing needs a breaking major bump, out of Phase 0 scope.
 - Node here is v24 (plan targets Node 20); satisfies `engines: >=20`. No action needed.
 - Client `/t/:status` route param vs plan's `/t/:token` — cosmetic mismatch to reconcile when the validation page is wired (Phase 2.8).
