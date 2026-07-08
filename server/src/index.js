@@ -1,10 +1,17 @@
 import { env } from './config/env.js';
+import { connectDB } from './config/db.js';
 import { createApp } from './app.js';
 
-// MongoDB connection (Mongoose) is wired in Phase 0.2 together with the models
-// and seed. Phase 0.1 only stands up the HTTP server so the scaffold is runnable.
-const app = createApp();
+// Connect to MongoDB (Phase 0.2) then stand up the HTTP server.
+async function start() {
+  await connectDB();
+  const app = createApp();
+  app.listen(env.PORT, () => {
+    console.log(`[obs-events] API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
+  });
+}
 
-app.listen(env.PORT, () => {
-  console.log(`[obs-events] API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
+start().catch((err) => {
+  console.error('[obs-events] failed to start:', err.message);
+  process.exit(1);
 });

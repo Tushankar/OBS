@@ -11,6 +11,16 @@ export const env = {
   APP_URL: process.env.APP_URL || 'http://localhost:5173',
   API_URL: process.env.API_URL || 'http://localhost:4000',
   MONGODB_URI: process.env.MONGODB_URI || '',
+  // Seed (Phase 0.2)
+  SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL || '',
+  SEED_ADMIN_PASSWORD: process.env.SEED_ADMIN_PASSWORD || '',
+  // Optional dev-only DNS override (comma-separated). Some routers refuse TCP
+  // DNS on :53, which breaks Node's c-ares SRV lookups for mongodb+srv:// URIs.
+  // Leave empty in production.
+  DNS_SERVERS: (process.env.DNS_SERVERS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
 };
 
 export const isProd = env.NODE_ENV === 'production';

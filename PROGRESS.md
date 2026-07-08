@@ -1,12 +1,12 @@
 # OBS EVENTS — PROGRESS
 
 Current phase: 0
-Last session: 2026-07-08 — Phase 0 in progress (task 0.1 done)
+Last session: 2026-07-08 — Phase 0 in progress (tasks 0.1–0.2 done)
 Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) — see obs-events-build-plan.md v1.1
 
 ## Phase 0 — Foundation
 - [x] 0.1 Repo scaffold: client/ (Vite + React 18 + Tailwind + React Router v6), server/ (Express + Mongoose, ES modules, nodemon), root npm workspaces
-- [ ] 0.2 Mongoose models (§5); Atlas or local single-node replica set; seed.js: admin, 12 categories, 108 chapters (type, tier, pillarGroup, ecosystemTier A–E, isFlagship, sortOrder — Appendix A), CMS stubs
+- [x] 0.2 Mongoose models (§5); Atlas or local single-node replica set; seed.js: admin, 12 categories, 108 chapters (type, tier, pillarGroup, ecosystemTier A–E, isFlagship, sortOrder — Appendix A), CMS stubs
 - [ ] 0.3 Auth: register/login (bcrypt 12), refresh rotation, Google id_token verify, forgot/reset, middleware (requireAuth, requireRole, zod validate, rate limits), error handler
 - [ ] 0.4 Utils: S3 presigned PUT/GET, mailer (Nodemailer SMTP, provider-agnostic, + EmailLog), nextSeq() counters, slugify
 - [ ] 0.5 Client base: layout + navbar/footer, auth pages, role guards in layouts, axios client with silent-refresh interceptor
@@ -61,12 +61,13 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 ## Decisions
 - Phase 0 setup (2026-07-08): DB for local build/verification = **MongoDB Atlas** (URI supplied by user, goes in server/.env — no local mongod on this machine). UI wiring scope for Phase 0 = **auth only** (login/signup/Google + role guards + real axios client in 0.5); all other client pages stay on mock data until their own phase. Chapter moderation default = APPROVED (§5). Client is already extensively built with mock data — do NOT rebuild it; integrate + wire per phase.
 - Phase 0 task 0.1 (2026-07-08): the previously-committed root+server scaffold (commits 4e5635b, 9a06d24) had been deleted in the working tree; restored it (matches plan §13). Renamed the client workspace package `obs-events`→`client` (it collided with the root package name and broke `npm install` under workspaces). Consolidated the duplicate build-plan/progress files: `obs-events-build-plan new.md`/`PROGRESS new.md` were byte-identical to the unsuffixed files except CRLF line endings — removed the `*new*` copies and kept the unsuffixed names the plan/loop prompt reference. Added `.env` to .gitignore.
+- Phase 0 task 0.2 (2026-07-08): built §5 core models only; §5.1 standalone collections + §5.1 Event fields deferred to Phase 5; §5.1 Chapter fields (createdById/isOfficial/status) built now since the seed marks the 108 chapters isOfficial. Password hashing uses `bcryptjs` (pure JS, bcrypt-compatible, cost 12) not native `bcrypt`, for Windows portability. Added env-gated `dns.setServers()` (DNS_SERVERS) as a dev-only fix for Atlas SRV `ECONNREFUSED` on this network — no effect when unset (prod).
 - v1.1: MERN stack; order items + invoice embedded in orders; all money as integer paise; ecosystemTier A–E added to chapters
 - v1.3: email via Nodemailer (SMTP), provider-agnostic mailer util (env: SMTP_HOST/PORT/SECURE/USER/PASS + EMAIL_FROM) — replaces SendGrid; Node.js + MongoDB unchanged. chapter creation OPEN to any signed-in user (events stay organizer-gated) [CONFIRM: source said both — using chapters-open/events-gated]; new collections Sponsor, PartnerApplication, Speaker, Article, Program, ProgramDay; event fields ownership(OBS/Partner)/isLaunch/launchAt/programId/programDayNumber/speakerIds; chapter fields createdById/isOfficial/status; 100 Days = 15 Oct→22 Jan yearly; frontend prompt obs-frontend-new-sections-ui-prompt.md
 - v1.2: explicit order+payment state model (§8.0, PENDING = draft/held); Google Maps Platform for venue autocomplete + geocode fallback + embedded map (§8.7); new keys GOOGLE_MAPS_API_KEY (server) + VITE_GOOGLE_MAPS_API_KEY (browser)
 
 ## Known issues / TODO
-- Atlas connection string still needed from user for task 0.2 (seed + verify) and 0.3 (auth E2E). Put it in `server/.env` as `MONGODB_URI`.
+- Atlas is connected (URI in gitignored `server/.env`, db name `obs`). Dev needs `DNS_SERVERS=8.8.8.8,1.1.1.1` in `server/.env` for SRV lookups on this network; production (EC2) won't.
 - Google OAuth Client ID + Secret needed from user to verify "Google signup end to end" at task 0.3 (code will be built regardless).
 - `npm install` reports 2 transitive dev-dep vulnerabilities (vite/esbuild chain) — deferred; fixing needs a breaking major bump, out of Phase 0 scope.
 - Node here is v24 (plan targets Node 20); satisfies `engines: >=20`. No action needed.
@@ -77,3 +78,9 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
   - Files: `package.json` (root workspaces, restored), `server/package.json`, `server/.env.example`, `server/src/app.js`, `server/src/config/env.js`, `server/src/index.js` (restored); `client/package.json` (renamed pkg → `client`); `.gitignore` (+`.env`); removed `obs-events-build-plan new.md`, `PROGRESS new.md`.
   - Verified: `npm install` resolves all 3 workspaces (236 pkgs); `node server/src/index.js` boots and `GET /api/v1/health` returns `{ok:true,...}`; `npm run build --workspace client` compiles (104 modules, vite 5.4).
   - Learned: client is a BrowserRouter SPA (main.jsx → BrowserRouter+AppProvider→App) with ~30 pages driven by `src/mock/*` + `AppContext`; no backend calls yet. Server index.js does NOT connect Mongo yet (that's 0.2), so it boots standalone.
+- 2026-07-08 · task 0.2 (models + seed) — DONE
+  - Built: `server/src/constants.js` (all §5 + §5.1 enums); 16 §5 models + `models/index.js` barrel; `config/db.js` (mongoose connect + dev DNS override); `utils/slugify.js`; `seed/chapters.data.js` (108-chapter builder) + `seed/seed.js` (idempotent: 12 categories, 108 chapters, 3 CMS stubs, admin). Wired `index.js` to connect Mongo on boot; extended `env.js` (SEED_ADMIN_*, DNS_SERVERS); added `bcryptjs` + `seed` script to server/package.json; documented DNS_SERVERS in .env.example.
+  - Offline-verified: chapters build = exactly 108 (54 country incl. T1–T5×10 + Growth×4, 4 city, 50 thematic), unique slugs, flagship=16, ecosystemTier E=58/A=5/B=5/C=9/D=4/null=27; all 16 models compile; seed passes `node --check`.
+  - LIVE-verified against Atlas (db `obs`): `npm run seed --workspace server` → 12 categories, 108 chapters, 3 CMS pages, 1 admin. Independent mongosh count matches: categories 12, chapters 108 (BUSINESS_CAPITAL 3 / GEO_CITY 4 / GEO_COUNTRY 54 / INDUSTRY_PROFESSIONAL 8 / LEADERSHIP_COMMUNITY 7 / STRATEGIC_EXPANSION 32), flagship 16, official 108, admin sahatushankar234@gmail.com. **0.2 exit check PASSED.**
+  - Learned: Node's c-ares SRV lookup for the Atlas `mongodb+srv://` URI failed with ECONNREFUSED on this network (router refuses TCP DNS on :53) though nslookup worked; fixed with env-gated `dns.setServers()` (DNS_SERVERS=8.8.8.8,1.1.1.1 in dev .env). Connected DB name is `obs` (from the user's URI), not `obs-events`.
+  - Scope note: §5.1 standalone collections (Sponsor/Speaker/Article/Program/ProgramDay/PartnerApplication) + §5.1 Event fields deferred to Phase 5; only the §5.1 Chapter fields (createdById/isOfficial/status) built now (seed needs isOfficial). Used bcryptjs (pure-JS, bcrypt-compatible at cost 12) instead of native bcrypt for Windows portability.

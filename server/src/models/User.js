@@ -1,0 +1,21 @@
+import mongoose from 'mongoose';
+import { ROLE, USER_STATUS } from '../constants.js';
+
+const { Schema } = mongoose;
+
+const userSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    phone: String,
+    passwordHash: String, // null for Google-only accounts
+    googleId: { type: String, unique: true, sparse: true },
+    avatarUrl: String,
+    role: { type: String, enum: ROLE, default: 'USER' },
+    status: { type: String, enum: USER_STATUS, default: 'ACTIVE' },
+    emailVerifiedAt: Date,
+  },
+  { timestamps: true }
+);
+
+export default mongoose.model('User', userSchema);
