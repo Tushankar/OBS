@@ -1,47 +1,80 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../lib/api';
-import { PageHead, Table, Pill, statusTone, Btn, Loading } from '../../components/portal/Kit';
+import api, { apiError } from '../../lib/api';
+import { useApp } from '../../context/AppContext';
+import { PageHead, Table, Pill, statusTone, Btn, Loading, EmptyState } from '../../components/portal/Kit';
 
-const COLUMNS = [
-  { key: 'title', label: 'Event' },
-  { key: 'date', label: 'Date' },
-  { key: 'category', label: 'Category' },
-  { key: 'sold', label: 'Sold', align: 'right' },
-  { key: 'status', label: 'Status', align: 'right' },
-];
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
-const soldCount = (e) =>
-  (e.ticketTypes || []).reduce((sum, t) => sum + (t.quantitySold || 0), 0);
+const EDITABLE = ['DRAFT', 'REJECTED'];
 
 export default function Events() {
   const navigate = useNavigate();
-  const [rows, setRows] = useState(null);
+  const { pushToast } = useApp();
+  const [data, setData] = useState(null);
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  useEffect(() => {
-    let alive = true;
-    api.organizerEvents().then((data) => {
-      if (alive) setRows(Array.isArray(data) ? data : []);
-    });
-    return () => { alive = false; };
-  }, []);
+  const load = useCallback(() => {
+    setData(null);
+    api.organizerEvents()
+      .then(setData)
+      .catch((e) => { setData({ events: [], total: 0 }); pushToast(apiError(e), false); });
+  }, [pushToast]);
 
-  if (rows === null) return <Loading />;
+  useEffect(() => { load(); }, [load]);
 
-  const renderCell = (e, key) => {
+  async function remove(ev) {
+    if (!window.confirm(`Delete draft "${ev.title}"? This can't be undone.`)) return;
+    setBusyId(ev.id);
+    try {
+      await api.organizerDeleteEvent(ev.id);
+      pushToast('Draft deleted');
+      load();
+    } catch (e) {
+      pushToast(apiError(e, 'Could not delete'), false);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (!data) return <Loading />;
+
+  const columns = [
+    { key: 'title', label: 'Event' },
+    { key: 'when', label: 'When' },
+    { key: 'status', label: 'Status' },
+    { key: 'actions', label: 'Actions', align: 'right' },
+  ];
+
+  const renderCell = (ev, key) => {
     switch (key) {
       case 'title':
-        return <span className="font-semibold text-ink">{e.title}</span>;
-      case 'date':
-        return <span className="text-ink-mute">{e.dateLabel || '—'}</span>;
-      case 'category':
-        return <span className="text-ink-soft">{e.category?.name || '—'}</span>;
-      case 'sold':
-        return <span className="font-medium text-ink">{soldCount(e)}</span>;
+        return (
+          <button onClick={() => navigate(`/organizer/events/${ev.id}/edit`)} className="text-left">
+            <div className="font-semibold text-ink hover:text-brand">{ev.title}</div>
+            <div className="text-[12px] text-ink-mute">
+              {ev.category?.name || 'Uncategorized'}{ev.city ? ` · ${ev.city}` : ''}
+            </div>
+          </button>
+        );
+      case 'when':
+        return <span className="text-ink-soft">{fmtDate(ev.startAt)}</span>;
       case 'status':
-        return <Pill tone={statusTone(e.status)}>{e.status || 'DRAFT'}</Pill>;
+        return <Pill tone={statusTone(ev.status)}>{ev.status.replace('_', ' ')}</Pill>;
+      case 'actions':
+        return (
+          <div className="flex justify-end gap-2">
+            <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/edit`)}>
+              {EDITABLE.includes(ev.status) ? 'Edit' : 'View'}
+            </Btn>
+            {EDITABLE.includes(ev.status) && (
+              <Btn size="sm" variant="danger" disabled={busyId === ev.id} onClick={() => remove(ev)}>Delete</Btn>
+            )}
+          </div>
+        );
       default:
         return null;
     }
@@ -51,16 +84,19 @@ export default function Events() {
     <div>
       <PageHead
         title="My events"
-        subtitle={rows.length ? `${rows.length} event${rows.length === 1 ? '' : 's'}` : undefined}
-        action={<Btn onClick={() => navigate('/organizer/events/new')}>Create event</Btn>}
+        subtitle={`${data.total} event${data.total === 1 ? '' : 's'}`}
+        actions={<Btn onClick={() => navigate('/organizer/events/new')}>Create event</Btn>}
       />
-      <Table
-        columns={COLUMNS}
-        rows={rows}
-        renderCell={renderCell}
-        onRowClick={(row) => navigate(`/organizer/events/${row.id}/registrations`)}
-        empty="No events yet — create your first one."
-      />
+      {data.events.length === 0 ? (
+        <EmptyState
+          icon="🎫"
+          title="No events yet"
+          subtitle="Create your first event and take it through the 6-step wizard."
+          action={<Btn onClick={() => navigate('/organizer/events/new')}>Create event</Btn>}
+        />
+      ) : (
+        <Table columns={columns} rows={data.events} renderCell={renderCell} />
+      )}
     </div>
   );
 }

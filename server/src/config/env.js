@@ -31,6 +31,9 @@ export const env = {
   REFRESH_COOKIE_NAME: 'obs_rt',
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+  // Google Maps Platform server key — Geocoding API (§8.7 manual-address
+  // fallback). Never sent to the client; the browser uses VITE_GOOGLE_MAPS_API_KEY.
+  GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || '',
   // Storage: AWS S3 (Phase 0.4)
   AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
   AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',

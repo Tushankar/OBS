@@ -1,18 +1,37 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, Btn, PageHead, Pill, formatPrice } from '../../components/portal/Kit';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Card, Btn, PageHead, Pill, Field, inputCls, Loading } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
+import api, { apiError, uploadToPresignedUrl } from '../../lib/api';
+import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
 
 const STEPS = ['Basics', 'Banner', 'Venue', 'Tickets', 'Promos', 'Review'];
-const CATS = ['Summit', 'Conference', 'Networking', 'Workshop', 'Webinar'];
-const inputCls = 'h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand';
 
-const Field = ({ label, children }) => (
-  <div>
-    <label className="mb-1 block text-[13px] font-semibold text-ink-soft">{label}</label>
-    {children}
-  </div>
-);
+const pad = (n) => String(n).padStart(2, '0');
+function isoToLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+const localInputToISO = (v) => (v && !isNaN(new Date(v)) ? new Date(v).toISOString() : undefined);
+
+const BLANK = {
+  title: '', categoryId: '', chapterId: '', description: '',
+  bannerUrl: '', isOnline: false, meetingLink: '',
+  venueName: '', address: '', city: '', country: '', lat: null, lng: null, placeId: '',
+  startAt: '', endAt: '',
+};
+
+const eventToForm = (e) => ({
+  title: e.title || '', categoryId: e.categoryId || '', chapterId: e.chapterId || '',
+  description: e.description || '', bannerUrl: e.bannerUrl || '',
+  isOnline: !!e.isOnline, meetingLink: e.meetingLink || '',
+  venueName: e.venueName || '', address: e.address || '', city: e.city || '', country: e.country || '',
+  lat: e.lat ?? null, lng: e.lng ?? null, placeId: e.placeId || '',
+  startAt: isoToLocalInput(e.startAt), endAt: isoToLocalInput(e.endAt),
+});
+
 const RowKV = ({ k, v }) => (
   <div className="flex justify-between gap-4 border-b border-line py-2 text-sm last:border-0">
     <span className="text-ink-mute">{k}</span>
@@ -22,35 +41,210 @@ const RowKV = ({ k, v }) => (
 
 export default function EventWizard() {
   const navigate = useNavigate();
+  const { id: routeId } = useParams();
   const { pushToast } = useApp();
-  useEffect(() => { window.scrollTo(0, 0); }, []);
 
+  const [eventId, setEventId] = useState(routeId || null);
+  const [status, setStatus] = useState('DRAFT');
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({
-    title: '', category: CATS[0], chapter: '', description: '',
-    isOnline: false, venueName: '', address: '', city: '', meetingLink: '',
-    startAt: '', endAt: '',
-    tickets: [{ name: 'General', price: '', quantity: '' }],
-    promos: [],
-  });
+  const [form, setForm] = useState(BLANK);
+  const [cats, setCats] = useState([]);
+  const [chapters, setChapters] = useState([]);
+  const [loading, setLoading] = useState(!!routeId);
+  const [saving, setSaving] = useState(false);
+  const [bannerBusy, setBannerBusy] = useState(false);
+  const [errors, setErrors] = useState({});
+  const addrRef = useRef(null);
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  const updRow = (key, i, k, v) => setForm((f) => ({ ...f, [key]: f[key].map((r, j) => (j === i ? { ...r, [k]: v } : r)) }));
-  const addRow = (key, blank) => setForm((f) => ({ ...f, [key]: [...f[key], blank] }));
-  const rmRow = (key, i) => setForm((f) => ({ ...f, [key]: f[key].filter((_, j) => j !== i) }));
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  const submit = () => { pushToast('Event submitted for approval'); navigate('/organizer/events'); };
+  // Reference data for the dropdowns.
+  useEffect(() => {
+    api.categories().then(setCats).catch(() => {});
+    api.chapters().then(setChapters).catch(() => {});
+  }, []);
+
+  // Edit mode: load the draft.
+  useEffect(() => {
+    if (!routeId) return;
+    let alive = true;
+    api.organizerEvent(routeId)
+      .then((ev) => { if (!alive) return; setForm(eventToForm(ev)); setStatus(ev.status); setEventId(ev.id); })
+      .catch((e) => { pushToast(apiError(e, 'Could not load event'), false); navigate('/organizer/events'); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [routeId, navigate, pushToast]);
+
+  // Google Places Autocomplete on the venue address input (when a browser key is
+  // configured). Without a key we degrade to manual entry + server geocode.
+  useEffect(() => {
+    if (step !== 3 || form.isOnline || !hasMapsKey()) return;
+    let ac;
+    loadGoogleMaps()
+      .then((maps) => {
+        if (!maps || !addrRef.current) return;
+        ac = new maps.places.Autocomplete(addrRef.current, {
+          fields: ['formatted_address', 'geometry', 'place_id', 'address_components'],
+        });
+        ac.addListener('place_changed', () => {
+          const place = ac.getPlace();
+          if (!place.geometry) return;
+          const comps = place.address_components || [];
+          const get = (t) => comps.find((c) => c.types.includes(t))?.long_name;
+          setForm((f) => ({
+            ...f,
+            address: place.formatted_address || f.address,
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng(),
+            placeId: place.place_id || '',
+            city: get('locality') || get('postal_town') || get('administrative_area_level_2') || f.city,
+            country: get('country') || f.country,
+          }));
+        });
+      })
+      .catch(() => {});
+    return () => { if (ac && window.google) window.google.maps.event.clearInstanceListeners(ac); };
+  }, [step, form.isOnline]);
+
+  const readOnly = !['DRAFT', 'REJECTED'].includes(status);
+
+  const saveStep1 = useCallback(async () => {
+    if (form.title.trim().length < 3) { setErrors({ title: 'Title must be at least 3 characters' }); return false; }
+    setErrors({});
+    const payload = {
+      title: form.title.trim(),
+      description: form.description.trim() || undefined,
+      categoryId: form.categoryId || undefined,
+      chapterId: form.chapterId || null,
+    };
+    setSaving(true);
+    try {
+      if (!eventId) {
+        const ev = await api.organizerCreateEvent(payload);
+        setEventId(ev.id);
+      } else {
+        await api.organizerUpdateEvent(eventId, payload);
+      }
+      return true;
+    } catch (e) {
+      pushToast(apiError(e, 'Could not save'), false);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [form, eventId, pushToast]);
+
+  const saveStep3 = useCallback(async () => {
+    const startAt = localInputToISO(form.startAt);
+    const endAt = localInputToISO(form.endAt);
+    if (startAt && endAt && new Date(endAt) <= new Date(startAt)) {
+      pushToast('End time must be after the start time', false);
+      return false;
+    }
+    let payload = { isOnline: form.isOnline, startAt, endAt };
+    if (form.isOnline) {
+      payload.meetingLink = form.meetingLink.trim() || undefined;
+    } else {
+      let { address, city, country, lat, lng, placeId } = form;
+      // Manual address without coordinates → server geocode fallback (§8.7).
+      if (address && (lat == null || lng == null) && !placeId) {
+        try {
+          const g = await api.geocode(address);
+          lat = g.lat; lng = g.lng; placeId = g.placeId;
+          city = city || g.city; country = country || g.country;
+          setForm((f) => ({ ...f, lat, lng, placeId, city, country }));
+          pushToast('Location found');
+        } catch {
+          pushToast('Saved address only — map unavailable', true);
+        }
+      }
+      payload = {
+        ...payload,
+        venueName: form.venueName.trim() || undefined,
+        address: address || undefined,
+        city: city || undefined,
+        country: country || undefined,
+        lat: lat ?? undefined,
+        lng: lng ?? undefined,
+        placeId: placeId || undefined,
+      };
+    }
+    setSaving(true);
+    try {
+      await api.organizerUpdateEvent(eventId, payload);
+      return true;
+    } catch (e) {
+      pushToast(apiError(e, 'Could not save'), false);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [form, eventId, pushToast]);
+
+  async function onBannerFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!eventId) { pushToast('Add a title first (step 1)', false); return; }
+    setBannerBusy(true);
+    try {
+      const { uploadUrl, fileUrl } = await api.organizerBannerPresign(eventId, file.type);
+      await uploadToPresignedUrl(uploadUrl, file);
+      await api.organizerUpdateEvent(eventId, { bannerUrl: fileUrl });
+      set('bannerUrl', fileUrl);
+      pushToast('Banner uploaded');
+    } catch (err) {
+      pushToast(apiError(err, 'Upload failed — check your image and try again'), false);
+    } finally {
+      setBannerBusy(false);
+    }
+  }
+
+  async function next() {
+    if (readOnly) { setStep((s) => Math.min(6, s + 1)); return; }
+    if (step === 1) { if (await saveStep1()) setStep(2); return; }
+    if (step === 3) { if (await saveStep3()) setStep(4); return; }
+    setStep((s) => Math.min(6, s + 1)); // steps 2/4/5 have nothing to persist on Next
+  }
+
+  function goStep(n) {
+    if (n === step) return;
+    if (n > 1 && !eventId) { pushToast('Save the basics first', false); setStep(1); return; }
+    setStep(n);
+  }
+
+  function finish() {
+    pushToast(status === 'REJECTED' ? 'Changes saved as a draft' : 'Draft saved');
+    navigate('/organizer/events');
+  }
+
+  if (loading) return <Loading />;
+
+  const catName = cats.find((c) => c.id === form.categoryId)?.name;
+  const chapName = chapters.find((c) => c.id === form.chapterId)?.name;
 
   return (
-    <div className="mx-auto max-w-container px-4 pb-10 pt-6 sm:px-6">
-      <PageHead title="Create event" subtitle="Complete all steps, then submit for approval." />
+    <div className="pb-10">
+      <PageHead
+        title={eventId ? 'Edit event' : 'Create event'}
+        subtitle="Each step saves as you go. Your event stays a private draft until you submit it for approval."
+        actions={<Pill tone={status === 'REJECTED' ? 'red' : status === 'DRAFT' ? 'gray' : 'amber'}>{status.replace('_', ' ')}</Pill>}
+      />
 
+      {status === 'REJECTED' && (
+        <div className="mb-5 rounded-md border border-line bg-brand-soft/40 px-4 py-3 text-[13px] text-ink-soft">
+          This event was sent back for changes. Editing it saves it as a draft again.
+        </div>
+      )}
+
+      {/* Stepper */}
       <div className="mb-6 flex items-center gap-1 overflow-x-auto pb-1">
         {STEPS.map((label, i) => {
           const n = i + 1, on = n === step, done = n < step;
           return (
             <div key={label} className="flex shrink-0 items-center gap-1">
-              <button onClick={() => setStep(n)} className="flex items-center gap-2">
+              <button onClick={() => goStep(n)} className="flex items-center gap-2">
                 <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold ${on ? 'bg-brand text-white' : done ? 'bg-brand-soft text-brand' : 'bg-surface text-ink-mute'}`}>{done ? '✓' : n}</span>
                 <span className={`text-[13px] font-semibold ${on ? 'text-ink' : 'text-ink-mute'}`}>{label}</span>
               </button>
@@ -61,126 +255,157 @@ export default function EventWizard() {
       </div>
 
       <Card>
+        {/* Step 1 — Basics */}
         {step === 1 && (
           <div className="grid gap-4">
-            <Field label="Event title"><input className={inputCls} value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Founders Summit 2026" /></Field>
+            <Field label="Event title" error={errors.title}>
+              <input className={inputCls} value={form.title} disabled={readOnly} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Founders Summit 2026" />
+            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Category">
-                <select className={inputCls} value={form.category} onChange={(e) => set('category', e.target.value)}>
-                  {CATS.map((c) => <option key={c}>{c}</option>)}
+                <select className={inputCls} value={form.categoryId} disabled={readOnly} onChange={(e) => set('categoryId', e.target.value)}>
+                  <option value="">Select a category…</option>
+                  {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </Field>
-              <Field label="Chapter"><input className={inputCls} value={form.chapter} onChange={(e) => set('chapter', e.target.value)} placeholder="e.g. Mumbai Founders" /></Field>
+              <Field label="Chapter (optional)">
+                <select className={inputCls} value={form.chapterId} disabled={readOnly} onChange={(e) => set('chapterId', e.target.value)}>
+                  <option value="">No chapter</option>
+                  {chapters.map((c) => <option key={c.id} value={c.id}>{c.flagEmoji ? `${c.flagEmoji} ` : ''}{c.name}</option>)}
+                </select>
+              </Field>
             </div>
-            <Field label="Description"><textarea className={`${inputCls} h-28 py-2`} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Tell attendees what to expect…" /></Field>
+            <Field label="Description">
+              <textarea className={`${inputCls} h-32 py-2`} value={form.description} disabled={readOnly} onChange={(e) => set('description', e.target.value)} placeholder="Tell attendees what to expect… (markdown supported)" />
+            </Field>
           </div>
         )}
 
+        {/* Step 2 — Banner */}
         {step === 2 && (
           <div>
-            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-surface py-16 text-center">
-              <div className="text-[40px]">🖼️</div>
-              <div className="mt-3 text-sm font-semibold text-ink">Drop your banner here or click to upload</div>
-              <div className="mt-1 text-[13px] text-ink-mute">PNG or JPG, 1200×628 recommended</div>
-              <div className="mt-4"><Btn variant="ghost" onClick={() => pushToast('Upload is disabled in this prototype')}>Choose file</Btn></div>
-            </div>
-            <p className="mt-3 text-[13px] text-ink-faint">This is a placeholder — banner uploads are not wired in the prototype.</p>
+            {form.bannerUrl ? (
+              <div className="overflow-hidden rounded-xl border border-line">
+                <img src={form.bannerUrl} alt="Event banner" className="aspect-[1200/628] w-full object-cover" />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-surface py-16 text-center">
+                <div className="text-[40px]">🖼️</div>
+                <div className="mt-3 text-sm font-semibold text-ink">Upload your event banner</div>
+                <div className="mt-1 text-[13px] text-ink-mute">JPG, PNG, WebP or GIF · 1200×628 recommended</div>
+              </div>
+            )}
+            {!readOnly && (
+              <div className="mt-4 flex items-center gap-3">
+                <label className="cursor-pointer">
+                  <span className="inline-flex items-center rounded-md border border-line bg-white px-4 py-2.5 text-sm font-semibold text-ink-soft transition hover:bg-surface">
+                    {bannerBusy ? 'Uploading…' : form.bannerUrl ? 'Replace banner' : 'Choose image'}
+                  </span>
+                  <input type="file" accept="image/*" className="hidden" disabled={bannerBusy} onChange={onBannerFile} />
+                </label>
+                {form.bannerUrl && <span className="text-[13px] text-success">Banner set ✓</span>}
+              </div>
+            )}
           </div>
         )}
 
+        {/* Step 3 — Venue & schedule */}
         {step === 3 && (
           <div className="grid gap-4">
             <div className="flex gap-2">
-              <Btn size="sm" variant={form.isOnline ? 'ghost' : 'primary'} onClick={() => set('isOnline', false)}>Venue</Btn>
-              <Btn size="sm" variant={form.isOnline ? 'primary' : 'ghost'} onClick={() => set('isOnline', true)}>Online</Btn>
+              <Btn size="sm" variant={form.isOnline ? 'ghost' : 'primary'} disabled={readOnly} onClick={() => set('isOnline', false)}>In-person</Btn>
+              <Btn size="sm" variant={form.isOnline ? 'primary' : 'ghost'} disabled={readOnly} onClick={() => set('isOnline', true)}>Online</Btn>
             </div>
+
             {form.isOnline ? (
-              <Field label="Meeting link"><input className={inputCls} value={form.meetingLink} onChange={(e) => set('meetingLink', e.target.value)} placeholder="https://…" /></Field>
+              <Field label="Meeting link" hint="Shown to ticket holders only.">
+                <input className={inputCls} value={form.meetingLink} disabled={readOnly} onChange={(e) => set('meetingLink', e.target.value)} placeholder="https://…" />
+              </Field>
             ) : (
               <div className="grid gap-4">
-                <Field label="Venue name"><input className={inputCls} value={form.venueName} onChange={(e) => set('venueName', e.target.value)} placeholder="e.g. Jio World Convention Centre" /></Field>
+                <Field label="Venue name">
+                  <input className={inputCls} value={form.venueName} disabled={readOnly} onChange={(e) => set('venueName', e.target.value)} placeholder="e.g. Jio World Convention Centre" />
+                </Field>
+                <Field label="Address" hint={hasMapsKey() ? 'Start typing and pick a suggestion.' : 'We’ll look up the map location when you continue.'}>
+                  <input
+                    ref={addrRef}
+                    className={inputCls}
+                    value={form.address}
+                    disabled={readOnly}
+                    onChange={(e) => setForm((f) => ({ ...f, address: e.target.value, lat: null, lng: null, placeId: '' }))}
+                    placeholder="Search or type the full address"
+                  />
+                </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Address"><input className={inputCls} value={form.address} onChange={(e) => set('address', e.target.value)} /></Field>
-                  <Field label="City"><input className={inputCls} value={form.city} onChange={(e) => set('city', e.target.value)} /></Field>
+                  <Field label="City"><input className={inputCls} value={form.city} disabled={readOnly} onChange={(e) => set('city', e.target.value)} /></Field>
+                  <Field label="Country"><input className={inputCls} value={form.country} disabled={readOnly} onChange={(e) => set('country', e.target.value)} /></Field>
                 </div>
+                {form.lat != null && form.lng != null && (
+                  <p className="text-[12px] text-success">📍 Location captured ({form.lat.toFixed(4)}, {form.lng.toFixed(4)})</p>
+                )}
               </div>
             )}
+
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Starts at"><input type="datetime-local" className={inputCls} value={form.startAt} onChange={(e) => set('startAt', e.target.value)} /></Field>
-              <Field label="Ends at"><input type="datetime-local" className={inputCls} value={form.endAt} onChange={(e) => set('endAt', e.target.value)} /></Field>
+              <Field label="Starts at"><input type="datetime-local" className={inputCls} value={form.startAt} disabled={readOnly} onChange={(e) => set('startAt', e.target.value)} /></Field>
+              <Field label="Ends at"><input type="datetime-local" className={inputCls} value={form.endAt} disabled={readOnly} onChange={(e) => set('endAt', e.target.value)} /></Field>
             </div>
           </div>
         )}
 
-        {step === 4 && (
-          <div className="grid gap-3">
-            {form.tickets.map((t, i) => (
-              <div key={i} className="grid grid-cols-1 gap-2 rounded-md border border-line p-3 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end">
-                <Field label="Name"><input className={inputCls} value={t.name} onChange={(e) => updRow('tickets', i, 'name', e.target.value)} placeholder="Ticket name" /></Field>
-                <Field label="Price (₹)"><input type="number" min="0" className={inputCls} value={t.price} onChange={(e) => updRow('tickets', i, 'price', e.target.value)} placeholder="0" /></Field>
-                <Field label="Quantity"><input type="number" min="0" className={inputCls} value={t.quantity} onChange={(e) => updRow('tickets', i, 'quantity', e.target.value)} placeholder="0" /></Field>
-                <Btn size="sm" variant="danger" onClick={() => rmRow('tickets', i)} disabled={form.tickets.length === 1}>Remove</Btn>
-              </div>
-            ))}
-            <div><Btn size="sm" variant="ghost" onClick={() => addRow('tickets', { name: '', price: '', quantity: '' })}>+ Add ticket type</Btn></div>
+        {/* Steps 4 & 5 — Tickets / Promos (Phase 2) */}
+        {(step === 4 || step === 5) && (
+          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-surface py-16 text-center">
+            <div className="text-[40px]">🔒</div>
+            <div className="mt-3 text-sm font-semibold text-ink">{step === 4 ? 'Ticket types' : 'Promo codes'}</div>
+            <div className="mt-1 max-w-sm text-[13px] text-ink-mute">
+              {step === 4 ? 'Free & paid ticket types with quantities' : 'Percentage & flat discount codes'} are set up here — this step goes live with payments in the next phase.
+            </div>
+            <div className="mt-3"><Pill tone="amber">Coming in Phase 2</Pill></div>
           </div>
         )}
 
-        {step === 5 && (
-          <div className="grid gap-3">
-            {form.promos.length === 0 && <p className="text-[13px] text-ink-mute">No promo codes yet. Add one to offer a discount.</p>}
-            {form.promos.map((p, i) => (
-              <div key={i} className="grid grid-cols-1 gap-2 rounded-md border border-line p-3 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
-                <Field label="Code"><input className={inputCls} value={p.code} onChange={(e) => updRow('promos', i, 'code', e.target.value.toUpperCase())} placeholder="EARLYBIRD" /></Field>
-                <Field label="Discount (%)"><input type="number" min="0" max="100" className={inputCls} value={p.percent} onChange={(e) => updRow('promos', i, 'percent', e.target.value)} placeholder="10" /></Field>
-                <Btn size="sm" variant="danger" onClick={() => rmRow('promos', i)}>Remove</Btn>
-              </div>
-            ))}
-            <div><Btn size="sm" variant="ghost" onClick={() => addRow('promos', { code: '', percent: '' })}>+ Add promo code</Btn></div>
-          </div>
-        )}
-
+        {/* Step 6 — Review */}
         {step === 6 && (
           <div className="grid gap-5">
             <div>
               <h3 className="mb-1 text-sm font-bold text-ink">Basics</h3>
               <RowKV k="Title" v={form.title} />
-              <RowKV k="Category" v={<Pill tone="brand">{form.category}</Pill>} />
-              <RowKV k="Chapter" v={form.chapter} />
-              <RowKV k="Description" v={form.description} />
+              <RowKV k="Category" v={catName ? <Pill tone="brand">{catName}</Pill> : null} />
+              <RowKV k="Chapter" v={chapName} />
+              <RowKV k="Description" v={form.description ? `${form.description.slice(0, 120)}${form.description.length > 120 ? '…' : ''}` : null} />
+              <RowKV k="Banner" v={form.bannerUrl ? 'Uploaded ✓' : null} />
             </div>
             <div>
               <h3 className="mb-1 text-sm font-bold text-ink">Venue & schedule</h3>
               <RowKV k="Format" v={form.isOnline ? 'Online' : 'In-person'} />
-              {form.isOnline ? <RowKV k="Meeting link" v={form.meetingLink} /> : (<>
-                <RowKV k="Venue" v={form.venueName} />
-                <RowKV k="Address" v={form.address} />
-                <RowKV k="City" v={form.city} />
-              </>)}
-              <RowKV k="Starts" v={form.startAt} />
-              <RowKV k="Ends" v={form.endAt} />
+              {form.isOnline ? (
+                <RowKV k="Meeting link" v={form.meetingLink} />
+              ) : (
+                <>
+                  <RowKV k="Venue" v={form.venueName} />
+                  <RowKV k="Address" v={form.address} />
+                  <RowKV k="City" v={[form.city, form.country].filter(Boolean).join(', ')} />
+                  <RowKV k="Map" v={form.lat != null ? 'Pinned ✓' : null} />
+                </>
+              )}
+              <RowKV k="Starts" v={form.startAt ? new Date(form.startAt).toLocaleString('en-IN') : null} />
+              <RowKV k="Ends" v={form.endAt ? new Date(form.endAt).toLocaleString('en-IN') : null} />
             </div>
-            <div>
-              <h3 className="mb-1 text-sm font-bold text-ink">Ticket types</h3>
-              {form.tickets.map((t, i) => (
-                <RowKV key={i} k={t.name || `Ticket ${i + 1}`} v={`${formatPrice((Number(t.price) || 0) * 100)} · ${t.quantity || 0} qty`} />
-              ))}
-            </div>
-            <div>
-              <h3 className="mb-1 text-sm font-bold text-ink">Promo codes</h3>
-              {form.promos.length === 0 ? <p className="py-2 text-sm text-ink-faint">None</p> : form.promos.map((p, i) => (
-                <RowKV key={i} k={p.code || `Promo ${i + 1}`} v={`${p.percent || 0}% off`} />
-              ))}
+            <div className="rounded-md border border-line bg-surface px-4 py-3 text-[13px] text-ink-mute">
+              Ticket types & promo codes (steps 4–5) and submitting for approval arrive in the next phases.
             </div>
           </div>
         )}
       </Card>
 
       <div className="mt-5 flex items-center justify-between">
-        <Btn variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>Back</Btn>
-        {step < 6
-          ? <Btn onClick={() => setStep((s) => Math.min(6, s + 1))}>Next</Btn>
-          : <Btn onClick={submit}>Submit for approval</Btn>}
+        <Btn variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || saving}>Back</Btn>
+        {step < 6 ? (
+          <Btn onClick={next} disabled={saving || bannerBusy}>{saving ? 'Saving…' : 'Save & continue'}</Btn>
+        ) : (
+          <Btn onClick={finish}>Done</Btn>
+        )}
       </div>
     </div>
   );

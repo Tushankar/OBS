@@ -64,6 +64,8 @@ export default function Header({ onOpenAuth }) {
   const isChaptersActive = location.pathname.startsWith('/chapters');
 
   const acctMenu = [
+    ...(user?.role === 'ADMIN' ? [['Admin panel', '/admin']] : []),
+    ...(user?.role === 'ORGANIZER' ? [['Organizer portal', '/organizer']] : []),
     ['My tickets', '/account/tickets'],
     ['Order history', '/account/orders'],
     ['My chapters', '/account/chapters'],

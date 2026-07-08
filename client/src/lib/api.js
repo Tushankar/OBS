@@ -82,4 +82,26 @@ api.approveOrganizer = (id) => unwrap(api.post(`/admin/organizers/${id}/approve`
 api.rejectOrganizer = (id, reason) =>
   unwrap(api.post(`/admin/organizers/${id}/reject`, { reason })).then((d) => d.organizer);
 
+// Public catalog reference data (Phase 1.3 — used by the wizard + browse)
+api.categories = () => unwrap(api.get('/categories')).then((d) => d.categories);
+api.chapters = (params) => unwrap(api.get('/chapters', { params })).then((d) => d.chapters);
+api.geocode = (address) => unwrap(api.post('/geo/geocode', { address }));
+
+// Organizer events (Phase 1.2/1.3)
+api.organizerEvents = (params) => unwrap(api.get('/organizer/events', { params }));
+api.organizerEvent = (id) => unwrap(api.get(`/organizer/events/${id}`)).then((d) => d.event);
+api.organizerCreateEvent = (body) => unwrap(api.post('/organizer/events', body)).then((d) => d.event);
+api.organizerUpdateEvent = (id, body) => unwrap(api.patch(`/organizer/events/${id}`, body)).then((d) => d.event);
+api.organizerDeleteEvent = (id) => unwrap(api.delete(`/organizer/events/${id}`));
+api.organizerBannerPresign = (id, contentType) =>
+  unwrap(api.post(`/organizer/events/${id}/banner`, { contentType }));
+
+// Raw PUT to a presigned S3 URL. Bypasses the api instance so no Authorization
+// header / baseURL is attached (the presigned URL is self-authenticating).
+export async function uploadToPresignedUrl(uploadUrl, file) {
+  const res = await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+  if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+  return true;
+}
+
 export default api;
