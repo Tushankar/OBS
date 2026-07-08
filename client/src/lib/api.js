@@ -126,6 +126,9 @@ api.myOrder = (id) => unwrap(api.get(`/me/orders/${id}`)).then((d) => d.order);
 api.razorpayCreateOrder = (orderId) => unwrap(api.post('/payments/razorpay/order', { orderId }));
 api.razorpayVerify = (body) => unwrap(api.post('/payments/razorpay/verify', body));
 api.stripeIntent = (orderId) => unwrap(api.post('/payments/stripe/intent', { orderId }));
+api.myTickets = (scope) => unwrap(api.get('/me/tickets', { params: scope ? { scope } : {} })).then((d) => d.tickets);
+api.myTicket = (id) => unwrap(api.get(`/me/tickets/${id}`)).then((d) => d.ticket);
+api.ticketPdfBlob = (id) => api.get(`/me/tickets/${id}/pdf`, { responseType: 'blob' }).then((r) => r.data);
 
 // Admin — event moderation (Phase 1.4)
 api.adminEvents = (params) => unwrap(api.get('/admin/events', { params }));

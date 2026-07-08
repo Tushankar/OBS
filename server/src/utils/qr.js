@@ -5,3 +5,8 @@ import QRCode from 'qrcode';
 export function qrPng(text) {
   return QRCode.toBuffer(text, { type: 'png', width: 320, margin: 1, errorCorrectionLevel: 'M' });
 }
+
+// data:image/png;base64 URL — for rendering the QR in the browser (ticket detail).
+export function qrDataUrl(text) {
+  return QRCode.toDataURL(text, { width: 320, margin: 1, errorCorrectionLevel: 'M' });
+}

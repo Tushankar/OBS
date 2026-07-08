@@ -14,6 +14,7 @@ import promoCodeRoutes from './modules/promoCodes/promoCodes.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import orderRoutes from './modules/orders/orders.routes.js';
 import myOrderRoutes from './modules/orders/orders.me.routes.js';
+import myTicketRoutes from './modules/tickets/tickets.routes.js';
 import categoryRoutes from './modules/categories/categories.routes.js';
 import chapterRoutes from './modules/chapters/chapters.routes.js';
 import geoRoutes from './modules/geo/geo.routes.js';
@@ -58,6 +59,7 @@ export function createApp() {
   app.use('/api/v1/organizer', organizerRoutes);
   app.use('/api/v1/orders', orderRoutes);
   app.use('/api/v1/me/orders', myOrderRoutes);
+  app.use('/api/v1/me/tickets', myTicketRoutes);
   app.use('/api/v1/payments', paymentRoutes);
   app.use('/api/v1/admin', adminRoutes);
 
