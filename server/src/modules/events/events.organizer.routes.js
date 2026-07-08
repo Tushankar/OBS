@@ -19,5 +19,7 @@ router.patch('/:id', validate({ params: schemas.idParam, body: schemas.updateEve
 router.delete('/:id', validate({ params: schemas.idParam }), asyncHandler(c.remove));
 router.post('/:id/banner', validate({ params: schemas.idParam, body: schemas.bannerSchema }), asyncHandler(c.banner));
 router.post('/:id/submit', validate({ params: schemas.idParam }), asyncHandler(c.submit));
+router.get('/:id/registrations', validate({ params: schemas.idParam, query: schemas.registrationsQuery }), asyncHandler(c.registrations));
+router.get('/:id/registrations/export', validate({ params: schemas.idParam }), asyncHandler(c.registrationsExport));
 
 export default router;

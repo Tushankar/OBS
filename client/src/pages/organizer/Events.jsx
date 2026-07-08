@@ -67,6 +67,9 @@ export default function Events() {
       case 'actions':
         return (
           <div className="flex justify-end gap-2">
+            {['PUBLISHED', 'COMPLETED'].includes(ev.status) && (
+              <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/registrations`)}>Registrations</Btn>
+            )}
             <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/edit`)}>
               {EDITABLE.includes(ev.status) ? 'Edit' : 'View'}
             </Btn>

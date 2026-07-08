@@ -108,6 +108,8 @@ api.organizerBannerPresign = (id, contentType) =>
   unwrap(api.post(`/organizer/events/${id}/banner`, { contentType }));
 api.organizerSubmitEvent = (id) => unwrap(api.post(`/organizer/events/${id}/submit`)).then((d) => d.event);
 api.organizerDashboard = () => unwrap(api.get('/organizer/dashboard'));
+api.organizerRegistrations = (eventId, params) => unwrap(api.get(`/organizer/events/${eventId}/registrations`, { params }));
+api.registrationsExportBlob = (eventId) => api.get(`/organizer/events/${eventId}/registrations/export`, { responseType: 'blob' }).then((r) => r.data);
 
 // Ticket types + promo codes CRUD (Phase 2.1) — nested under an owned event.
 api.eventTicketTypes = (eventId) => unwrap(api.get(`/organizer/events/${eventId}/ticket-types`)).then((d) => d.ticketTypes);

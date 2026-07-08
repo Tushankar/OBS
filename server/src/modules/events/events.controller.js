@@ -37,6 +37,18 @@ export async function submit(req, res) {
   res.status(200).json({ event });
 }
 
+export async function registrations(req, res) {
+  const result = await eventService.listRegistrations(req.organizer._id, req.params.id, req.query);
+  res.status(200).json(result);
+}
+
+export async function registrationsExport(req, res) {
+  const { buffer, filename } = await eventService.exportRegistrations(req.organizer._id, req.params.id);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.status(200).send(Buffer.from(buffer));
+}
+
 // ----- Public catalog -----
 export async function listPublic(req, res) {
   const result = await eventService.listPublicEvents(req.query);

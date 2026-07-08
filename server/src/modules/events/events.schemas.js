@@ -72,3 +72,11 @@ export const publicListQuery = z.object({
 });
 
 export const slugParam = z.object({ slug: z.string().trim().min(1).max(200) });
+
+// Registrations list (task 3.2)
+export const registrationsQuery = z.object({
+  status: z.enum(['VALID', 'USED', 'CANCELLED', 'REFUNDED']).optional(),
+  search: z.string().trim().max(120).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});

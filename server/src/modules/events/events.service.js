@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
-import { Event, Category, Chapter, TicketType } from '../../models/index.js';
+import { Event, Category, Chapter, TicketType, Ticket } from '../../models/index.js';
+import { registrationsWorkbook } from '../../utils/xlsx.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { presignPut, objectUrl } from '../../utils/s3.js';
 import { env } from '../../config/env.js';
@@ -180,6 +181,60 @@ export async function presignBanner(organizerId, id, { contentType }) {
   const key = `banners/${event._id}/${randomUUID()}.${EXT[contentType]}`;
   const uploadUrl = await presignPut({ key, contentType });
   return { uploadUrl, key, fileUrl: objectUrl(key), expiresIn: 300 };
+}
+
+// ===== Registrations (task 3.2) — one row per ticket/attendee =====
+
+function registrationRow(t) {
+  const order = t.orderId && t.orderId._id ? t.orderId : null;
+  const tt = t.ticketTypeId && t.ticketTypeId._id ? t.ticketTypeId : null;
+  const ttId = tt ? String(tt._id) : String(t.ticketTypeId); // t.ticketTypeId may be a populated doc
+  const item = order?.items?.find((i) => String(i.ticketTypeId) === ttId);
+  return {
+    ticketId: String(t._id),
+    ticketNumber: t.ticketNumber,
+    attendeeName: t.attendeeName || '',
+    attendeeEmail: t.attendeeEmail || '',
+    ticketType: tt?.name || item?.name || '',
+    orderNumber: order?.orderNumber || '',
+    amount: item?.unitPrice ?? 0, // paise
+    status: t.status,
+    checkedInAt: t.checkedInAt || null,
+  };
+}
+
+const regQuery = (eventId, { status, search }) => {
+  const filter = { eventId };
+  if (status) filter.status = status;
+  if (search) {
+    const rx = { $regex: escapeRegex(search), $options: 'i' };
+    filter.$or = [{ attendeeName: rx }, { attendeeEmail: rx }, { ticketNumber: rx }];
+  }
+  return filter;
+};
+
+export async function listRegistrations(organizerId, eventId, { status, search, page, limit }) {
+  const event = await loadOwnedEvent(organizerId, eventId);
+  const filter = regQuery(eventId, { status, search });
+  const [rows, total] = await Promise.all([
+    Ticket.find(filter).populate('ticketTypeId', 'name').populate('orderId', 'orderNumber items').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+    Ticket.countDocuments(filter),
+  ]);
+  return {
+    registrations: rows.map(registrationRow),
+    total,
+    page,
+    limit,
+    pages: Math.ceil(total / limit) || 0,
+    event: { id: String(event._id), title: event.title, currency: event.currency || 'INR' },
+  };
+}
+
+export async function exportRegistrations(organizerId, eventId) {
+  const event = await loadOwnedEvent(organizerId, eventId);
+  const tickets = await Ticket.find({ eventId }).populate('ticketTypeId', 'name').populate('orderId', 'orderNumber items').sort({ createdAt: 1 });
+  const buffer = await registrationsWorkbook({ event: { currency: event.currency || 'INR' }, rows: tickets.map(registrationRow) });
+  return { buffer, filename: `registrations-${event.slug || event._id}.xlsx` };
 }
 
 // ===== Public catalog (task 1.5) =====
