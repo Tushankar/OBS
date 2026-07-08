@@ -9,6 +9,8 @@ import organizerRoutes from './modules/organizers/organizers.routes.js';
 import publicOrganizerRoutes from './modules/organizers/organizers.public.routes.js';
 import publicEventRoutes from './modules/events/events.public.routes.js';
 import organizerEventRoutes from './modules/events/events.organizer.routes.js';
+import ticketTypeRoutes from './modules/ticketTypes/ticketTypes.routes.js';
+import promoCodeRoutes from './modules/promoCodes/promoCodes.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import categoryRoutes from './modules/categories/categories.routes.js';
 import chapterRoutes from './modules/chapters/chapters.routes.js';
@@ -41,6 +43,8 @@ export function createApp() {
   app.use('/api/v1/geo', geoRoutes);
   app.use('/api/v1/events', publicEventRoutes);
   app.use('/api/v1/organizers', publicOrganizerRoutes);
+  app.use('/api/v1/organizer/events/:eventId/ticket-types', ticketTypeRoutes);
+  app.use('/api/v1/organizer/events/:eventId/promo-codes', promoCodeRoutes);
   app.use('/api/v1/organizer/events', organizerEventRoutes);
   app.use('/api/v1/organizer', organizerRoutes);
   app.use('/api/v1/admin', adminRoutes);

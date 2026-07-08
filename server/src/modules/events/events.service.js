@@ -57,8 +57,9 @@ async function assertRefs({ categoryId, chapterId }) {
   }
 }
 
-// Load an event and verify the caller's organizer profile owns it.
-async function loadOwnedEvent(organizerId, id) {
+// Load an event and verify the caller's organizer profile owns it. Exported so
+// the ticket-type / promo-code services can enforce the same ownership guard.
+export async function loadOwnedEvent(organizerId, id) {
   const event = await Event.findById(id);
   if (!event) throw notFoundError('EVENT_NOT_FOUND', 'Event not found');
   if (String(event.organizerId) !== String(organizerId)) {

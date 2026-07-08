@@ -4,6 +4,8 @@ import { Card, Btn, PageHead, Pill, Field, inputCls, Loading } from '../../compo
 import { useApp } from '../../context/AppContext';
 import api, { apiError, apiErrorCode, uploadToPresignedUrl } from '../../lib/api';
 import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
+import TicketTypesEditor from '../../components/organizer/TicketTypesEditor';
+import PromoCodesEditor from '../../components/organizer/PromoCodesEditor';
 
 const STEPS = ['Basics', 'Banner', 'Venue', 'Tickets', 'Promos', 'Review'];
 
@@ -380,16 +382,28 @@ export default function EventWizard() {
           </div>
         )}
 
-        {/* Steps 4 & 5 — Tickets / Promos (Phase 2) */}
-        {(step === 4 || step === 5) && (
-          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-surface py-16 text-center">
-            <div className="text-[40px]">🔒</div>
-            <div className="mt-3 text-sm font-semibold text-ink">{step === 4 ? 'Ticket types' : 'Promo codes'}</div>
-            <div className="mt-1 max-w-sm text-[13px] text-ink-mute">
-              {step === 4 ? 'Free & paid ticket types with quantities' : 'Percentage & flat discount codes'} are set up here — this step goes live with payments in the next phase.
+        {/* Step 4 — Ticket types */}
+        {step === 4 && (
+          eventId ? (
+            <div>
+              <p className="mb-4 text-[13px] text-ink-mute">Add the tickets attendees can buy. Use ₹0 for a free ticket. Every event needs at least one ticket type before it can sell.</p>
+              <TicketTypesEditor eventId={eventId} />
             </div>
-            <div className="mt-3"><Pill tone="amber">Coming in Phase 2</Pill></div>
-          </div>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-ink-mute">Save the basics first (step 1) to add ticket types.</p>
+          )
+        )}
+
+        {/* Step 5 — Promo codes */}
+        {step === 5 && (
+          eventId ? (
+            <div>
+              <p className="mb-4 text-[13px] text-ink-mute">Optionally add discount codes buyers can apply at checkout.</p>
+              <PromoCodesEditor eventId={eventId} />
+            </div>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-ink-mute">Save the basics first (step 1) to add promo codes.</p>
+          )
         )}
 
         {/* Step 6 — Review */}
@@ -420,7 +434,7 @@ export default function EventWizard() {
               <RowKV k="Ends" v={form.endAt ? new Date(form.endAt).toLocaleString('en-IN') : null} />
             </div>
             <div className="rounded-md border border-line bg-surface px-4 py-3 text-[13px] text-ink-mute">
-              Ticket types & promo codes (steps 4–5) and submitting for approval arrive in the next phases.
+              Set up ticket types (step 4) and any promo codes (step 5) before submitting. An event needs at least one ticket type to sell.
             </div>
           </div>
         )}

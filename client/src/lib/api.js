@@ -108,6 +108,16 @@ api.organizerBannerPresign = (id, contentType) =>
   unwrap(api.post(`/organizer/events/${id}/banner`, { contentType }));
 api.organizerSubmitEvent = (id) => unwrap(api.post(`/organizer/events/${id}/submit`)).then((d) => d.event);
 
+// Ticket types + promo codes CRUD (Phase 2.1) — nested under an owned event.
+api.eventTicketTypes = (eventId) => unwrap(api.get(`/organizer/events/${eventId}/ticket-types`)).then((d) => d.ticketTypes);
+api.createTicketType = (eventId, body) => unwrap(api.post(`/organizer/events/${eventId}/ticket-types`, body)).then((d) => d.ticketType);
+api.updateTicketType = (eventId, id, body) => unwrap(api.patch(`/organizer/events/${eventId}/ticket-types/${id}`, body)).then((d) => d.ticketType);
+api.deleteTicketType = (eventId, id) => unwrap(api.delete(`/organizer/events/${eventId}/ticket-types/${id}`));
+api.eventPromoCodes = (eventId) => unwrap(api.get(`/organizer/events/${eventId}/promo-codes`)).then((d) => d.promoCodes);
+api.createPromoCode = (eventId, body) => unwrap(api.post(`/organizer/events/${eventId}/promo-codes`, body)).then((d) => d.promoCode);
+api.updatePromoCode = (eventId, id, body) => unwrap(api.patch(`/organizer/events/${eventId}/promo-codes/${id}`, body)).then((d) => d.promoCode);
+api.deletePromoCode = (eventId, id) => unwrap(api.delete(`/organizer/events/${eventId}/promo-codes/${id}`));
+
 // Admin — event moderation (Phase 1.4)
 api.adminEvents = (params) => unwrap(api.get('/admin/events', { params }));
 api.approveEvent = (id) => unwrap(api.post(`/admin/events/${id}/approve`)).then((d) => d.event);
