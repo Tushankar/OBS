@@ -1,5 +1,5 @@
-import { OrganizerProfile, User } from '../../models/index.js';
-import { notFoundError } from '../../utils/errors.js';
+import { OrganizerProfile, User, Event } from '../../models/index.js';
+import { notFoundError, conflict } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { sendMail } from '../../utils/mailer.js';
 import { env } from '../../config/env.js';
@@ -112,4 +112,106 @@ export async function rejectOrganizer(adminId, id, reason) {
   }
 
   return adminOrganizerRow(profile);
+}
+
+// ===== Events (task 1.4) =====
+
+function adminEventRow(e) {
+  const org = e.organizerId && e.organizerId._id ? e.organizerId : null;
+  const cat = e.categoryId && e.categoryId._id ? e.categoryId : null;
+  return {
+    id: String(e._id),
+    title: e.title,
+    slug: e.slug,
+    status: e.status,
+    startAt: e.startAt || null,
+    endAt: e.endAt || null,
+    city: e.city || null,
+    isOnline: !!e.isOnline,
+    category: cat ? { id: String(cat._id), name: cat.name } : null,
+    organizer: org ? { id: String(org._id), orgName: org.orgName } : null,
+    rejectionReason: e.rejectionReason || null,
+    publishedAt: e.publishedAt || null,
+    createdAt: e.createdAt,
+  };
+}
+
+export async function listEvents({ status, q, page, limit } = {}) {
+  const filter = {};
+  if (status) filter.status = status;
+  if (q) filter.title = { $regex: q, $options: 'i' };
+  const [rows, total] = await Promise.all([
+    Event.find(filter)
+      .populate('organizerId', 'orgName')
+      .populate('categoryId', 'name')
+      .sort({ updatedAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    Event.countDocuments(filter),
+  ]);
+  return { events: rows.map(adminEventRow), total, page, limit, pages: Math.ceil(total / limit) || 1 };
+}
+
+// Load an event with the organizer's contact user for approval/rejection emails.
+async function loadEventWithOrganizer(id) {
+  const event = await Event.findById(id)
+    .populate('categoryId', 'name')
+    .populate({ path: 'organizerId', populate: { path: 'userId', select: 'name email' } });
+  if (!event) throw notFoundError('EVENT_NOT_FOUND', 'Event not found');
+  return event;
+}
+
+export async function approveEvent(adminId, id) {
+  const event = await loadEventWithOrganizer(id);
+  if (event.status !== 'PENDING_APPROVAL') {
+    throw conflict('INVALID_EVENT_STATE', `Only a pending event can be approved (this one is ${event.status})`);
+  }
+  event.status = 'PUBLISHED';
+  event.publishedAt = new Date();
+  event.rejectionReason = undefined;
+  await event.save();
+
+  await writeAudit({ actorId: adminId, action: 'EVENT_APPROVED', entityType: 'Event', entityId: event._id, meta: { title: event.title } });
+
+  const user = event.organizerId?.userId;
+  if (user?.email) {
+    const url = `${env.APP_URL}/event/${event.slug}`;
+    await trySendMail({
+      to: user.email,
+      subject: `Your event "${event.title}" is live on OBS Events`,
+      type: 'EVENT_APPROVED',
+      userId: user._id,
+      eventId: event._id,
+      text: `Hi ${user.name},\n\nGood news — "${event.title}" has been approved and is now live: ${url}\n\n— OBS Events`,
+      html: `<p>Hi ${user.name},</p><p>Good news — <strong>${event.title}</strong> has been approved and is now live.</p><p><a href="${url}">View your event</a></p><p>— OBS Events</p>`,
+    });
+  }
+  return adminEventRow(event);
+}
+
+export async function rejectEvent(adminId, id, reason) {
+  const event = await loadEventWithOrganizer(id);
+  if (event.status !== 'PENDING_APPROVAL') {
+    throw conflict('INVALID_EVENT_STATE', `Only a pending event can be rejected (this one is ${event.status})`);
+  }
+  event.status = 'REJECTED';
+  event.rejectionReason = reason;
+  await event.save();
+
+  await writeAudit({ actorId: adminId, action: 'EVENT_REJECTED', entityType: 'Event', entityId: event._id, meta: { title: event.title, reason } });
+
+  const user = event.organizerId?.userId;
+  if (user?.email) {
+    const url = `${env.APP_URL}/organizer/events/${event._id}/edit`;
+    await trySendMail({
+      to: user.email,
+      subject: `Changes needed on your event "${event.title}"`,
+      type: 'EVENT_REJECTED',
+      userId: user._id,
+      eventId: event._id,
+      text: `Hi ${user.name},\n\n"${event.title}" wasn't approved yet.\n\nReason: ${reason}\n\nUpdate it and resubmit: ${url}\n\n— OBS Events`,
+      html: `<p>Hi ${user.name},</p><p><strong>${event.title}</strong> wasn't approved yet.</p><p><strong>Reason:</strong> ${reason}</p><p><a href="${url}">Update and resubmit</a></p><p>— OBS Events</p>`,
+    });
+  }
+  return adminEventRow(event);
 }

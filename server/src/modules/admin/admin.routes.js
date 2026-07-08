@@ -21,4 +21,13 @@ router.post(
   asyncHandler(c.rejectOrganizer)
 );
 
+// --- Events (task 1.4) ---
+router.get('/events', validate({ query: schemas.listEventsQuery }), asyncHandler(c.listEvents));
+router.post('/events/:id/approve', validate({ params: schemas.idParam }), asyncHandler(c.approveEvent));
+router.post(
+  '/events/:id/reject',
+  validate({ params: schemas.idParam, body: schemas.rejectEventSchema }),
+  asyncHandler(c.rejectEvent)
+);
+
 export default router;

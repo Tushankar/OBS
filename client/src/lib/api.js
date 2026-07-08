@@ -95,6 +95,12 @@ api.organizerUpdateEvent = (id, body) => unwrap(api.patch(`/organizer/events/${i
 api.organizerDeleteEvent = (id) => unwrap(api.delete(`/organizer/events/${id}`));
 api.organizerBannerPresign = (id, contentType) =>
   unwrap(api.post(`/organizer/events/${id}/banner`, { contentType }));
+api.organizerSubmitEvent = (id) => unwrap(api.post(`/organizer/events/${id}/submit`)).then((d) => d.event);
+
+// Admin — event moderation (Phase 1.4)
+api.adminEvents = (params) => unwrap(api.get('/admin/events', { params }));
+api.approveEvent = (id) => unwrap(api.post(`/admin/events/${id}/approve`)).then((d) => d.event);
+api.rejectEvent = (id, reason) => unwrap(api.post(`/admin/events/${id}/reject`, { reason })).then((d) => d.event);
 
 // Raw PUT to a presigned S3 URL. Bypasses the api instance so no Authorization
 // header / baseURL is attached (the presigned URL is self-authenticating).

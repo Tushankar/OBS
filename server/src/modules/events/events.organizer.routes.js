@@ -18,6 +18,6 @@ router.get('/:id', validate({ params: schemas.idParam }), asyncHandler(c.getOne)
 router.patch('/:id', validate({ params: schemas.idParam, body: schemas.updateEventSchema }), asyncHandler(c.update));
 router.delete('/:id', validate({ params: schemas.idParam }), asyncHandler(c.remove));
 router.post('/:id/banner', validate({ params: schemas.idParam, body: schemas.bannerSchema }), asyncHandler(c.banner));
-// POST /:id/submit (DRAFT → PENDING_APPROVAL) is added in task 1.4.
+router.post('/:id/submit', validate({ params: schemas.idParam }), asyncHandler(c.submit));
 
 export default router;

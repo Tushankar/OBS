@@ -31,3 +31,8 @@ export async function banner(req, res) {
   const result = await eventService.presignBanner(req.organizer._id, req.params.id, req.body);
   res.status(200).json(result);
 }
+
+export async function submit(req, res) {
+  const event = await eventService.submitEvent(req.organizer._id, req.params.id);
+  res.status(200).json({ event });
+}

@@ -57,6 +57,7 @@ import OrganizerEvents from './pages/organizer/Events';
 import EventWizard from './pages/organizer/EventWizard';
 import AdminLayout from './components/portal/AdminLayout';
 import AdminOrganizers from './pages/admin/Organizers';
+import AdminEvents from './pages/admin/Events';
 
 export default function App() {
   const { authOpen, setAuthOpen } = useApp();
@@ -110,6 +111,7 @@ export default function App() {
                   <Route element={<RequireRole roles={['ADMIN']}><AdminLayout /></RequireRole>}>
                     <Route path="/admin" element={<Navigate to="/admin/organizers" replace />} />
                     <Route path="/admin/organizers" element={<AdminOrganizers />} />
+                    <Route path="/admin/events" element={<AdminEvents />} />
                   </Route>
                   
                   <Route path="/chapters" element={<Chapters />} />

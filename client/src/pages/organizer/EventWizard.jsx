@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, Btn, PageHead, Pill, Field, inputCls, Loading } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
-import api, { apiError, uploadToPresignedUrl } from '../../lib/api';
+import api, { apiError, apiErrorCode, uploadToPresignedUrl } from '../../lib/api';
 import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
 
 const STEPS = ['Basics', 'Banner', 'Venue', 'Tickets', 'Promos', 'Review'];
@@ -124,8 +124,10 @@ export default function EventWizard() {
       if (!eventId) {
         const ev = await api.organizerCreateEvent(payload);
         setEventId(ev.id);
+        setStatus(ev.status);
       } else {
-        await api.organizerUpdateEvent(eventId, payload);
+        const ev = await api.organizerUpdateEvent(eventId, payload);
+        setStatus(ev.status);
       }
       return true;
     } catch (e) {
@@ -173,7 +175,8 @@ export default function EventWizard() {
     }
     setSaving(true);
     try {
-      await api.organizerUpdateEvent(eventId, payload);
+      const ev = await api.organizerUpdateEvent(eventId, payload);
+      setStatus(ev.status);
       return true;
     } catch (e) {
       pushToast(apiError(e, 'Could not save'), false);
@@ -182,6 +185,30 @@ export default function EventWizard() {
       setSaving(false);
     }
   }, [form, eventId, pushToast]);
+
+  async function submit() {
+    setSaving(true);
+    try {
+      // Editing a rejected event returns it to DRAFT first (§6), then submit.
+      if (status === 'REJECTED') {
+        const reset = await api.organizerUpdateEvent(eventId, { title: form.title.trim() });
+        setStatus(reset.status);
+      }
+      const ev = await api.organizerSubmitEvent(eventId);
+      setStatus(ev.status);
+      pushToast('Submitted for approval 🎉');
+      navigate('/organizer/events');
+    } catch (e) {
+      if (apiErrorCode(e) === 'EVENT_INCOMPLETE') {
+        const missing = e.response?.data?.error?.details?.missing;
+        pushToast(missing?.length ? `Add before submitting: ${missing.join(', ')}` : apiError(e), false);
+      } else {
+        pushToast(apiError(e, 'Could not submit'), false);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function onBannerFile(e) {
     const file = e.target.files?.[0];
@@ -403,8 +430,13 @@ export default function EventWizard() {
         <Btn variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || saving}>Back</Btn>
         {step < 6 ? (
           <Btn onClick={next} disabled={saving || bannerBusy}>{saving ? 'Saving…' : 'Save & continue'}</Btn>
+        ) : readOnly ? (
+          <Btn onClick={() => navigate('/organizer/events')}>Done</Btn>
         ) : (
-          <Btn onClick={finish}>Done</Btn>
+          <div className="flex gap-2">
+            <Btn variant="ghost" onClick={finish} disabled={saving}>Save as draft</Btn>
+            <Btn onClick={submit} disabled={saving}>{saving ? 'Submitting…' : 'Submit for approval'}</Btn>
+          </div>
         )}
       </div>
     </div>

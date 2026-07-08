@@ -1,75 +1,110 @@
-import { useEffect, useState } from 'react';
-import api from '../../lib/api';
+import { useEffect, useState, useCallback } from 'react';
+import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-import { PageHead, Table, Pill, statusTone, Btn, Loading } from '../../components/portal/Kit';
+import { PageHead, Table, Pill, statusTone, Btn, Tabs, Loading } from '../../components/portal/Kit';
 
-// Admin event moderation queue — approve/reject pending events + feature toggle.
+const TABS = [
+  ['PENDING_APPROVAL', 'Pending'],
+  ['PUBLISHED', 'Published'],
+  ['REJECTED', 'Rejected'],
+  ['', 'All'],
+];
+
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+
+// Admin event moderation queue (task 1.4). The feature toggle is Phase 3.
 export default function Events() {
   const { pushToast } = useApp();
-  const [evs, setEvs] = useState(null);
-  const [featured, setFeatured] = useState({}); // id -> bool
+  const [tab, setTab] = useState('PENDING_APPROVAL');
+  const [data, setData] = useState(null);
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  useEffect(() => {
-    let alive = true;
-    api.adminPendingEvents().then((d) => { if (alive) setEvs(d || []); });
-    return () => { alive = false; };
-  }, []);
 
-  if (!evs) return (<div><PageHead title="Events" subtitle="Moderation queue" /><Loading /></div>);
+  const load = useCallback(() => {
+    setData(null);
+    api.adminEvents(tab ? { status: tab } : undefined)
+      .then(setData)
+      .catch((e) => { setData({ events: [], total: 0 }); pushToast(apiError(e), false); });
+  }, [tab, pushToast]);
 
-  const toggleFeature = (row) => {
-    setFeatured((f) => {
-      const next = { ...f, [row.id]: !f[row.id] };
-      pushToast(next[row.id] ? `Featured “${row.title}”` : `Removed “${row.title}” from featured`);
-      return next;
-    });
-  };
+  useEffect(() => { load(); }, [load]);
+
+  async function decide(action, ev) {
+    setBusyId(ev.id);
+    try {
+      if (action === 'approve') {
+        await api.approveEvent(ev.id);
+        pushToast(`Published “${ev.title}”`);
+      } else {
+        const reason = window.prompt(`Reject “${ev.title}”? Enter a reason (emailed to the organizer):`, '');
+        if (reason === null) { setBusyId(null); return; }
+        if (reason.trim().length < 3) { pushToast('A reason of at least 3 characters is required', false); setBusyId(null); return; }
+        await api.rejectEvent(ev.id, reason.trim());
+        pushToast(`Rejected “${ev.title}”`);
+      }
+      load();
+    } catch (e) {
+      pushToast(apiError(e, 'Action failed'), false);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   const columns = [
     { key: 'title', label: 'Event' },
     { key: 'organizer', label: 'Organizer' },
-    { key: 'category', label: 'Category' },
+    { key: 'when', label: 'When' },
     { key: 'status', label: 'Status' },
     { key: 'actions', label: 'Actions', align: 'right' },
   ];
 
-  const renderCell = (row, key) => {
-    if (key === 'title') {
-      return (
-        <div>
-          <div className="font-semibold text-ink">{row.title}</div>
-          <div className="text-[12px] text-ink-mute">{row.city}</div>
-        </div>
-      );
+  const renderCell = (ev, key) => {
+    switch (key) {
+      case 'title':
+        return (
+          <div>
+            <div className="font-semibold text-ink">{ev.title}</div>
+            <div className="text-[12px] text-ink-mute">{ev.category?.name || '—'} · {ev.isOnline ? 'Online' : ev.city || 'Venue TBC'}</div>
+          </div>
+        );
+      case 'organizer':
+        return <span className="text-ink-soft">{ev.organizer?.orgName || '—'}</span>;
+      case 'when':
+        return <span className="text-ink-soft">{fmtDate(ev.startAt)}</span>;
+      case 'status':
+        return <Pill tone={statusTone(ev.status)}>{ev.status.replace('_', ' ')}</Pill>;
+      case 'actions':
+        if (ev.status === 'PENDING_APPROVAL') {
+          return (
+            <div className="flex justify-end gap-2">
+              <Btn size="sm" disabled={busyId === ev.id} onClick={() => decide('approve', ev)}>Approve</Btn>
+              <Btn size="sm" variant="danger" disabled={busyId === ev.id} onClick={() => decide('reject', ev)}>Reject</Btn>
+            </div>
+          );
+        }
+        if (ev.status === 'REJECTED' && ev.rejectionReason) {
+          return <span className="text-[12px] text-ink-mute" title={ev.rejectionReason}>Rejected</span>;
+        }
+        return <span className="text-[12px] text-ink-faint">—</span>;
+      default:
+        return null;
     }
-    if (key === 'organizer') return <span className="text-ink-soft">{row.organizer}</span>;
-    if (key === 'category') return <span className="text-ink-soft">{row.category}</span>;
-    if (key === 'status') return <Pill tone={statusTone(row.status)}>{row.status}</Pill>;
-    if (key === 'actions') {
-      return (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Btn size="sm" onClick={() => pushToast(`Approved “${row.title}”`)}>Approve</Btn>
-          <Btn size="sm" variant="danger" onClick={() => pushToast(`Rejected “${row.title}”`, false)}>Reject</Btn>
-          <Btn size="sm" variant={featured[row.id] ? 'primary' : 'ghost'} onClick={() => toggleFeature(row)}>
-            {featured[row.id] ? '★ Featured' : '☆ Feature'}
-          </Btn>
-        </div>
-      );
-    }
-    return null;
   };
 
   return (
     <div>
-      <PageHead title="Events" subtitle="Moderation queue" />
-      <p className="mb-3 text-[12px] text-ink-mute">Only events pending approval are shown.</p>
-      <Table
-        columns={columns}
-        rows={evs}
-        renderCell={renderCell}
-        empty="No events awaiting moderation."
+      <PageHead
+        title="Events"
+        subtitle={data ? `${data.total} ${tab ? TABS.find(([k]) => k === tab)[1].toLowerCase() : 'total'}` : 'Moderation queue'}
       />
+      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      {data === null ? (
+        <Loading />
+      ) : (
+        <Table columns={columns} rows={data.events} renderCell={renderCell} empty="No events here." />
+      )}
     </div>
   );
 }
