@@ -20,6 +20,7 @@ import myTicketRoutes from './modules/tickets/tickets.routes.js';
 import ticketValidateRoutes from './modules/tickets/tickets.public.routes.js';
 import categoryRoutes from './modules/categories/categories.routes.js';
 import chapterRoutes from './modules/chapters/chapters.routes.js';
+import pageRoutes from './modules/pages/pages.routes.js';
 import geoRoutes from './modules/geo/geo.routes.js';
 import paymentRoutes from './modules/payments/payments.routes.js';
 import webhookRoutes from './modules/payments/webhooks.routes.js';
@@ -53,6 +54,7 @@ export function createApp() {
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/categories', categoryRoutes);
   app.use('/api/v1/chapters', chapterRoutes);
+  app.use('/api/v1/pages', pageRoutes);
   app.use('/api/v1/geo', geoRoutes);
   app.use('/api/v1/events', publicEventRoutes);
   app.use('/api/v1/tickets', ticketValidateRoutes);

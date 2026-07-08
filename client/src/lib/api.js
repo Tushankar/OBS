@@ -140,10 +140,34 @@ api.myTicket = (id) => unwrap(api.get(`/me/tickets/${id}`)).then((d) => d.ticket
 api.ticketPdfBlob = (id) => api.get(`/me/tickets/${id}/pdf`, { responseType: 'blob' }).then((r) => r.data);
 api.validateTicket = (token) => unwrap(api.get(`/tickets/validate/${token}`)).then((d) => d.ticket);
 
-// Admin — event moderation (Phase 1.4)
+// Admin — event moderation (Phase 1.4) + feature toggle (3.5)
 api.adminEvents = (params) => unwrap(api.get('/admin/events', { params }));
 api.approveEvent = (id) => unwrap(api.post(`/admin/events/${id}/approve`)).then((d) => d.event);
 api.rejectEvent = (id, reason) => unwrap(api.post(`/admin/events/${id}/reject`, { reason })).then((d) => d.event);
+api.featureEvent = (id, isFeatured) => unwrap(api.patch(`/admin/events/${id}`, { isFeatured })).then((d) => d.event);
+
+// Admin — dashboard, users, transactions (Phase 3.5)
+api.adminDashboard = () => unwrap(api.get('/admin/dashboard'));
+api.adminUsers = (params) => unwrap(api.get('/admin/users', { params }));
+api.updateUser = (id, body) => unwrap(api.patch(`/admin/users/${id}`, body)).then((d) => d.user);
+api.adminTransactions = (params) => unwrap(api.get('/admin/transactions', { params }));
+
+// Admin — categories / chapters / CMS CRUD (Phase 3.5)
+api.adminCategories = () => unwrap(api.get('/admin/categories')).then((d) => d.categories);
+api.createCategory = (body) => unwrap(api.post('/admin/categories', body)).then((d) => d.category);
+api.updateCategory = (id, body) => unwrap(api.patch(`/admin/categories/${id}`, body)).then((d) => d.category);
+api.deleteCategory = (id) => unwrap(api.delete(`/admin/categories/${id}`));
+api.adminChapters = () => unwrap(api.get('/admin/chapters')).then((d) => d.chapters);
+api.createChapter = (body) => unwrap(api.post('/admin/chapters', body)).then((d) => d.chapter);
+api.updateChapter = (id, body) => unwrap(api.patch(`/admin/chapters/${id}`, body)).then((d) => d.chapter);
+api.deleteChapter = (id) => unwrap(api.delete(`/admin/chapters/${id}`));
+api.adminCmsPages = () => unwrap(api.get('/admin/cms')).then((d) => d.pages);
+api.createCmsPage = (body) => unwrap(api.post('/admin/cms', body)).then((d) => d.page);
+api.updateCmsPage = (id, body) => unwrap(api.patch(`/admin/cms/${id}`, body)).then((d) => d.page);
+api.deleteCmsPage = (id) => unwrap(api.delete(`/admin/cms/${id}`));
+
+// Public CMS render (Phase 3.5)
+api.publicPage = (slug) => unwrap(api.get(`/pages/${slug}`)).then((d) => d.page);
 
 // Raw PUT to a presigned S3 URL. Bypasses the api instance so no Authorization
 // header / baseURL is attached (the presigned URL is self-authenticating).

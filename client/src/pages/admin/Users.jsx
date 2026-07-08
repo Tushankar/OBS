@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { PageHead, Card, Pill, statusTone, Table, SearchInput, Btn, Loading } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
-import api from '../../lib/api';
+import api, { apiError } from '../../lib/api';
 
-const ROLE_OPTIONS = ['All', 'USER', 'ORGANIZER', 'ADMIN'];
+const ROLE_OPTIONS = ['', 'USER', 'ORGANIZER', 'ADMIN'];
+const STATUS_OPTIONS = ['', 'ACTIVE', 'SUSPENDED'];
+const selectCls = 'h-9 rounded-md border border-line bg-white px-3 text-[13px] text-ink outline-none transition focus:border-brand';
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
 const COLUMNS = [
   { key: 'name', label: 'Name' },
@@ -16,26 +19,29 @@ const COLUMNS = [
 
 export default function Users() {
   const { pushToast } = useApp();
-  const [users, setUsers] = useState(null);
+  const [data, setData] = useState(null);
   const [query, setQuery] = useState('');
-  const [role, setRole] = useState('All');
+  const [debounced, setDebounced] = useState('');
+  const [role, setRole] = useState('');
+  const [status, setStatus] = useState('');
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => { const t = setTimeout(() => setDebounced(query.trim()), 300); return () => clearTimeout(t); }, [query]);
 
-  useEffect(() => {
-    let alive = true;
-    api.adminUsers().then((d) => { if (alive) setUsers(Array.isArray(d) ? d : []); });
-    return () => { alive = false; };
-  }, []);
+  const load = useCallback(() => {
+    api.adminUsers({ search: debounced || undefined, role: role || undefined, status: status || undefined })
+      .then(setData)
+      .catch((e) => { setData({ users: [], total: 0 }); pushToast(apiError(e), false); });
+  }, [debounced, role, status, pushToast]);
+  useEffect(() => { load(); }, [load]);
 
-  if (!users) return <Loading />;
-
-  const q = query.trim().toLowerCase();
-  const rows = users.filter((u) => {
-    const matchQ = !q || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-    const matchRole = role === 'All' || u.role === role;
-    return matchQ && matchRole;
-  });
+  const patch = async (u, body, msg) => {
+    setBusyId(u.id);
+    try { await api.updateUser(u.id, body); pushToast(msg); load(); }
+    catch (e) { pushToast(apiError(e, 'Could not update user'), false); }
+    finally { setBusyId(null); }
+  };
 
   const renderCell = (u, key) => {
     if (key === 'name') return (
@@ -44,15 +50,24 @@ export default function Users() {
         <div className="text-[12px] text-ink-mute">{u.email}</div>
       </div>
     );
-    if (key === 'role') return <Pill tone="brand">{u.role}</Pill>;
+    if (key === 'role') return (
+      <select
+        value={u.role}
+        disabled={busyId === u.id}
+        onChange={(e) => patch(u, { role: e.target.value }, `${u.name} is now ${e.target.value}`)}
+        className={selectCls}
+      >
+        {['USER', 'ORGANIZER', 'ADMIN'].map((r) => <option key={r} value={r}>{r}</option>)}
+      </select>
+    );
     if (key === 'status') return <Pill tone={statusTone(u.status)}>{u.status}</Pill>;
-    if (key === 'joined') return <span className="text-ink-soft">{u.joined}</span>;
+    if (key === 'joined') return <span className="text-ink-soft">{fmtDate(u.joined)}</span>;
     if (key === 'orders') return <span className="font-medium text-ink">{u.orders}</span>;
     if (key === 'action') {
       const suspended = u.status === 'SUSPENDED';
       return (
-        <Btn size="sm" variant={suspended ? 'ghost' : 'danger'}
-          onClick={() => pushToast(`${suspended ? 'Activated' : 'Suspended'} ${u.name}`)}>
+        <Btn size="sm" variant={suspended ? 'ghost' : 'danger'} disabled={busyId === u.id}
+          onClick={() => patch(u, { status: suspended ? 'ACTIVE' : 'SUSPENDED' }, `${suspended ? 'Reactivated' : 'Suspended'} ${u.name}`)}>
           {suspended ? 'Activate' : 'Suspend'}
         </Btn>
       );
@@ -62,17 +77,19 @@ export default function Users() {
 
   return (
     <div>
-      <PageHead title="Users" subtitle={`${users.length} registered`} />
+      <PageHead title="Users" subtitle={data ? `${data.total} registered` : undefined} />
       <Card className="mb-5">
         <div className="flex flex-wrap items-center gap-3">
-          <SearchInput value={query} onChange={setQuery} placeholder="Search name or email…" />
-          <select value={role} onChange={(e) => setRole(e.target.value)}
-            className="h-9 rounded-md border border-line bg-white px-3 text-[13px] text-ink outline-none transition focus:border-brand">
-            {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r === 'All' ? 'All roles' : r}</option>)}
+          <SearchInput value={query} onChange={setQuery} placeholder="Search name or email…" className="max-w-xs" />
+          <select value={role} onChange={(e) => setRole(e.target.value)} className={selectCls} aria-label="Filter by role">
+            {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r || 'All roles'}</option>)}
+          </select>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls} aria-label="Filter by status">
+            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || 'All statuses'}</option>)}
           </select>
         </div>
       </Card>
-      <Table columns={COLUMNS} rows={rows} renderCell={renderCell} empty="No users match your filters." />
+      {!data ? <Loading /> : <Table columns={COLUMNS} rows={data.users} renderCell={renderCell} empty="No users match your filters." />}
     </div>
   );
 }

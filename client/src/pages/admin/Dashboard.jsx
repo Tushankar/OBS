@@ -1,25 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../lib/api';
-import { PageHead, Card, StatCard, StatGrid, Btn, Loading } from '../../components/portal/Kit';
+import api, { apiError } from '../../lib/api';
+import { useApp } from '../../context/AppContext';
+import { PageHead, Card, StatCard, StatGrid, Btn, Loading, formatPrice } from '../../components/portal/Kit';
 
 const ACTIONS = [
-  ['📝', 'Review approvals', '/admin/approvals'],
-  ['💳', 'View transactions', '/admin/transactions'],
-  ['↩️', 'Manage refunds', '/admin/refunds'],
-  ['📊', 'Open reports', '/admin/reports'],
+  ['🏢', 'Organizers', '/admin/organizers'],
+  ['🗓️', 'Events', '/admin/events'],
+  ['💳', 'Transactions', '/admin/transactions'],
+  ['↩️', 'Refunds', '/admin/refunds'],
 ];
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { pushToast } = useApp();
   const [kpis, setKpis] = useState(null);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => {
-    let alive = true;
-    api.adminDashboard().then((d) => { if (alive) setKpis(Array.isArray(d) ? d : []); });
-    return () => { alive = false; };
-  }, []);
+    api.adminDashboard().then(setKpis).catch((e) => pushToast(apiError(e), false));
+  }, [pushToast]);
 
   return (
     <div>
@@ -29,9 +29,10 @@ export default function Dashboard() {
         <Loading />
       ) : (
         <StatGrid>
-          {kpis.map(([label, value], i) => (
-            <StatCard key={label || i} label={label} value={value} money={i === 2} />
-          ))}
+          <StatCard label="Users" value={kpis.users} icon="👤" />
+          <StatCard label="Organizers" value={kpis.organizers} icon="🏢" />
+          <StatCard label="Gross revenue" value={formatPrice(kpis.grossRevenue, kpis.currency)} icon="💰" hint={`${kpis.paidOrders} paid orders`} />
+          <StatCard label="Live events" value={kpis.publishedEvents} icon="🗓️" hint={`${kpis.pendingApprovals} awaiting review`} />
         </StatGrid>
       )}
 

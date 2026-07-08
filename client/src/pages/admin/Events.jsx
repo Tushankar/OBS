@@ -52,6 +52,19 @@ export default function Events() {
     }
   }
 
+  async function toggleFeature(ev) {
+    setBusyId(ev.id);
+    try {
+      await api.featureEvent(ev.id, !ev.isFeatured);
+      pushToast(ev.isFeatured ? `Unfeatured “${ev.title}”` : `Featured “${ev.title}”`);
+      load();
+    } catch (e) {
+      pushToast(apiError(e, 'Action failed'), false);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const columns = [
     { key: 'title', label: 'Event' },
     { key: 'organizer', label: 'Organizer' },
@@ -65,7 +78,10 @@ export default function Events() {
       case 'title':
         return (
           <div>
-            <div className="font-semibold text-ink">{ev.title}</div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-ink">{ev.title}</span>
+              {ev.isFeatured && <Pill tone="brand">★ Featured</Pill>}
+            </div>
             <div className="text-[12px] text-ink-mute">{ev.category?.name || '—'} · {ev.isOnline ? 'Online' : ev.city || 'Venue TBC'}</div>
           </div>
         );
@@ -81,6 +97,15 @@ export default function Events() {
             <div className="flex justify-end gap-2">
               <Btn size="sm" disabled={busyId === ev.id} onClick={() => decide('approve', ev)}>Approve</Btn>
               <Btn size="sm" variant="danger" disabled={busyId === ev.id} onClick={() => decide('reject', ev)}>Reject</Btn>
+            </div>
+          );
+        }
+        if (ev.status === 'PUBLISHED') {
+          return (
+            <div className="flex justify-end">
+              <Btn size="sm" variant={ev.isFeatured ? 'outline' : 'ghost'} disabled={busyId === ev.id} onClick={() => toggleFeature(ev)}>
+                {ev.isFeatured ? 'Unfeature' : 'Feature'}
+              </Btn>
             </div>
           );
         }
