@@ -1,7 +1,7 @@
 # OBS EVENTS — PROGRESS
 
-Current phase: 2 — IN PROGRESS (checkout, payments, ticketing)
-Last session: 2026-07-09 — Phase 2 started. Tasks 2.1 (21/21) + 2.2 (34/34) + 2.3 Razorpay (19/19) + 2.4 Stripe (13/13) + 2.5 fulfilment (12/12) + 2.6 checkout+booking (6/6) + 2.7 my-tickets/orders (8/8) COMPLETE ✅; only 2.8 (validation page) left. Phases 0–1 complete before this (Phase 1 EXIT 17/17). Demo organizer: demo.organizer@obs.events / Organizer@123 (APPROVED) + 3 seeded published events.
+Current phase: 2 → COMPLETE ✅ (awaiting user go-ahead for Phase 3)
+Last session: 2026-07-09 — Phase 2 COMPLETE ✅. All 8 tasks done + EXIT dry-run 8/8 (2.1 21 · 2.2 34 · 2.3 19 · 2.4 13 · 2.5 12 · 2.6 6 · 2.7 8 · 2.8 6). Booking→checkout→pay→tickets works for free/promo/Razorpay/Stripe (webhooks are the source of truth); hold expiry restores inventory. **Human EXIT sign-off remaining**: live gateway checkout with real test keys (Razorpay checkout.js + Stripe Elements + dashboard webhooks via tunnel), and real S3 objects + inbox delivery (needs AWS creds; SMTP is live). Next: await go-ahead for Phase 3 (organizer dashboard, registrations export, check-in scanner, refunds, admin panel). Do NOT start Phase 3.
 Env note: SERVICE_FEE_PERCENT=5, ORDER_HOLD_MINUTES=15 set; **gateway keys (Razorpay/Stripe) + AWS creds are EMPTY**, SMTP (Gmail) is set. So webhook fulfilment is verified via locally-signed payloads; live gateway create/dashboard-webhooks + real S3 objects are the Phase-2 EXIT human sign-off. Verify scripts run with `SMTP_HOST=` to force jsonTransport (no real sends).
 Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) — see obs-events-build-plan.md v1.1
 
@@ -31,7 +31,7 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 - [x] 2.6 Checkout page (countdown, gateway selector) + success page + live booking card on event details
 - [x] 2.7 My tickets, ticket detail (QR, PDF, .ics), order history
 - [x] 2.8 Public validation page /t/:token
-- [ ] EXIT: paid (both gateways), free, and promo flows produce tickets; PDFs in S3 + inbox; expiry restores inventory
+- [x] EXIT: paid (both gateways), free, and promo flows produce tickets; PDFs in S3 + inbox; expiry restores inventory — ✅ dry-run 8/8 (2026-07-09): free + promo + Razorpay-webhook + Stripe-webhook flows all produce tickets + invoice + emails; hold expiry restores inventory; produced ticket validates publicly. **Live-keys sign-off pending** (real gateway checkout in test mode + real S3 objects + inbox — needs Razorpay/Stripe test keys + AWS creds; run `npm run dev` both workspaces).
 
 ## Phase 3 — Organizer & admin operations
 - [ ] 3.1 Organizer dashboard KPIs
@@ -171,3 +171,5 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
   - Server: `modules/tickets/tickets.public.routes.js` + validateByToken (masked name); mounted public `/api/v1/tickets/validate/:qrToken`.
   - Client: `api.validateTicket`; rewrote `Validate` (fetch by token → VALID/USED/CANCELLED/not-found); route `/t/:status`→`/t/:token`.
   - Verified: E2E **6/6** — VALID (public, event+venue+masked name+ticketNumber), USED (+checkedInAt), CANCELLED, unknown token 404. Client build clean.
+- 2026-07-09 · Phase 2 EXIT dry-run — **8/8** ✅
+  - One consolidated run: FREE order → PAID + ticket + REGISTRATION_CONFIRMATION; PROMO (SAVE20 20%) order (money exact 100000/−20000/+4000=84000) → Razorpay captured webhook → PAID + 2 tickets + invoice OBS-INV + PAYMENT_SUCCESS + TICKET_DELIVERY + promo usedCount++; Stripe succeeded webhook → PAID + ticket + invoice; hold expiry (`expireOrders`) → EXPIRED + inventory restored; a produced ticket validates publicly (VALID). Webhooks signed locally (dummy secrets); jsonTransport (no real sends). **Not automatable (human/keys sign-off)**: live Razorpay/Stripe test-mode checkout via the browser + dashboard webhook delivery, and real S3 object creation + email inbox delivery.
