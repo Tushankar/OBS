@@ -21,6 +21,16 @@ export const env = {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
+  // Auth (Phase 0.3)
+  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || '',
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || '',
+  ACCESS_TOKEN_TTL: process.env.ACCESS_TOKEN_TTL || '15m',
+  REFRESH_TOKEN_TTL: process.env.REFRESH_TOKEN_TTL || '30d',
+  REFRESH_TOKEN_TTL_MS: 30 * 24 * 60 * 60 * 1000, // 30d, for cookie maxAge + session expiry
+  RESET_TOKEN_TTL: process.env.RESET_TOKEN_TTL || '30m',
+  REFRESH_COOKIE_NAME: 'obs_rt',
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
 };
 
 export const isProd = env.NODE_ENV === 'production';
