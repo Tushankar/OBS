@@ -31,6 +31,18 @@ export const env = {
   REFRESH_COOKIE_NAME: 'obs_rt',
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+  // Storage: AWS S3 (Phase 0.4)
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
+  AWS_REGION: process.env.AWS_REGION || 'ap-south-1',
+  S3_BUCKET: process.env.S3_BUCKET || 'obs-events',
+  // Email: Nodemailer SMTP (Phase 0.4)
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: Number(process.env.SMTP_PORT) || 587,
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  EMAIL_FROM: process.env.EMAIL_FROM || 'OBS Events <tickets@obs.business>',
 };
 
 export const isProd = env.NODE_ENV === 'production';

@@ -12,6 +12,8 @@ import {
   newJti,
 } from '../../utils/tokens.js';
 import { badRequest, unauthorized, conflict, forbidden, notFoundError } from '../../utils/errors.js';
+import { sendMail } from '../../utils/mailer.js';
+import { isMailerConfigured } from '../../config/mailer.js';
 
 const BCRYPT_COST = 12;
 const googleClient = env.GOOGLE_CLIENT_ID ? new OAuth2Client(env.GOOGLE_CLIENT_ID) : null;
@@ -149,8 +151,19 @@ export async function forgotPassword({ email }) {
   if (user) {
     const token = signResetToken(user);
     const resetUrl = `${env.APP_URL}/reset-password?token=${token}`;
-    // TODO(0.4): send via the Nodemailer mailer util + write an EmailLog (PASSWORD_RESET).
-    console.log(`[DEV] Password reset link for ${user.email}: ${resetUrl}`);
+    if (!isMailerConfigured()) console.log(`[DEV] Password reset link for ${user.email}: ${resetUrl}`);
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'Reset your OBS Events password',
+        type: 'PASSWORD_RESET',
+        userId: user._id,
+        text: `Reset your OBS Events password: ${resetUrl}\n\nThis link expires in 30 minutes. If you didn't request this, ignore this email.`,
+        html: `<p>Reset your OBS Events password by clicking the link below:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>This link expires in 30 minutes. If you didn't request this, you can safely ignore this email.</p>`,
+      });
+    } catch (e) {
+      console.error('[forgot-password] mail send failed:', e.message);
+    }
   }
   // Always 200 — do not reveal whether the email exists.
   return { ok: true };
