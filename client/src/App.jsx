@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import AuthModal from './components/layout/AuthModal';
@@ -48,7 +48,12 @@ import CreateChapter from './pages/public/CreateChapter';
 import MyChapters from './pages/account/MyChapters';
 
 import { useApp } from './context/AppContext';
-import { RequireAuth } from './components/guards/RequireAuth';
+import { RequireAuth, RequireRole } from './components/guards/RequireAuth';
+
+// Organizer + admin portals (Phase 1)
+import Apply from './pages/organizer/Apply';
+import AdminLayout from './components/portal/AdminLayout';
+import AdminOrganizers from './pages/admin/Organizers';
 
 export default function App() {
   const { authOpen, setAuthOpen } = useApp();
@@ -86,6 +91,15 @@ export default function App() {
 
                   {/* Account chapters route */}
                   <Route path="/account/chapters" element={<RequireAuth><MyChapters /></RequireAuth>} />
+
+                  {/* Organizer self-service (real gated application) */}
+                  <Route path="/organizer/apply" element={<RequireAuth><Apply /></RequireAuth>} />
+
+                  {/* Admin portal (ADMIN role only) */}
+                  <Route element={<RequireRole roles={['ADMIN']}><AdminLayout /></RequireRole>}>
+                    <Route path="/admin" element={<Navigate to="/admin/organizers" replace />} />
+                    <Route path="/admin/organizers" element={<AdminOrganizers />} />
+                  </Route>
                   
                   <Route path="/chapters" element={<Chapters />} />
                   <Route path="/chapters/:slug" element={<ChapterDetail />} />

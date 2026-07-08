@@ -1,60 +1,88 @@
-import { useEffect, useState } from 'react';
-import api from '../../lib/api';
+import { useEffect, useState, useCallback } from 'react';
+import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-import { PageHead, Table, Pill, statusTone, Btn, Loading } from '../../components/portal/Kit';
+import { PageHead, Table, Pill, statusTone, Btn, Tabs, Loading } from '../../components/portal/Kit';
+
+const TABS = [
+  ['PENDING', 'Pending'],
+  ['APPROVED', 'Approved'],
+  ['REJECTED', 'Rejected'],
+  ['ALL', 'All'],
+];
+
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
 export default function Organizers() {
   const { pushToast } = useApp();
+  const [tab, setTab] = useState('PENDING');
   const [orgs, setOrgs] = useState(null);
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  useEffect(() => {
-    let alive = true;
-    api.adminOrganizers().then((d) => { if (alive) setOrgs(d || []); });
-    return () => { alive = false; };
-  }, []);
 
-  if (!orgs) return <Loading />;
+  const load = useCallback(() => {
+    setOrgs(null);
+    const params = tab === 'ALL' ? undefined : { status: tab };
+    api.adminOrganizers(params)
+      .then((d) => setOrgs(d || []))
+      .catch((e) => { setOrgs([]); pushToast(apiError(e), false); });
+  }, [tab, pushToast]);
 
-  const act = (verb, o) => pushToast(`${verb} ${o.orgName}`);
+  useEffect(() => { load(); }, [load]);
+
+  async function decide(action, o) {
+    setBusyId(o.id);
+    try {
+      if (action === 'approve') {
+        await api.approveOrganizer(o.id);
+        pushToast(`Approved ${o.orgName}`);
+      } else {
+        const reason = window.prompt(`Reject "${o.orgName}"? Optional reason (emailed to the applicant):`, '');
+        if (reason === null) { setBusyId(null); return; } // cancelled the prompt
+        await api.rejectOrganizer(o.id, reason.trim() || undefined);
+        pushToast(`Rejected ${o.orgName}`);
+      }
+      load();
+    } catch (e) {
+      pushToast(apiError(e, 'Action failed'), false);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   const columns = [
     { key: 'org', label: 'Organizer' },
-    { key: 'events', label: 'Events' },
-    { key: 'rating', label: 'Rating' },
     { key: 'status', label: 'Status' },
+    { key: 'applied', label: 'Applied' },
     { key: 'actions', label: 'Actions', align: 'right' },
   ];
 
   const renderCell = (o, key) => {
-    const stats = o.stats || {};
     switch (key) {
       case 'org':
         return (
           <div>
             <div className="font-semibold text-ink">{o.orgName}</div>
-            {o.appliedAt && <div className="text-[12px] text-ink-mute">Applied {o.appliedAt}</div>}
+            <div className="text-[12px] text-ink-mute">
+              {o.user?.email || '—'}{o.website ? ` · ${o.website}` : ''}
+            </div>
           </div>
         );
-      case 'events':
-        return <span className="text-ink-soft">{stats.eventsHosted ?? 0}</span>;
-      case 'rating':
-        return <span className="text-ink-soft">{stats.rating != null ? `${stats.rating}★` : '—'}</span>;
       case 'status':
         return <Pill tone={statusTone(o.status)}>{o.status}</Pill>;
+      case 'applied':
+        return <span className="text-ink-soft">{fmtDate(o.appliedAt)}</span>;
       case 'actions':
-        return (
-          <div className="flex justify-end gap-2">
-            {o.status === 'PENDING' ? (
-              <>
-                <Btn size="sm" onClick={() => act('Approved', o)}>Approve</Btn>
-                <Btn size="sm" variant="danger" onClick={() => act('Rejected', o)}>Reject</Btn>
-              </>
-            ) : (
-              <Btn size="sm" variant="ghost" onClick={() => act('Suspended', o)}>Suspend</Btn>
-            )}
-          </div>
-        );
+        if (o.status === 'PENDING') {
+          return (
+            <div className="flex justify-end gap-2">
+              <Btn size="sm" disabled={busyId === o.id} onClick={() => decide('approve', o)}>Approve</Btn>
+              <Btn size="sm" variant="danger" disabled={busyId === o.id} onClick={() => decide('reject', o)}>Reject</Btn>
+            </div>
+          );
+        }
+        return <span className="text-[12px] text-ink-faint">—</span>;
       default:
         return null;
     }
@@ -62,8 +90,16 @@ export default function Organizers() {
 
   return (
     <div>
-      <PageHead title="Organizers" subtitle={`${orgs.length} organizer${orgs.length === 1 ? '' : 's'}`} />
-      <Table columns={columns} rows={orgs} renderCell={renderCell} empty="No organizers yet." />
+      <PageHead
+        title="Organizers"
+        subtitle={orgs ? `${orgs.length} ${tab === 'ALL' ? 'total' : tab.toLowerCase()}` : 'Review organizer applications.'}
+      />
+      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      {orgs === null ? (
+        <Loading />
+      ) : (
+        <Table columns={columns} rows={orgs} renderCell={renderCell} empty="No organizer applications here." />
+      )}
     </div>
   );
 }

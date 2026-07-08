@@ -5,6 +5,8 @@ import { env } from './config/env.js';
 import { globalLimiter } from './middleware/rateLimit.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './modules/auth/auth.routes.js';
+import organizerRoutes from './modules/organizers/organizers.routes.js';
+import adminRoutes from './modules/admin/admin.routes.js';
 
 // Builds and configures the Express app. Domain modules mount under /api/v1;
 // auth is live from Phase 0.3, the rest arrive in later phases.
@@ -28,6 +30,8 @@ export function createApp() {
   });
 
   app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/organizer', organizerRoutes);
+  app.use('/api/v1/admin', adminRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

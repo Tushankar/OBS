@@ -66,7 +66,7 @@ export default function ListYourEvent() {
         eyebrow="For organizers"
         title="List your event on OBS."
         subtitle="Reach engaged members across 108 chapters. Set up ticketing in minutes, scan at the door, and get paid securely."
-        cta={<a href="#apply" className="bg-gold-gradient rounded-full border border-[#F3CD70]/30 px-8 py-3 text-[13px] font-extrabold uppercase tracking-wider text-black shadow-lg transition hover:brightness-110">Get started — it’s free</a>}
+        cta={<button onClick={() => navigate('/organizer/apply')} className="bg-gold-gradient rounded-full border border-[#F3CD70]/30 px-8 py-3 text-[13px] font-extrabold uppercase tracking-wider text-black shadow-lg transition hover:brightness-110">Get started — it’s free</button>}
       />
 
       <section className="mx-auto -mt-10 max-w-container px-4 sm:-mt-12 sm:px-6">
@@ -99,7 +99,7 @@ export default function ListYourEvent() {
             <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-brand">Why OBS</div>
             <h2 className="mt-2 text-[26px] font-extrabold text-ink sm:text-3xl">Everything you need to sell out</h2>
           </div>
-          <a href="#apply" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand transition hover:text-brand-dark">Apply now <Icon.ChevronRight width={13} height={13} /></a>
+          <button onClick={() => navigate('/organizer/apply')} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand transition hover:text-brand-dark">Apply now <Icon.ChevronRight width={13} height={13} /></button>
         </div>
         <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {LYE_BENEFITS.map(([, h, b]) => {

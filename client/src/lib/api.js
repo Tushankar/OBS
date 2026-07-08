@@ -61,4 +61,25 @@ export function apiError(err, fallback = 'Something went wrong') {
   return err?.response?.data?.error?.message || err?.message || fallback;
 }
 
+// Expose the typed error CODE (e.g. 'APPLICATION_PENDING') for branching.
+export function apiErrorCode(err) {
+  return err?.response?.data?.error?.code || null;
+}
+
+// ---------------------------------------------------------------------------
+// Domain API methods. Portal pages call these (e.g. api.applyOrganizer(...))
+// and receive the unwrapped payload, not the axios response. Added per task.
+// ---------------------------------------------------------------------------
+const unwrap = (p) => p.then((r) => r.data);
+
+// Organizer self-service (Phase 1.1)
+api.applyOrganizer = (body) => unwrap(api.post('/organizer/apply', body)).then((d) => d.organizer);
+api.myOrganizerProfile = () => unwrap(api.get('/organizer/me')).then((d) => d.organizer);
+
+// Admin — organizers (Phase 1.1)
+api.adminOrganizers = (params) => unwrap(api.get('/admin/organizers', { params })).then((d) => d.organizers);
+api.approveOrganizer = (id) => unwrap(api.post(`/admin/organizers/${id}/approve`)).then((d) => d.organizer);
+api.rejectOrganizer = (id, reason) =>
+  unwrap(api.post(`/admin/organizers/${id}/reject`, { reason })).then((d) => d.organizer);
+
 export default api;

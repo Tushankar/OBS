@@ -1,32 +1,26 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Btn } from '../../components/portal/Kit';
+import { Card, Btn, Field, inputCls, Loading, Pill, statusTone } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
-import api from '../../lib/api';
+import api, { apiError, apiErrorCode } from '../../lib/api';
 
 const WEBSITE_RE = /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i;
 
-function Field({ label, error, children }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-[13px] font-semibold text-ink-soft">{label}</span>
-      {children}
-      {error && <span className="mt-1 block text-[12px] text-brand">{error}</span>}
-    </label>
-  );
-}
-
-const inputCls =
-  'w-full rounded-md border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand';
-
 export default function Apply() {
   const { pushToast } = useApp();
+  const [profile, setProfile] = useState(undefined); // undefined = loading · null = none · object = exists
   const [form, setForm] = useState({ orgName: '', bio: '', website: '' });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    let alive = true;
+    api.myOrganizerProfile()
+      .then((p) => { if (alive) setProfile(p); })
+      .catch(() => { if (alive) setProfile(null); });
+    return () => { alive = false; };
+  }, []);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -44,35 +38,68 @@ export default function Apply() {
     if (Object.keys(next).length) return;
     setSubmitting(true);
     try {
-      await api.applyOrganizer({ ...form, orgName: form.orgName.trim(), website: form.website.trim() });
-      setDone(true);
+      const created = await api.applyOrganizer({
+        orgName: form.orgName.trim(),
+        bio: form.bio.trim() || undefined,
+        website: form.website.trim() || undefined,
+      });
+      setProfile(created);
       pushToast('Application submitted');
-    } catch {
-      pushToast('Could not submit application. Try again.', false);
+    } catch (err) {
+      const code = apiErrorCode(err);
+      // If the server already has a decision for us, reflect the real state.
+      if (code === 'ALREADY_ORGANIZER' || code === 'APPLICATION_PENDING' || code === 'ORGANIZER_SUSPENDED') {
+        api.myOrganizerProfile().then(setProfile).catch(() => {});
+      }
+      pushToast(apiError(err, 'Could not submit application. Try again.'), false);
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (done) {
+  if (profile === undefined) {
+    return <div className="mx-auto max-w-[560px] px-4 pb-16 pt-10 sm:px-6"><Loading /></div>;
+  }
+
+  // A live application (PENDING/APPROVED/SUSPENDED) → show status, not the form.
+  if (profile && profile.status !== 'REJECTED') {
+    const approved = profile.status === 'APPROVED';
     return (
       <div className="mx-auto max-w-[560px] px-4 pb-16 pt-10 sm:px-6">
         <Card className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#E7F7EC] text-[28px] text-success">✓</div>
-          <h1 className="mt-4 text-xl font-bold text-ink">Application received</h1>
-          <p className="mt-2 text-[14px] text-ink-mute">Our team reviews within 2 business days.</p>
+          <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-[28px] ${approved ? 'bg-[#E7F7EC] text-success' : 'bg-brand-soft text-brand-dark'}`}>
+            {approved ? '✓' : '⏳'}
+          </div>
+          <h1 className="mt-4 text-xl font-bold text-ink">
+            {approved ? "You're an approved organizer" : 'Application received'}
+          </h1>
+          <p className="mt-2 text-[14px] text-ink-mute">
+            {approved
+              ? 'You can now create and submit events from your organizer portal.'
+              : 'Our team reviews within 2 business days — we’ll email you when there’s an update.'}
+          </p>
+          <div className="mt-3 flex items-center justify-center gap-2 text-[13px] text-ink-soft">
+            <span className="font-semibold">{profile.orgName}</span>
+            <Pill tone={statusTone(profile.status)}>{profile.status}</Pill>
+          </div>
           <div className="mt-6">
-            <Link to="/organizer"><Btn>Back to organizer</Btn></Link>
+            <Link to="/"><Btn variant="outline">Back to home</Btn></Link>
           </div>
         </Card>
       </div>
     );
   }
 
+  // No application yet, or a previously REJECTED one → show the form.
   return (
     <div className="mx-auto max-w-[560px] px-4 pb-16 pt-10 sm:px-6">
       <h1 className="text-xl font-bold text-ink sm:text-[22px]">Become an organizer</h1>
       <p className="mt-1 text-[13px] text-ink-mute">Tell us about your organization to start hosting events.</p>
+      {profile?.status === 'REJECTED' && (
+        <div className="mt-4 rounded-md border border-line bg-brand-soft/40 px-4 py-3 text-[13px] text-ink-soft">
+          Your previous application wasn’t approved. Update your details below and re-apply.
+        </div>
+      )}
       <Card className="mt-5">
         <form onSubmit={onSubmit} className="grid gap-4" noValidate>
           <Field label="Organization name" error={errors.orgName}>
