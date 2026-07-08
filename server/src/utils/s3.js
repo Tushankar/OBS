@@ -1,7 +1,18 @@
 import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3 } from '../config/s3.js';
-import { env } from '../config/env.js';
+import { env, isProd } from '../config/env.js';
+
+// True when we should attempt real uploads: explicit keys (dev/prod) or prod
+// (EC2 IAM role). In dev without keys we skip uploads (avoid an IMDS hang) and
+// rely on the emailed PDF attachments instead.
+export const isS3Configured = () => !!env.AWS_ACCESS_KEY_ID || isProd;
+
+// Server-side upload (ticket/invoice PDFs). Returns the object URL.
+export async function putObject({ key, body, contentType }) {
+  await s3.send(new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Body: body, ContentType: contentType }));
+  return objectUrl(key);
+}
 
 // Presigned PUT — client uploads directly to S3 (banners, ticket PDFs, avatars).
 export function presignPut({ key, contentType, expiresIn = 300 }) {
