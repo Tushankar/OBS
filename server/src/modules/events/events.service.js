@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Event, Category, Chapter } from '../../models/index.js';
+import { Event, Category, Chapter, TicketType } from '../../models/index.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { presignPut, objectUrl } from '../../utils/s3.js';
 import { AppError, badRequest, conflict, forbidden, notFoundError } from '../../utils/errors.js';
@@ -283,6 +283,30 @@ function publicEventFull(e) {
 
 const VIEWABLE = ['PUBLISHED', 'COMPLETED'];
 
+// Public shape for a bookable ticket type (booking card). `onSale` folds active
+// + sale-window + availability into one flag for the UI.
+function publicTicketType(t) {
+  const now = new Date();
+  const available = Math.max(0, t.quantityTotal - t.quantitySold);
+  const onSale =
+    t.isActive &&
+    available > 0 &&
+    (!t.saleStartAt || now >= t.saleStartAt) &&
+    (!t.saleEndAt || now <= t.saleEndAt);
+  return {
+    id: String(t._id),
+    name: t.name,
+    description: t.description || null,
+    price: t.price, // paise
+    quantityAvailable: available,
+    minPerOrder: t.minPerOrder,
+    maxPerOrder: t.maxPerOrder,
+    saleStartAt: t.saleStartAt || null,
+    saleEndAt: t.saleEndAt || null,
+    onSale,
+  };
+}
+
 export async function getPublicEventBySlug(slug) {
   const event = await Event.findOne({ slug, status: { $in: VIEWABLE } })
     .populate('categoryId', 'name slug')
@@ -291,7 +315,8 @@ export async function getPublicEventBySlug(slug) {
   if (!event) throw notFoundError('EVENT_NOT_FOUND', 'Event not found');
   // Best-effort view counter (don't block the response).
   Event.updateOne({ _id: event._id }, { $inc: { viewsCount: 1 } }).catch(() => {});
-  return publicEventFull(event);
+  const ticketTypes = await TicketType.find({ eventId: event._id, isActive: true }).sort({ price: 1, createdAt: 1 });
+  return { ...publicEventFull(event), ticketTypes: ticketTypes.map(publicTicketType) };
 }
 
 // Next 4 upcoming published events sharing the category or chapter.
