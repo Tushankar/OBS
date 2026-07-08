@@ -57,6 +57,7 @@ import OrganizerDashboard from './pages/organizer/Dashboard';
 import OrganizerEvents from './pages/organizer/Events';
 import EventWizard from './pages/organizer/EventWizard';
 import OrganizerRegistrations from './pages/organizer/Registrations';
+import OrganizerCheckIn from './pages/organizer/CheckIn';
 import AdminLayout from './components/portal/AdminLayout';
 import AdminOrganizers from './pages/admin/Organizers';
 import AdminEvents from './pages/admin/Events';
@@ -108,6 +109,7 @@ export default function App() {
                     <Route path="/organizer/events/new" element={<EventWizard />} />
                     <Route path="/organizer/events/:id/edit" element={<EventWizard />} />
                     <Route path="/organizer/events/:id/registrations" element={<OrganizerRegistrations />} />
+                    <Route path="/organizer/events/:id/checkin" element={<OrganizerCheckIn />} />
                   </Route>
 
                   {/* Admin portal (ADMIN role only) */}
