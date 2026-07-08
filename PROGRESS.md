@@ -1,7 +1,7 @@
 # OBS EVENTS — PROGRESS
 
-Current phase: 3 — IN PROGRESS (organizer & admin operations)
-Last session: 2026-07-09 — Phase 3 started. Tasks 3.1 (dashboard 7/7) + 3.2 (registrations + XLSX export 11/11) + 3.3 (check-in + scanner 11/11) + 3.4 (refunds 27/27) COMPLETE ✅. Phase 2 complete before this (EXIT 8/8; live gateway checkout + real S3/inbox remain the human sign-off). Demo organizer: demo.organizer@obs.events / Organizer@123 (APPROVED) + 3 seeded published events. Verify scripts run with `SMTP_HOST=` (jsonTransport) + dummy `RAZORPAY_WEBHOOK_SECRET`/`STRIPE_WEBHOOK_SECRET` for webhook tests.
+Current phase: 3 — COMPLETE ✅ (organizer & admin operations). Next: await user go-ahead for Phase 4 (reports/automation/deploy) — do NOT start it unprompted.
+Last session: 2026-07-09 — Phase 3 COMPLETE. Tasks 3.1 (dashboard 7/7) + 3.2 (registrations + XLSX export 11/11) + 3.3 (check-in + scanner 11/11) + 3.4 (refunds 27/27) + 3.5 (admin panel 33/33) ✅ + EXIT dry run 19/19 ✅. Live-keys sign-off (real gateway order/refund calls + S3/inbox) carries over from Phase 2 as the remaining human sign-off. Phase 2 complete before this (EXIT 8/8; live gateway checkout + real S3/inbox remain the human sign-off). Demo organizer: demo.organizer@obs.events / Organizer@123 (APPROVED) + 3 seeded published events. Verify scripts run with `SMTP_HOST=` (jsonTransport) + dummy `RAZORPAY_WEBHOOK_SECRET`/`STRIPE_WEBHOOK_SECRET` for webhook tests.
 Env note: SERVICE_FEE_PERCENT=5, ORDER_HOLD_MINUTES=15 set; **gateway keys (Razorpay/Stripe) + AWS creds are EMPTY**, SMTP (Gmail) is set. So webhook fulfilment is verified via locally-signed payloads; live gateway create/dashboard-webhooks + real S3 objects are the Phase-2 EXIT human sign-off. Verify scripts run with `SMTP_HOST=` to force jsonTransport (no real sends).
 Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) — see obs-events-build-plan.md v1.1
 
@@ -33,13 +33,13 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 - [x] 2.8 Public validation page /t/:token
 - [x] EXIT: paid (both gateways), free, and promo flows produce tickets; PDFs in S3 + inbox; expiry restores inventory — ✅ dry-run 8/8 (2026-07-09): free + promo + Razorpay-webhook + Stripe-webhook flows all produce tickets + invoice + emails; hold expiry restores inventory; produced ticket validates publicly. **Live-keys sign-off pending** (real gateway checkout in test mode + real S3 objects + inbox — needs Razorpay/Stripe test keys + AWS creds; run `npm run dev` both workspaces).
 
-## Phase 3 — Organizer & admin operations
+## Phase 3 — Organizer & admin operations ✅ COMPLETE
 - [x] 3.1 Organizer dashboard KPIs
 - [x] 3.2 Registrations table + XLSX export (exceljs)
 - [x] 3.3 Check-in endpoint §8.4 + scanner page (html5-qrcode) + stats
 - [x] 3.4 Refund request → admin queue → gateway refund → webhook completion §8.5 + inventory restore + emails
 - [x] 3.5 Admin: users, organizers, events moderation (+feature toggle), transactions, categories CRUD, chapters CRUD (all hierarchy fields), CMS CRUD + public render, AuditLog on mutations
-- [ ] EXIT: full dry run — create → approve → sell (test) → export → check in → refund one order
+- [x] EXIT: full dry run — create → approve → sell (test) → export → check in → refund one order — ✅ **19/19** (2026-07-09): one event driven end to end — DRAFT→submit→admin PUBLISH; buyer order (PENDING, ₹1,050 = 2×₹500 + 5% fee) → signed Razorpay capture webhook → PAID + 2 VALID tickets + inventory held; registrations list + XLSX export (PK zip); check-in one ticket → USED (stats 1/2, double-scan 409); refund-request → REFUND_REQUESTED → (admin approve = live-key sign-off, simulated) → signed refund.processed webhook → order+tickets REFUNDED + inventory restored + REFUND_PROCESSED email. **Live-keys sign-off pending** (real Razorpay/Stripe order+refund calls in test mode + real S3/inbox — same as Phase 2 EXIT).
 
 ## Phase 4 — Reports, automation, launch
 - [ ] 4.1 Reports aggregations §11 + admin reports page (recharts)
