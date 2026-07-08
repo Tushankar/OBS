@@ -1,11 +1,11 @@
 # OBS EVENTS — MASTER BUILD PLAN
 
-**One Business Season · Global event discovery & ticketing platform (BookMyShow-style)**
+**One Business Season · Global event discovery & ticketing platform**
 
 > This file is the single source of truth. Every Claude Code session starts by reading this file fully, then `PROGRESS.md`. Build only what is written here. Log every deviation or decision in `PROGRESS.md → Decisions`. Never start a phase before the previous phase's exit criteria pass.
 
-Version 1.1 · July 2026 — MERN revision (MongoDB + Mongoose, React SPA)
-Spec sources: `New_Model_OBS.docx` (108-chapter portfolio) + platform feature map image (user journey, 8 modules, tech stack). UI reference: BookMyShow.
+Version 1.3 · July 2026 — MERN + order/payment state model + Google Maps + community & content layer (sponsors, 100 Days Program, speakers, media, launches, open chapter creation)
+Spec sources: `New_Model_OBS.docx` (108-chapter portfolio) + platform feature map image (user journey, 8 modules, tech stack).
 
 ---
 
@@ -13,7 +13,7 @@ Spec sources: `New_Model_OBS.docx` (108-chapter portfolio) + platform feature ma
 
 **Core journey:** User → Discover event → Register → Pay → Receive ticket (QR).
 
-**What makes this different from a generic BookMyShow clone:** events belong to OBS **Chapters** (108 seeded — 54 country, 4 city, 50 thematic). Chapter is a first-class entity: a browse filter, a public page with its own upcoming events, and a joinable community.
+**What makes this different from a generic ticketing site:** events belong to OBS **Chapters** (108 seeded — 54 country, 4 city, 50 thematic). Chapter is a first-class entity: a browse filter, a public page with its own upcoming events, and a joinable community.
 
 **The 8 modules (locked scope, from the feature map):**
 
@@ -36,12 +36,13 @@ Spec sources: `New_Model_OBS.docx` (108-chapter portfolio) + platform feature ma
 | Backend | Node.js 20 + Express (ES modules) | REST API |
 | Database | MongoDB (Atlas) + Mongoose 8 | Multi-document transactions require a replica set — Atlas works out of the box; run local `mongod` as a single-node replica set in dev |
 | Storage | AWS S3 | Banners, ticket PDFs, invoices; presigned uploads |
-| Email | SendGrid | Nodemailer SMTP fallback behind the same mailer util |
+| Email | Nodemailer (SMTP) | Primary mailer; any SMTP provider (Gmail/Google Workspace, Amazon SES, Mailgun, etc.) plugs into the same provider-agnostic mailer util |
 | Payments | Razorpay (INR) + Stripe (non-INR / toggle) | Webhooks are the single source of truth |
 | Auth | Self-hosted JWT (access 15m + refresh 30d rotation, httpOnly cookie) + Google OAuth 2.0 | Same pattern as Gym OS |
 | QR / PDF | `qrcode`, `pdfkit` | |
 | Excel export | `exceljs` | |
 | Scanner | `html5-qrcode` | |
+| Maps | Google Maps Platform — Places Autocomplete + Geocoding + Maps Embed/JS | Venue address autocomplete, coordinate capture, map display |
 | Jobs | `node-cron` | Order expiry, reminders, event auto-complete |
 | Validation | `zod` on every request body | |
 | Charts | `recharts` (admin reports) | |
@@ -74,7 +75,7 @@ obs-events/
 │       └── router.jsx            # React Router v6 route tree
 ├── server/                       # Express + Mongoose (ES modules)
 │   └── src/
-│       ├── config/               # env, db (mongoose connect), s3, sendgrid, stripe, razorpay
+│       ├── config/               # env, db (mongoose connect), s3, mailer (nodemailer SMTP), stripe, razorpay
 │       ├── middleware/           # requireAuth, requireRole, validate(zod), rateLimit, errorHandler
 │       ├── models/               # one file per collection (§5)
 │       ├── modules/              # auth, users, organizers, chapters, categories, events,
@@ -99,6 +100,8 @@ Module folder convention (server): `modules/<domain>/{<domain>.routes.js, <domai
 | ADMIN | Everything + admin panel: approvals, transactions, refund processing, categories, chapters, CMS, reports |
 
 Single `role` enum on `users`. Organizer capability = role `ORGANIZER` **and** `organizer_profiles.status = APPROVED` (check both in middleware). Admin is created only by the seed script. Every organizer route with `:eventId` must verify ownership.
+
+**Chapter creation is open (v1.3):** any signed-in USER can create a chapter (they become its creator and may edit its description/cover). **Creating events is NOT open** — it stays restricted to APPROVED organizers. User-created chapters are non-official and go live per the moderation choice in §5 (Chapter.status); the 108 seeded chapters are `isOfficial = true`. Admins can approve/suspend, mark official, set tier/flagship, and feature any chapter. [CONFIRM: the source note said both "anybody can add events" and "anyone cannot add event just create chapters" — this plan uses the latter: chapters open, events gated. Flip if intended otherwise.]
 
 ## 5. DATABASE SCHEMA — `server/src/models` (Mongoose)
 
@@ -198,6 +201,7 @@ chapterMemberSchema.index({ chapterId: 1, userId: 1 }, { unique: true });
   country:         String,
   lat:             Number,
   lng:             Number,
+  placeId:         String,                                  // Google Place ID (from Places Autocomplete)
   timezone:        { type: String, default: 'Asia/Kolkata' },
   currency:        { type: String, default: 'INR' },
   startAt:         { type: Date, required: true },
@@ -364,6 +368,127 @@ ticketSchema.index({ eventId: 1, status: 1 });
 
 Deliberate differences vs a SQL layout: `order.items` (with price/name snapshots) and `order.invoice` are embedded subdocuments instead of separate collections; everything else stays its own collection, so the ER relationships hold 1:1.
 
+
+### 5.1 Community & content collections (v1.3)
+
+New string-enum constants (add to `constants.js`):
+```js
+export const SPONSOR_TIER     = ['TITLE','PRESENTING','EVENT','TECHNOLOGY','MEDIA','PARTNER'];
+export const SPONSOR_SCOPE    = ['PLATFORM','PROGRAM','EVENT'];
+export const PARTNER_STATUS   = ['NEW','REVIEWING','APPROVED','DECLINED'];
+export const ARTICLE_TYPE     = ['NEWS','ARTICLE','PRESS'];
+export const ARTICLE_STATUS   = ['DRAFT','PUBLISHED'];
+export const PROGRAM_STATUS   = ['UPCOMING','ACTIVE','ENDED'];
+export const EVENT_OWNERSHIP  = ['OBS','PARTNER'];
+export const CHAPTER_STATUS   = ['APPROVED','PENDING','SUSPENDED'];
+```
+
+Additions to existing schemas:
+```js
+// Chapter — add:
+  createdById: { type: ObjectId, ref: 'User' },             // null for the 108 seeded/official
+  isOfficial:  { type: Boolean, default: false },           // true for seeded chapters
+  status:      { type: String, enum: CHAPTER_STATUS, default: 'APPROVED' },
+  // Moderation choice: user-created chapters default to APPROVED (go live immediately),
+  // admin can SUSPEND or promote to official. Set default 'PENDING' instead if you want
+  // admin review before a user chapter is publicly visible.
+
+// Event — add:
+  ownership:        { type: String, enum: EVENT_OWNERSHIP, default: 'OBS' },  // Our vs Partner event
+  isLaunch:         { type: Boolean, default: false },      // shows on Launchpad
+  launchAt:         Date,                                   // optional countdown target
+  programId:        { type: ObjectId, ref: 'Program' },     // part of a 100 Days edition
+  programDayNumber: { type: Number },                       // 1..100 within that edition
+  speakerIds:       [{ type: ObjectId, ref: 'Speaker' }],   // speakers appearing at this event
+```
+
+```js
+// Sponsor
+{
+  name:      { type: String, required: true },
+  slug:      { type: String, required: true, unique: true },
+  logoUrl:   String,
+  website:   String,
+  tier:      { type: String, enum: SPONSOR_TIER, required: true },
+  scope:     { type: String, enum: SPONSOR_SCOPE, default: 'PLATFORM' },
+  eventId:   { type: ObjectId, ref: 'Event' },              // when scope = EVENT
+  programId: { type: ObjectId, ref: 'Program' },            // when scope = PROGRAM
+  blurb:     String,
+  sortOrder: { type: Number, default: 0 },
+  isActive:  { type: Boolean, default: true },
+}
+
+// PartnerApplication (the "become a sponsor / partner" form)
+{
+  orgName:      { type: String, required: true },
+  contactName:  { type: String, required: true },
+  email:        { type: String, required: true },
+  phone:        String,
+  website:      String,
+  interestTier: { type: String, enum: SPONSOR_TIER },
+  message:      String,
+  status:       { type: String, enum: PARTNER_STATUS, default: 'NEW' },
+  adminNotes:   String,
+}
+
+// Speaker
+{
+  name:       { type: String, required: true },
+  slug:       { type: String, required: true, unique: true },
+  photoUrl:   String,
+  title:      String,                                       // role, e.g. "Partner"
+  company:    String,
+  bio:        String,
+  topics:     [String],
+  linkedin:   String,
+  twitter:    String,
+  website:    String,
+  isFeatured: { type: Boolean, default: false },
+  sortOrder:  { type: Number, default: 0 },
+}
+
+// Article (news / articles / press)
+{
+  title:       { type: String, required: true },
+  slug:        { type: String, required: true, unique: true },
+  coverUrl:    String,
+  excerpt:     String,
+  content:     String,                                      // markdown
+  type:        { type: String, enum: ARTICLE_TYPE, default: 'ARTICLE' },
+  status:      { type: String, enum: ARTICLE_STATUS, default: 'DRAFT' },
+  authorName:  String,
+  tags:        [String],
+  eventId:     { type: ObjectId, ref: 'Event' },            // optional link
+  chapterId:   { type: ObjectId, ref: 'Chapter' },          // optional link
+  publishedAt: Date,
+  updatedById: { type: ObjectId, ref: 'User' },
+}
+
+// Program (one 100 Days edition per year; repeats 15 Oct → 22 Jan = 100 days)
+{
+  name:        { type: String, required: true },            // e.g. "OBS 100 Days 2026"
+  slug:        { type: String, required: true, unique: true },
+  year:        { type: Number, required: true },
+  startAt:     { type: Date, required: true },              // 15 Oct
+  endAt:       { type: Date, required: true },              // 22 Jan next year (Day 100)
+  theme:       String,
+  description: String,
+  coverUrl:    String,
+  status:      { type: String, enum: PROGRAM_STATUS, default: 'UPCOMING' },
+}
+
+// ProgramDay (Day 1..100 of an edition)
+{
+  programId: { type: ObjectId, ref: 'Program', required: true },
+  dayNumber: { type: Number, required: true },              // 1..100
+  date:      { type: Date, required: true },
+  title:     String,
+  theme:     String,
+}
+programDaySchema.index({ programId: 1, dayNumber: 1 }, { unique: true });
+```
+Notes: event-scoped sponsors are queried by `Sponsor.eventId` (no array on Event). A day's events = `Event.find({ programId, programDayNumber: n, status: 'PUBLISHED' })`. Country filter on the program uses `Event.country`.
+
 ## 6. STATE MACHINES (enforce in service layer — never skip states)
 
 ```
@@ -396,7 +521,7 @@ GET  /auth/me
 
 ### Public catalog
 ```
-GET /events                    ?q &category &city &chapter &dateFrom &dateTo
+GET /events                    ?q &category &city &chapter &owner=all|obs|partner &program &dateFrom &dateTo
                                &price=free|paid &mode=online|venue
                                &sort=soonest|newest|popular &page &limit=12
                                (only PUBLISHED, endAt >= now unless ?includePast=1)
@@ -440,6 +565,13 @@ POST /orders/:id/refund-request {reason}  allowed while PAID and now < startAt �
 GET /t/:qrToken                → {eventTitle, startAt, venue, attendeeName (masked), status, checkedInAt}
 ```
 
+### Geo (requireAuth)
+```
+POST /geo/geocode              {address} → {lat, lng, formattedAddress, city, country, placeId}
+                               server proxies Google Geocoding API; fallback when the client autocomplete
+                               did not return a placeId (organizer typed a free-text address)
+```
+
 ### Organizer (requireRole ORGANIZER + APPROVED profile; ownership guard on every :eventId)
 ```
 POST /organizer/apply          {orgName, bio, website}
@@ -472,7 +604,72 @@ GET  /admin/reports/summary · /admin/reports/monthly?year
 GET  /admin/reports/by-event?limit=10 · /admin/reports/top-events?limit=5
 ```
 
+
+### Programs / 100 Days (public + admin)
+```
+GET /programs/current                 active or next edition + season status (dayOfSeason or daysUntil)
+GET /programs/:slug                    edition + its 100 days
+GET /programs/:slug/days/:n            day n + that day's PUBLISHED events (?country)
+(admin) CRUD /admin/programs ; CRUD /admin/programs/:id/days
+```
+
+### Speakers (public + manage)
+```
+GET /speakers                          ?q &topic &featured
+GET /speakers/:slug                    profile + their upcoming PUBLISHED events
+(admin) CRUD /admin/speakers
+organizer: PATCH /organizer/events/:id  may set speakerIds on OWN events
+```
+
+### Sponsors & partners
+```
+GET /sponsors                          ?scope &tier   (grouped by tier for the showcase)
+GET /events/:slug/sponsors             event-scoped sponsors (also embedded in event details payload)
+POST /partner-applications             {orgName, contactName, email, phone, website?, interestTier?, message}  (public)
+(admin) GET /admin/partner-applications ?status ; PATCH /admin/partner-applications/:id {status, adminNotes}
+(admin) CRUD /admin/sponsors
+```
+
+### Articles / media
+```
+GET /articles                          ?type &tag &page   (PUBLISHED only)
+GET /articles/:slug
+(admin) CRUD /admin/articles
+```
+
+### Launches
+```
+GET /launches                          ?scope=upcoming|recent   (events where isLaunch = true)
+```
+
+### Chapters — creation open to any signed-in user (v1.3)
+```
+POST /chapters                         {name, type, countryCode?, description, coverUrl?}  requireAuth
+                                       → creates chapter: createdById = me, isOfficial = false,
+                                         status per moderation default (§5)
+PATCH /chapters/:id                    creator or admin — edit description/cover only (creator);
+                                       admin may set status/isOfficial/isFlagship/tier/sortOrder
+GET  /me/chapters                      chapters I created
+(admin) PATCH /admin/chapters/:id/status  {APPROVED|SUSPENDED}
+```
+
 ## 8. CORE FLOW LOGIC (implement exactly)
+
+### 8.0 Order & payment state model (the draft → paid path)
+The order is the unit of payment. It is created as a held “draft” and becomes a confirmed sale only when the gateway webhook says so:
+
+```
+PENDING ─(webhook captured)→ PAID ─(user, ≤24h before)→ REFUND_REQUESTED ─(refund webhook)→ REFUNDED
+   │                                                    └─(admin rejects)→ back to PAID
+   ├─(cron, 15 min) EXPIRED
+   ├─(webhook failed) FAILED
+   └─(user, pre-payment) CANCELLED
+```
+- **PENDING = the draft/held order.** Created the moment the user clicks Book now; holds inventory for `ORDER_HOLD_MINUTES` (15) and drives the checkout countdown. No tickets exist yet.
+- **PAID** = webhook-confirmed capture — the ONLY state that triggers fulfilment (tickets, QR, PDF, invoice, emails; §8.3).
+- **EXPIRED / FAILED / CANCELLED** = terminal unpaid states; each releases the held inventory back (decrement `quantitySold`).
+- **REFUND_REQUESTED / REFUNDED** = post-sale reversal (§8.5), which also restores inventory.
+Payment rows mirror this: Payment `CREATED` (gateway order/intent opened) → `CAPTURED` (webhook) → `REFUNDED`. An order may hold several Payment attempts (retry after a FAILED one), but only one ever reaches CAPTURED. Visual: `docs/obs-order-and-payment-states.svg`.
 
 ### 8.1 Order creation — atomic inventory
 1. Validate: event PUBLISHED and startAt in future; each ticket type isActive, inside its sale window, quantity within min/maxPerOrder.
@@ -508,7 +705,15 @@ User may request while order PAID and `now < event.startAt − REFUND_CUTOFF_HOU
 - `remind24h` hourly: PUBLISHED events with startAt in [now+23.5h, now+24.5h] and `reminderSentAt IS NULL` → EVENT_REMINDER to every VALID ticket holder → set reminderSentAt.
 - `completeEvents` hourly: PUBLISHED with endAt < now → COMPLETED.
 
-## 9. EMAIL MATRIX (all via mailer util → writes EmailLog)
+### 8.7 Location capture & maps (Google Maps Platform)
+Venue events carry `address + lat + lng + placeId + city + country`; online events carry none of these (they use `meetingLink`).
+- **Fetch (wizard create/edit, step 3):** Google Places Autocomplete runs in the browser (browser key `VITE_GOOGLE_MAPS_API_KEY`, Places library). When the organizer picks a suggestion, capture from the Place result: `formatted_address` → `address`, `geometry.location` → `lat`/`lng`, `place_id` → `placeId`, and derive `city` + `country` from `address_components`. These post to the event with the rest of step 3.
+- **Fallback (manual address):** if the organizer types free text without selecting a suggestion, the server geocodes it via `POST /geo/geocode` (Geocoding API, server key `GOOGLE_MAPS_API_KEY`) to fill `lat/lng/city/country/placeId` before save. If geocoding fails, save the address text only and flag “map unavailable”.
+- **Post/display (event details):** render an embedded map centred on `lat/lng` with a single pin (Maps Embed API or Maps JS marker, browser key). “Get directions” opens `https://www.google.com/maps/search/?api=1&query={lat},{lng}&query_place_id={placeId}` in a new tab.
+- **City filter link:** the listing `?city` filter uses the stored `city` derived above, so map-picked venues drop straight into browse/search.
+- **Key hygiene:** browser key = HTTP-referrer restricted + limited to Maps JS + Places; server key = restricted to the Geocoding API. Never expose the server key to the client.
+
+## 9. EMAIL MATRIX (all via the Nodemailer-based mailer util → writes EmailLog)
 
 | Type | Trigger | To | Content |
 |---|---|---|---|
@@ -521,17 +726,19 @@ User may request while order PAID and `now < event.startAt − REFUND_CUTOFF_HOU
 | REFUND_PROCESSED | Refund webhook | Buyer | Amount, gateway ref |
 | PASSWORD_RESET | Forgot password | User | Tokened link, 30 min expiry |
 
-## 10. FRONTEND — SCREENS & BOOKMYSHOW-STYLE RULES
+## 10. FRONTEND — SCREENS & UI RULES
 
-Design language (BookMyShow-style, white + red): white sticky header, primary red `#F84464` accents/CTAs (hover `#DC3558`), `#F5F5F5` section strips, charcoal `#333338` footer, Roboto font, mobile-first responsive. Full token- and component-level spec: `obs-home-ui-prompt.md` (source of truth for all client UI).
+Design language (white + red): white sticky header, primary red `#F84464` accents/CTAs (hover `#DC3558`), `#F5F5F5` section strips, charcoal `#333338` footer, Roboto font, mobile-first responsive. Full token- and component-level spec: `obs-home-ui-prompt.md` (source of truth for all client UI).
 
-**Navbar:** logo · global search (typeahead across events / organizers / chapters) · city selector dropdown (persists in localStorage + drives the `city` filter, BookMyShow-style) · categories menu · Sign in / avatar menu.
+**Navbar:** logo · global search (typeahead across events / organizers / chapters) · city selector dropdown (persists in localStorage + drives the `city` filter) · categories menu · Sign in / avatar menu.
 
 **Public**
 - `/` home: hero carousel (`isFeatured`), category chip row, "Happening soon" card grid, chapter spotlight row (flag cards grouped by tier), footer with CMS links.
 - `/events` listing: left filter rail (date range, category, chapter, price free/paid, online/venue) + sort dropdown. Card = 16:9 banner, date badge top-left, title, venue · city, "from ₹X", chapter tag.
-- `/events/:slug`: banner hero; RIGHT **sticky booking card** (ticket types with qty steppers honoring min/max, promo code input, live total incl. service fee, "Book now"); About; venue block with map link (lat/lng); organizer card → profile; share buttons (WhatsApp / X / LinkedIn / copy); similar events.
+- `/events/:slug`: banner hero; RIGHT **sticky booking card** (ticket types with qty steppers honoring min/max, promo code input, live total incl. service fee, "Book now"); About; venue block with an embedded Google Map (pin at lat/lng) + “Get directions” link; organizer card → profile; share buttons (WhatsApp / X / LinkedIn / copy); similar events.
 - `/chapters` directory grouped by type — flagship row on top, geographic chapters grouped by tier (T1–T5 + Growth + cities), thematic chapters grouped by family/pillar group; `/chapters/:slug` (join/leave button), `/organizers/:slug`, `/search`, `/pages/:slug`.
+- **Community & content pages (v1.3, full UI spec in `obs-frontend-new-sections-ui-prompt.md`):** `/program` (100 Days overview + day-by-day agenda) and `/program/day/:n`; `/speakers` + `/speakers/:slug`; `/sponsors` + `/become-a-sponsor`; `/news` + `/news/:slug`; `/launches`; `/chapters/create` and `/account/chapters` (any signed-in user creates/edits their own chapters). Home gains a chapter-highlight band, a 100 Days banner, and speakers/launches/sponsors/news rails; `/events` gains All/OBS/Partner ownership tabs (`?owner`). A branded app loader + route progress bar are global.
+- Event details additionally shows a Sponsors block and a Speakers block when the event has them.
 
 **Auth:** `/login`, `/signup` (Google button on both), `/forgot-password`, `/reset-password`.
 
@@ -539,7 +746,7 @@ Design language (BookMyShow-style, white + red): white sticky header, primary re
 
 **Account:** `/account` profile · `/account/tickets` (Upcoming / Past tabs) → `/account/tickets/:id` big QR + Download PDF + Add to calendar (.ics) · `/account/orders`.
 
-**Organizer:** `/organizer` dashboard (KPI cards + next event) · `/organizer/events` table with status pills · `/organizer/events/new` wizard — 1 Basics (title, category, chapter, description) → 2 Banner → 3 Venue & schedule (or online + meeting link) → 4 Ticket types → 5 Promo codes → 6 Review & submit (drafts saved per step) · `/organizer/events/:id/registrations` (search + export) · `/organizer/events/:id/checkin` (camera scanner + stats).
+**Organizer:** `/organizer` dashboard (KPI cards + next event) · `/organizer/events` table with status pills · `/organizer/events/new` wizard — 1 Basics (title, category, chapter, description) → 2 Banner → 3 Venue & schedule (Google Places Autocomplete → address + lat/lng + placeId, or online + meeting link) → 4 Ticket types → 5 Promo codes → 6 Review & submit (drafts saved per step) · `/organizer/events/:id/registrations` (search + export) · `/organizer/events/:id/checkin` (camera scanner + stats).
 
 **Admin:** `/admin` (report widgets) · `/admin/approvals` (organizers + events tabs) · `/admin/users` · `/admin/organizers` · `/admin/events` · `/admin/transactions` · `/admin/refunds` · `/admin/categories` · `/admin/chapters` · `/admin/cms` · `/admin/reports` (recharts: 5 KPI cards, monthly registrations & revenue combo bar+line, ticket-sales-by-event pie, top-5 events table).
 
@@ -603,9 +810,12 @@ JWT_ACCESS_SECRET=            JWT_REFRESH_SECRET=
 GOOGLE_CLIENT_ID=             GOOGLE_CLIENT_SECRET=
 AWS_ACCESS_KEY_ID=            AWS_SECRET_ACCESS_KEY=
 AWS_REGION=ap-south-1         S3_BUCKET=obs-events
-SENDGRID_API_KEY=             EMAIL_FROM="OBS Events <tickets@obs.business>"
+SMTP_HOST=                    SMTP_PORT=587        SMTP_SECURE=false
+SMTP_USER=                    SMTP_PASS=
+EMAIL_FROM="OBS Events <tickets@obs.business>"
 RAZORPAY_KEY_ID=              RAZORPAY_KEY_SECRET=          RAZORPAY_WEBHOOK_SECRET=
 STRIPE_SECRET_KEY=            STRIPE_PUBLISHABLE_KEY=       STRIPE_WEBHOOK_SECRET=
+GOOGLE_MAPS_API_KEY=          # server key — Geocoding API (manual-address fallback)
 SERVICE_FEE_PERCENT=5
 ORDER_HOLD_MINUTES=15
 REFUND_CUTOFF_HOURS=24
@@ -618,6 +828,7 @@ VITE_API_URL=http://localhost:4000/api/v1
 VITE_GOOGLE_CLIENT_ID=
 VITE_RAZORPAY_KEY_ID=
 VITE_STRIPE_PUBLISHABLE_KEY=
+VITE_GOOGLE_MAPS_API_KEY=     # browser key — Maps JS + Places (HTTP-referrer restricted)
 ```
 
 ## 13. BUILD PHASES
@@ -626,17 +837,17 @@ VITE_STRIPE_PUBLISHABLE_KEY=
 - 0.1 Repo scaffold: `client/` (Vite + React 18 + Tailwind + React Router v6) and `server/` (Express + Mongoose, ES modules, nodemon); root npm workspaces.
 - 0.2 Mongoose models (§5); connect to Atlas (or local single-node replica set for transactions); `seed.js`: admin user (from SEED_ADMIN_*), 12 categories (Networking, Conference, Summit, Workshop, Investor Meetup, Trade Delegation, Gala Dinner, Awards Night, Webinar, Masterclass, Expo, Product Launch), 108 chapters (Appendix A), 3 CMS page stubs (about, terms, privacy).
 - 0.3 Auth module: register (bcrypt cost 12), login, refresh rotation, logout, Google (`google-auth-library` id_token verify → find-or-create), forgot/reset, `GET /me`. Middleware: requireAuth, requireRole, validate(zod), rate limit (100 req/15 min global, 10/15 min on auth routes), global error handler with typed error codes.
-- 0.4 Utils: S3 presigned PUT/GET, mailer (SendGrid + EmailLog), numbering (`nextSeq()` counters collection for order/ticket/invoice), slugify.
+- 0.4 Utils: S3 presigned PUT/GET, mailer (Nodemailer SMTP transport, provider-agnostic, writes EmailLog), numbering (`nextSeq()` counters collection for order/ticket/invoice), slugify.
 - 0.5 Web: base layout + navbar/footer, auth pages wired, role-based route guards, axios client with silent-refresh interceptor.
 - **Exit:** sign up via email AND Google works end to end; refresh rotation verified; Compass/mongosh shows 108 chapters + 12 categories + admin.
 
 ### Phase 1 — Public catalog & event lifecycle
 - 1.1 Organizer apply → admin approve/reject (minimal admin list) + emails.
 - 1.2 Events module: CRUD in DRAFT, slug generation, banner presigned upload, ownership guards.
-- 1.3 Wizard UI (6 steps, §10) saving drafts per step.
+- 1.3 Wizard UI (6 steps, §10) saving drafts per step; step 3 uses Google Places Autocomplete to capture address + lat/lng + placeId (§8.7), with `POST /geo/geocode` as the manual-address fallback.
 - 1.4 Submit → PENDING_APPROVAL; admin queue approve/reject (+reason) + emails; state machine (§6) enforced in service layer.
 - 1.5 Public listing API with all filters + indexes; listing page with filter rail, cards, pagination, sort.
-- 1.6 Event details page (booking card rendered but disabled until Phase 2), organizer profile, chapters index/detail (join/leave), home page, search, share buttons, viewsCount, meta/OG tags via react-helmet-async.
+- 1.6 Event details page (booking card rendered but disabled until Phase 2), organizer profile, chapters index/detail (join/leave), home page, search, share buttons, viewsCount, meta/OG tags via react-helmet-async; event details venue block shows an embedded Google Map + directions link (§8.7).
 - **Exit:** a seeded demo organizer takes an event from draft through approval to a public listing; browsing, filtering, and chapter pages work logged out.
 
 ### Phase 2 — Checkout, payments, ticketing
@@ -666,6 +877,17 @@ VITE_STRIPE_PUBLISHABLE_KEY=
 - 4.5 AWS deploy: MongoDB Atlas (M0 dev / M10 prod), EC2 for the API (pm2 + nginx + certbot), React build on S3 + CloudFront (or nginx-served from the same EC2), register live webhook URLs in both gateway dashboards, env checklist, switch-to-live-keys checklist.
 - **Exit:** production URL serves a full booking flow with live keys checklist signed off.
 
+### Phase 5 — Community, content & programs (post-MVP layer)
+Build after Phases 0–4. UI is specced in `obs-frontend-new-sections-ui-prompt.md`; do the models + endpoints here.
+- 5.1 Open chapter creation: `POST /chapters` for any signed-in user (isOfficial=false, moderation default §5), `PATCH /chapters/:id` (creator edits desc/cover), `GET /me/chapters`; admin status/official/flagship/tier controls; `/chapters/create`, `/account/chapters`, and the Community chapters section on the directory. Events remain organizer-gated.
+- 5.2 Speakers: Speaker model + admin CRUD, `/speakers` directory + `/speakers/:slug`; organizers attach `speakerIds` to own events; Speakers block on event details + speakers rail on home.
+- 5.3 Sponsors & partners: Sponsor model (tiers/scope) + admin CRUD; `/sponsors` showcase with tiers + "what we offer"; sponsors block on event pages; `PartnerApplication` + public `/become-a-sponsor` form → admin queue.
+- 5.4 Media: Article model + admin CRUD; `/news` listing + `/news/:slug`; newsroom rail on home.
+- 5.5 100 Days Program: Program + ProgramDay models; seed the current edition (startAt 15 Oct, endAt 22 Jan, 100 days) and generate the 100 ProgramDay rows; `/program` overview with season status (Day X of 100 / starts in N days) + country filter + day-by-day agenda, `/program/day/:n`; link events via `programId` + `programDayNumber`; 100 Days banner on home. Repeats yearly (new Program per year).
+- 5.6 Ownership + Launchpad: Event `ownership` (OBS/Partner) with All/OBS/Partner tabs on `/events` (`?owner`); Event `isLaunch`/`launchAt` + `/launches` page with live countdowns + launches rail on home.
+- 5.7 Frontend polish: branded `AppLoader` (initial load) + `RouteProgress` bar (navigation) + chapter-highlight hero band.
+- **Exit:** a signed-in user creates a chapter that appears under Community chapters; a seeded speaker, sponsor, and article render on the site; `/program` lists day-by-day events with a working season status; All/OBS/Partner tabs filter; `/launches` shows a countdown.
+
 ### Loop prompt (paste into each Claude Code session, set the phase)
 ```
 You are building OBS Events. Read obs-events-build-plan.md fully, then PROGRESS.md.
@@ -681,7 +903,7 @@ Never start the next phase. Stop when all Phase {N} exit criteria pass.
 
 **Organizer payouts / settlements (Razorpay Route / Stripe Connect).** In the MVP all money lands in the OBS platform account; paying organizers out is a manual process outside the system. Decide this before onboarding external organizers with paid events.
 
-Also deferred: wishlist/favorites, ratings & reviews, per-attendee names on tickets, seat maps, waitlists, recurring events, WhatsApp notifications (Baileys pattern), multi-language, chapter membership fees/tiers, sponsors & exhibitors module, partial refunds, native/PWA apps, organizer-facing analytics beyond the dashboard.
+Also deferred: wishlist/favorites, ratings & reviews, per-attendee names on tickets, seat maps, waitlists, recurring events, WhatsApp notifications (Baileys pattern), multi-language, chapter membership fees/tiers, an exhibitors/booths module, partial refunds, native/PWA apps, organizer-facing analytics beyond the dashboard. (Sponsors, speakers, media, the 100 Days Program, launches, and open chapter creation are now in Phase 5, not deferred.)
 
 ## APPENDIX A — CHAPTER SEED DATA (108 rows, from New_Model_OBS.docx)
 
