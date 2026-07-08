@@ -1,67 +1,53 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../lib/api';
-import { PageHead, Card, StatCard, StatGrid, Pill, statusTone, Table, Loading, formatPrice } from '../../components/portal/Kit';
+import api, { apiError } from '../../lib/api';
+import { useApp } from '../../context/AppContext';
+import { PageHead, Card, StatCard, StatGrid, Btn, Loading, formatPrice } from '../../components/portal/Kit';
 
-const COLUMNS = [
-  { key: 'title', label: 'Event' },
-  { key: 'dateLabel', label: 'Date' },
-  { key: 'category', label: 'Category' },
-  { key: 'status', label: 'Status' },
-];
+const fmtDate = (d) => (d ? new Date(d).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'TBA');
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { pushToast } = useApp();
   const [data, setData] = useState(null);
+
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  useEffect(() => { api.organizerDashboard().then(setData); }, []);
+  useEffect(() => {
+    api.organizerDashboard().then(setData).catch((e) => pushToast(apiError(e), false));
+  }, [pushToast]);
 
   if (!data) return <Loading />;
-
-  const kpis = data.kpis || [];
-  const events = data.events || [];
   const next = data.nextEvent;
-
-  const renderCell = (row, key) => {
-    if (key === 'title') return <span className="font-semibold text-ink">{row.title}</span>;
-    if (key === 'dateLabel') return <span className="text-ink-mute">{row.dateLabel || '—'}</span>;
-    if (key === 'category') return <span className="text-ink-soft">{row.category?.name || row.cat || '—'}</span>;
-    if (key === 'status') return <Pill tone={statusTone(row.status)}>{row.status}</Pill>;
-    return null;
-  };
 
   return (
     <div>
-      <PageHead title="Dashboard" subtitle="Your events at a glance" />
+      <PageHead title="Dashboard" subtitle="Your events at a glance" actions={<Btn onClick={() => navigate('/organizer/events/new')}>Create event</Btn>} />
 
       <StatGrid>
-        {kpis.map(([label, value], i) => (
-          <StatCard key={label || i} label={label} value={value} money={i === 2} />
-        ))}
+        <StatCard label="Events" value={data.events.total} hint={`${data.events.published} live · ${data.events.draft} draft · ${data.events.pending} pending`} icon="🎪" />
+        <StatCard label="Tickets sold" value={data.ticketsSold} icon="🎟" />
+        <StatCard label="Gross revenue" value={formatPrice(data.grossRevenue, data.currency)} hint={`${data.paidOrders} paid order${data.paidOrders === 1 ? '' : 's'}`} icon="₹" />
+        <StatCard label="Live events" value={data.events.published} icon="📢" />
       </StatGrid>
 
-      {next && (
-        <Card className="mt-6">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-mute">Next event</div>
-          <div className="mt-1.5 text-lg font-bold text-ink">{next.title}</div>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-ink-soft">
-            <span>📅 {next.dateLabel || 'TBA'}</span>
-            <span>📍 {next.isOnline ? 'Online' : [next.venue, next.city].filter(Boolean).join(', ') || 'TBA'}</span>
-            {next.priceFrom != null && <span>🎟 From {formatPrice(next.priceFrom)}</span>}
-          </div>
-        </Card>
-      )}
-
-      <div className="mt-6">
-        <h2 className="mb-3 text-sm font-bold text-ink">Your events</h2>
-        <Table
-          columns={COLUMNS}
-          rows={events}
-          renderCell={renderCell}
-          onRowClick={(row) => navigate(`/organizer/events/${row.id}/registrations`)}
-          empty="You haven't created any events yet."
-        />
-      </div>
+      <Card className="mt-6">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-mute">Next event</div>
+        {next ? (
+          <>
+            <div className="mt-1.5 text-lg font-bold text-ink">{next.title}</div>
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-ink-soft">
+              <span>📅 {fmtDate(next.startAt)}</span>
+              <span>📍 {next.isOnline ? 'Online' : [next.venueName, next.city].filter(Boolean).join(', ') || 'TBA'}</span>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${next.id}/registrations`)}>Registrations</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${next.id}/checkin`)}>Check-in</Btn>
+            </div>
+          </>
+        ) : (
+          <div className="mt-1.5 text-[13px] text-ink-mute">No upcoming published events. <button onClick={() => navigate('/organizer/events')} className="font-semibold text-brand">Manage events →</button></div>
+        )}
+      </Card>
     </div>
   );
 }

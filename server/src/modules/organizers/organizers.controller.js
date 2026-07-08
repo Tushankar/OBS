@@ -14,3 +14,8 @@ export async function publicProfile(req, res) {
   const result = await organizerService.getPublicProfile(req.params.slug);
   res.status(200).json(result);
 }
+
+export async function dashboard(req, res) {
+  const result = await organizerService.getOrganizerDashboard(req.organizer._id);
+  res.status(200).json(result);
+}

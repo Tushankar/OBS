@@ -53,6 +53,7 @@ import { RequireAuth, RequireRole } from './components/guards/RequireAuth';
 // Organizer + admin portals (Phase 1)
 import Apply from './pages/organizer/Apply';
 import OrganizerLayout from './components/portal/OrganizerLayout';
+import OrganizerDashboard from './pages/organizer/Dashboard';
 import OrganizerEvents from './pages/organizer/Events';
 import EventWizard from './pages/organizer/EventWizard';
 import AdminLayout from './components/portal/AdminLayout';
@@ -101,7 +102,7 @@ export default function App() {
 
                   {/* Organizer portal (layout gates on an APPROVED profile) */}
                   <Route element={<RequireAuth><OrganizerLayout /></RequireAuth>}>
-                    <Route path="/organizer" element={<Navigate to="/organizer/events" replace />} />
+                    <Route path="/organizer" element={<OrganizerDashboard />} />
                     <Route path="/organizer/events" element={<OrganizerEvents />} />
                     <Route path="/organizer/events/new" element={<EventWizard />} />
                     <Route path="/organizer/events/:id/edit" element={<EventWizard />} />

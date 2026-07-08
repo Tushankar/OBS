@@ -1,4 +1,4 @@
-import { OrganizerProfile, Event } from '../../models/index.js';
+import { OrganizerProfile, Event, Ticket, Order } from '../../models/index.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { conflict, notFoundError } from '../../utils/errors.js';
 import { publicEventCard } from '../events/events.service.js';
@@ -74,5 +74,40 @@ export async function getPublicProfile(slug) {
       website: profile.website || null,
     },
     events: events.map(publicEventCard),
+  };
+}
+
+// Organizer dashboard KPIs (§7): my events, tickets sold, gross revenue, next event.
+export async function getOrganizerDashboard(organizerId) {
+  const events = await Event.find({ organizerId }).select('_id status startAt title slug isOnline venueName city');
+  const eventIds = events.map((e) => e._id);
+  const now = new Date();
+
+  const [ticketsSold, revenueAgg] = await Promise.all([
+    Ticket.countDocuments({ eventId: { $in: eventIds }, status: { $in: ['VALID', 'USED'] } }),
+    Order.aggregate([
+      { $match: { eventId: { $in: eventIds }, status: 'PAID' } },
+      { $group: { _id: null, revenue: { $sum: '$totalAmount' }, orders: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const next = events
+    .filter((e) => e.status === 'PUBLISHED' && e.startAt && e.startAt >= now)
+    .sort((a, b) => a.startAt - b.startAt)[0];
+
+  return {
+    events: {
+      total: events.length,
+      published: events.filter((e) => e.status === 'PUBLISHED').length,
+      draft: events.filter((e) => ['DRAFT', 'REJECTED'].includes(e.status)).length,
+      pending: events.filter((e) => e.status === 'PENDING_APPROVAL').length,
+    },
+    ticketsSold,
+    grossRevenue: revenueAgg[0]?.revenue || 0, // paise
+    paidOrders: revenueAgg[0]?.orders || 0,
+    currency: 'INR',
+    nextEvent: next
+      ? { id: String(next._id), title: next.title, slug: next.slug, startAt: next.startAt, isOnline: !!next.isOnline, venueName: next.venueName || null, city: next.city || null }
+      : null,
   };
 }

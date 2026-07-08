@@ -4,7 +4,10 @@ import PortalShell from './PortalShell';
 import { Card, Btn, Loading } from './Kit';
 import api from '../../lib/api';
 
-const NAV = [{ to: '/organizer/events', label: 'Events' }];
+const NAV = [
+  { to: '/organizer', label: 'Dashboard' },
+  { to: '/organizer/events', label: 'Events' },
+];
 
 // Organizer portal chrome. Assumes it sits inside RequireAuth. Gates on the
 // authoritative APPROVED OrganizerProfile (via /organizer/me) rather than the
