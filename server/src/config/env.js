@@ -39,6 +39,17 @@ export const env = {
   AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
   AWS_REGION: process.env.AWS_REGION || 'ap-south-1',
   S3_BUCKET: process.env.S3_BUCKET || 'obs-events',
+  // Checkout / payments (Phase 2). Money is integer paise; the fee percent is
+  // applied to (subtotal − discount) and rounded.
+  SERVICE_FEE_PERCENT: Number(process.env.SERVICE_FEE_PERCENT) || 0,
+  ORDER_HOLD_MINUTES: Number(process.env.ORDER_HOLD_MINUTES) || 15,
+  REFUND_CUTOFF_HOURS: Number(process.env.REFUND_CUTOFF_HOURS) || 24,
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || '',
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || '',
+  RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET || '',
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+  STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || '',
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
   // Email: Nodemailer SMTP (Phase 0.4)
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: Number(process.env.SMTP_PORT) || 587,
