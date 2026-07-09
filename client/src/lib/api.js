@@ -169,6 +169,12 @@ api.deleteCmsPage = (id) => unwrap(api.delete(`/admin/cms/${id}`));
 // Public CMS render (Phase 3.5)
 api.publicPage = (slug) => unwrap(api.get(`/pages/${slug}`)).then((d) => d.page);
 
+// Admin — reports (Phase 4.1)
+api.reportsSummary = () => unwrap(api.get('/admin/reports/summary')).then((d) => d.summary);
+api.reportsMonthly = (year) => unwrap(api.get('/admin/reports/monthly', { params: year ? { year } : {} })).then((d) => d.monthly);
+api.reportsByEvent = (limit) => unwrap(api.get('/admin/reports/by-event', { params: limit ? { limit } : {} })).then((d) => d.byEvent);
+api.reportsTopEvents = (limit) => unwrap(api.get('/admin/reports/top-events', { params: limit ? { limit } : {} })).then((d) => d.topEvents);
+
 // Raw PUT to a presigned S3 URL. Bypasses the api instance so no Authorization
 // header / baseURL is attached (the presigned URL is self-authenticating).
 export async function uploadToPresignedUrl(uploadUrl, file) {

@@ -68,6 +68,7 @@ import AdminTransactions from './pages/admin/Transactions';
 import AdminCategories from './pages/admin/Categories';
 import AdminChapters from './pages/admin/Chapters';
 import AdminCms from './pages/admin/Cms';
+import AdminReports from './pages/admin/Reports';
 
 export default function App() {
   const { authOpen, setAuthOpen } = useApp();
@@ -131,6 +132,7 @@ export default function App() {
                     <Route path="/admin/categories" element={<AdminCategories />} />
                     <Route path="/admin/chapters" element={<AdminChapters />} />
                     <Route path="/admin/cms" element={<AdminCms />} />
+                    <Route path="/admin/reports" element={<AdminReports />} />
                   </Route>
                   
                   <Route path="/chapters" element={<Chapters />} />

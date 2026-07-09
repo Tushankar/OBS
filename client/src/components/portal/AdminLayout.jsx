@@ -12,6 +12,7 @@ const NAV = [
   { to: '/admin/categories', label: 'Categories' },
   { to: '/admin/chapters', label: 'Chapters' },
   { to: '/admin/cms', label: 'CMS' },
+  { to: '/admin/reports', label: 'Reports' },
 ];
 
 export default function AdminLayout() {

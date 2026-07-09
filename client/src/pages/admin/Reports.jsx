@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../../lib/api';
+import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
 import { PageHead, Card, StatCard, StatGrid, Table, Btn, Loading, formatPrice } from '../../components/portal/Kit';
 
@@ -35,8 +35,20 @@ export default function Reports() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => {
     Promise.all([api.reportsSummary(), api.reportsMonthly(), api.reportsByEvent(), api.reportsTopEvents()])
-      .then(([summary, monthly, byEvent, top]) => setData({ summary, monthly, byEvent, top }));
-  }, []);
+      .then(([summary, monthly, byEvent, top]) => setData({ summary, monthly, byEvent, top }))
+      .catch((e) => { setData({ summary: [], monthly: [], byEvent: [], top: [] }); pushToast(apiError(e), false); });
+  }, [pushToast]);
+
+  const exportCsv = () => {
+    if (!data) return;
+    const rows = [['Month', 'Registrations', 'Revenue (₹)']]
+      .concat(data.monthly.map((m) => [m.month, m.registrations, (m.revenue / 100).toFixed(2)]));
+    const csv = rows.map((r) => r.join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = 'obs-monthly-report.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!data) return <Loading />;
   const { summary, monthly, byEvent, top } = data;
@@ -45,11 +57,11 @@ export default function Reports() {
   return (
     <div>
       <PageHead title="Reports" subtitle="Platform performance across events, registrations and revenue."
-        action={<Btn variant="ghost" size="sm" onClick={() => pushToast('Report exported (CSV)')}>Export CSV</Btn>} />
+        actions={<Btn variant="ghost" size="sm" onClick={exportCsv}>Export CSV</Btn>} />
 
       <StatGrid>
         {summary.map(([label, value, kind]) => (
-          <StatCard key={label} label={label} value={value} money={kind === 'money'} />
+          <StatCard key={label} label={label} value={kind === 'money' ? formatPrice(value) : value} />
         ))}
       </StatGrid>
 
