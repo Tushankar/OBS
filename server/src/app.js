@@ -27,6 +27,7 @@ import pageRoutes from './modules/pages/pages.routes.js';
 import geoRoutes from './modules/geo/geo.routes.js';
 import paymentRoutes from './modules/payments/payments.routes.js';
 import webhookRoutes from './modules/payments/webhooks.routes.js';
+import seoRoutes from './modules/seo/seo.routes.js';
 
 // Builds and configures the Express app. Domain modules mount under /api/v1;
 // auth is live from Phase 0.3, the rest arrive in later phases.
@@ -49,6 +50,10 @@ export function createApp() {
     },
     credentials: true,
   }));
+
+  // SPA SEO (§4.4): /sitemap.xml + /robots.txt at the site root, no auth/limiter
+  // (crawlers). Deploy proxies these two paths from the web origin to the API.
+  app.use('/', seoRoutes);
 
   // Payment webhooks need the RAW body for signature verification, so they mount
   // BEFORE express.json() (§8.2) and before the global limiter (gateways retry).
