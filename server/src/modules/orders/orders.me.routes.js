@@ -11,5 +11,6 @@ router.use(requireAuth);
 
 router.get('/', validate({ query: schemas.listOrdersQuery }), asyncHandler(c.listMine));
 router.get('/:id', validate({ params: schemas.idParam }), asyncHandler(c.getMine));
+router.get('/:id/invoice', validate({ params: schemas.idParam }), asyncHandler(c.invoice));
 
 export default router;

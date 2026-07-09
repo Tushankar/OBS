@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '../components/common/Icon';
-import api from '../lib/api';
+import api, { apiError } from '../lib/api';
+import { useApp } from '../context/AppContext';
 
 const money = (paise, currency = 'INR') => {
   const sym = currency === 'INR' ? '₹' : `${currency} `;

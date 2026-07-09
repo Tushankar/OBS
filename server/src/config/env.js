@@ -10,6 +10,12 @@ export const env = {
   PORT: Number(process.env.PORT) || 4000,
   APP_URL: process.env.APP_URL || 'http://localhost:5173',
   API_URL: process.env.API_URL || 'http://localhost:4000',
+  // CORS allowlist (Phase 4.3). Comma-separated; defaults to APP_URL. Requests
+  // with no Origin (curl, server-to-server, gateway webhooks) are always allowed.
+  CORS_ORIGINS: (process.env.CORS_ORIGINS || process.env.APP_URL || 'http://localhost:5173')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
   MONGODB_URI: process.env.MONGODB_URI || '',
   // Seed (Phase 0.2)
   SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL || '',

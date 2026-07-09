@@ -19,3 +19,8 @@ export async function getMine(req, res) {
   const order = await orderService.getMyOrder(req.user.id, req.params.id);
   res.status(200).json({ order });
 }
+
+export async function invoice(req, res) {
+  const result = await orderService.getInvoiceDownloadUrl(req.user.id, req.params.id);
+  res.status(200).json(result);
+}

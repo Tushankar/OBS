@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { env } from './config/env.js';
+import { badRequest } from './utils/errors.js';
 import { globalLimiter } from './middleware/rateLimit.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './modules/auth/auth.routes.js';
@@ -32,13 +34,27 @@ export function createApp() {
   const app = express();
 
   app.set('trust proxy', 1); // correct req.ip behind nginx/CloudFront (rate limiting)
-  app.use(cors({ origin: env.APP_URL, credentials: true }));
+
+  // Security headers (Phase 4.3). This is a JSON API consumed by a separate SPA
+  // origin, so relax cross-origin resource policy; there's no server-rendered
+  // HTML that would need a CSP here (the SPA sets its own at the edge/CDN).
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
+
+  // CORS allowlist (Phase 4.3). Requests with no Origin (curl, server-to-server,
+  // gateway webhooks, health checks) pass; a browser Origin must be allowlisted.
+  app.use(cors({
+    origin(origin, cb) {
+      if (!origin || env.CORS_ORIGINS.includes(origin)) return cb(null, true);
+      return cb(badRequest('CORS_NOT_ALLOWED', `Origin ${origin} is not allowed`));
+    },
+    credentials: true,
+  }));
 
   // Payment webhooks need the RAW body for signature verification, so they mount
   // BEFORE express.json() (§8.2) and before the global limiter (gateways retry).
   app.use('/api/v1/webhooks', express.raw({ type: '*/*' }), webhookRoutes);
 
-  app.use(express.json());
+  app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(globalLimiter); // 100 req / 15 min per IP (env-overridable)
 

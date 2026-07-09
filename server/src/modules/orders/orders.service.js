@@ -4,6 +4,7 @@ import { nextSeq, formatOrderNumber } from '../../utils/counters.js';
 import { env } from '../../config/env.js';
 import { badRequest, conflict, forbidden, notFoundError } from '../../utils/errors.js';
 import { markPaidAndFulfil } from '../fulfillment/fulfillment.service.js';
+import { presignGet, isS3Configured } from '../../utils/s3.js';
 
 // ---- pricing (all integer paise; recomputed server-side, never trust client) ----
 
@@ -48,7 +49,12 @@ function shapeOrder(order, event) {
     })),
     expiresAt: order.expiresAt || null,
     paidAt: order.paidAt || null,
-    invoice: order.invoice?.invoiceNumber ? order.invoice : null,
+    // Never leak the raw S3 object URL (the bucket is private) — expose only
+    // metadata + availability; the file is fetched via a short-lived signed URL
+    // from GET /me/orders/:id/invoice (§4.3 signed reads).
+    invoice: order.invoice?.invoiceNumber
+      ? { invoiceNumber: order.invoice.invoiceNumber, issuedAt: order.invoice.issuedAt || null, available: !!order.invoice.pdfUrl }
+      : null,
     createdAt: order.createdAt,
     event: ev
       ? { id: String(ev._id), title: ev.title, slug: ev.slug, startAt: ev.startAt || null, bannerUrl: ev.bannerUrl || null, isOnline: !!ev.isOnline, venueName: ev.venueName || null, city: ev.city || null }
@@ -175,6 +181,18 @@ export async function getMyOrder(userId, orderId) {
   if (String(order.userId) !== String(userId)) throw forbidden('NOT_ORDER_OWNER', 'This order is not yours');
   const ticketCount = await Ticket.countDocuments({ orderId });
   return { ...shapeOrder(order), ticketCount };
+}
+
+// §4.3 signed reads — a short-lived presigned GET for the owner's invoice PDF.
+// The bucket is private, so we never hand out the raw object URL.
+export async function getInvoiceDownloadUrl(userId, orderId) {
+  const order = await Order.findById(orderId);
+  if (!order) throw notFoundError('ORDER_NOT_FOUND', 'Order not found');
+  if (String(order.userId) !== String(userId)) throw forbidden('NOT_ORDER_OWNER', 'This order is not yours');
+  if (!order.invoice?.pdfUrl) throw notFoundError('INVOICE_NOT_AVAILABLE', 'No invoice is available for this order');
+  if (!isS3Configured()) throw notFoundError('INVOICE_NOT_AVAILABLE', 'Invoice storage is not configured');
+  const url = await presignGet({ key: `invoices/${order.orderNumber}.pdf`, expiresIn: 300 });
+  return { url };
 }
 
 export { shapeOrder };
