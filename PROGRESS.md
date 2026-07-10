@@ -1,6 +1,6 @@
 # OBS EVENTS — PROGRESS
 
-Current phase: 5 — IN PROGRESS (community, content & programs). 5.1–5.6 DONE. Next: 5.7 frontend polish, then EXIT. Seed creates the OBS 100 Days 2026 edition (100 days). (Phase 4 code-complete; EXIT = prod deploy + live keys, human sign-off.)
+Current phase: 5 — IN PROGRESS (community, content & programs). 5.1–5.7 DONE. Next: Phase 5 EXIT dry run. Seed creates the OBS 100 Days 2026 edition (100 days). (Phase 4 code-complete; EXIT = prod deploy + live keys, human sign-off.)
 Last session: 2026-07-10 — Phase 5: 5.1 chapters 16/16 ✅, 5.2 speakers 16/16 ✅; Razorpay removed (Stripe-only) 13/13 ✅. Phase 4 code-complete before this.
 **§5.1 Event fields added in 5.2** (all at once): ownership/isLaunch/launchAt/programId/programDayNumber/speakerIds + indexes. speakerIds used now; the rest wire up in 5.5/5.6.
 Payments note (2026-07-10, user directive): **Razorpay removed — Stripe only** (all currencies incl. INR go through Stripe). See Decisions. Tasks 3.1 (dashboard 7/7) + 3.2 (registrations + XLSX export 11/11) + 3.3 (check-in + scanner 11/11) + 3.4 (refunds 27/27) + 3.5 (admin panel 33/33) ✅ + EXIT dry run 19/19 ✅. Live-keys sign-off (real gateway order/refund calls + S3/inbox) carries over from Phase 2 as the remaining human sign-off. Phase 2 complete before this (EXIT 8/8; live gateway checkout + real S3/inbox remain the human sign-off). Demo organizer: demo.organizer@obs.events / Organizer@123 (APPROVED) + 3 seeded published events. Verify scripts run with `SMTP_HOST=` (jsonTransport) + dummy `RAZORPAY_WEBHOOK_SECRET`/`STRIPE_WEBHOOK_SECRET` for webhook tests.
@@ -58,7 +58,7 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 - [x] 5.4 Media: Article model + admin CRUD, /news + /news/:slug, newsroom rail
 - [x] 5.5 100 Days Program: Program + ProgramDay models, seed current edition (15 Oct→22 Jan, 100 days), /program overview (season status + country filter + day-by-day) + /program/day/:n, link events via programId/programDayNumber, home banner; repeats yearly
 - [x] 5.6 Ownership + Launchpad: event ownership OBS/Partner + All/OBS/Partner tabs (?owner); isLaunch/launchAt + /launches with countdowns + home rail
-- [ ] 5.7 Frontend polish: AppLoader (initial) + RouteProgress bar + chapter-highlight hero band
+- [x] 5.7 Frontend polish: AppLoader (initial) + RouteProgress bar + chapter-highlight hero band
 - [ ] EXIT: user creates a community chapter; speaker/sponsor/article render; /program day-by-day works; owner tabs filter; /launches countdown
 
 ## Decisions
@@ -113,6 +113,8 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 - Client `/t/:status` route param vs plan's `/t/:token` — cosmetic mismatch to reconcile when the validation page is wired (Phase 2.8).
 
 ## Session log
+- 2026-07-10 · task 5.7 (frontend polish) — DONE
+  - AppLoader (branded initial loader) + RouteProgress (top bar on navigation) already existed and were wired in App.jsx; `ChapterHighlightBand` existed but was unrendered — added it to Home ("108 chapters. One global business season." band with Explore/Create CTAs). Client build clean. Browser render = human sign-off (pure presentational polish, no HTTP surface).
 - 2026-07-10 · task 5.6 (ownership + launchpad) — DONE
   - Server: `?owner` filter on public events; admin `PATCH /admin/events/:id` extended to ownership (updateEventAdmin); isLaunch/launchAt post-publish-safe on event update; `GET /launches?scope`; ownership/isLaunch/launchAt on cards.
   - Client: All/OBS/Partner tabs on /events; rewired Launches (live countdown); Home Launchpad rail; admin Events ownership select; `api.launches/setEventOwnership`.

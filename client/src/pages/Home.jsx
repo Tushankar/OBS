@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ApiEventCard from '../components/common/ApiEventCard';
 import ArticleCard from '../components/cards/ArticleCard';
+import ChapterHighlightBand from '../components/home/ChapterHighlightBand';
 import { SkeletonGrid } from '../components/common/Skeleton';
 import Seo from '../components/common/Seo';
 import api from '../lib/api';
@@ -96,6 +97,9 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* Chapter-highlight hero band (§5.7) */}
+      <ChapterHighlightBand />
 
       {/* 100 Days Program banner (§5.5) */}
       {program && (
