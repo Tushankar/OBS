@@ -98,6 +98,13 @@ api.chapter = (slug) => unwrap(api.get(`/chapters/${slug}`));
 api.joinChapter = (id) => unwrap(api.post(`/chapters/${id}/join`));
 api.leaveChapter = (id) => unwrap(api.delete(`/chapters/${id}/join`));
 
+// Open chapter creation (Phase 5.1) — distinct from the admin CRUD methods
+// (api.createChapter/updateChapter → /admin/chapters). These hit the public
+// user-facing endpoints.
+api.createMyChapter = (body) => unwrap(api.post('/chapters', body)).then((d) => d.chapter);
+api.updateMyChapter = (id, body) => unwrap(api.patch(`/chapters/${id}`, body)).then((d) => d.chapter);
+api.myChapters = () => unwrap(api.get('/chapters/mine')).then((d) => d.chapters);
+
 // Organizer events (Phase 1.2/1.3)
 api.organizerEvents = (params) => unwrap(api.get('/organizer/events', { params }));
 api.organizerEvent = (id) => unwrap(api.get(`/organizer/events/${id}`)).then((d) => d.event);

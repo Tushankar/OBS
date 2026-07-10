@@ -1,4 +1,5 @@
 import * as adminService from './admin.service.js';
+import { adminSetChapterStatus } from '../chapters/chapters.service.js';
 
 export async function listOrganizers(req, res) {
   const organizers = await adminService.listOrganizers(req.query);
@@ -91,6 +92,10 @@ export async function updateChapter(req, res) {
 export async function deleteChapter(req, res) {
   await adminService.deleteChapter(req.user.id, req.params.id);
   res.status(200).json({ ok: true });
+}
+export async function setChapterStatus(req, res) {
+  const chapter = await adminSetChapterStatus(req.user.id, req.params.id, req.body.status);
+  res.status(200).json({ chapter });
 }
 
 // --- CMS pages ---

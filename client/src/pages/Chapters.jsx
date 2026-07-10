@@ -12,22 +12,27 @@ const THEMATIC = {
   STRATEGIC_EXPANSION: 'Strategic expansion',
 };
 
-// Build the directory sections (§10): flagship row, countries by tier, cities,
-// then thematic families.
+// Build the directory sections (§10): official chapters grouped as flagship row,
+// countries by tier, cities, thematic families — then a Community section for
+// user-created chapters (§5.1).
 function sectionize(chapters) {
   const sections = [];
-  const flagship = chapters.filter((c) => c.isFlagship);
+  const official = chapters.filter((c) => c.isOfficial);
+  const community = chapters.filter((c) => !c.isOfficial);
+
+  const flagship = official.filter((c) => c.isFlagship);
   if (flagship.length) sections.push({ title: 'Flagship chapters', items: flagship });
   for (const t of ['T1', 'T2', 'T3', 'T4', 'T5', 'Growth']) {
-    const items = chapters.filter((c) => c.type === 'GEO_COUNTRY' && c.tier === t);
+    const items = official.filter((c) => c.type === 'GEO_COUNTRY' && c.tier === t);
     if (items.length) sections.push({ title: TIER_LABEL[t], items });
   }
-  const cities = chapters.filter((c) => c.type === 'GEO_CITY');
+  const cities = official.filter((c) => c.type === 'GEO_CITY');
   if (cities.length) sections.push({ title: 'Cities', items: cities });
   for (const [type, label] of Object.entries(THEMATIC)) {
-    const items = chapters.filter((c) => c.type === type);
+    const items = official.filter((c) => c.type === type);
     if (items.length) sections.push({ title: label, items });
   }
+  if (community.length) sections.push({ title: 'Community chapters', items: community, community: true });
   return sections;
 }
 
@@ -62,9 +67,14 @@ export default function Chapters() {
   return (
     <div className="mx-auto max-w-container px-4 pb-12 pt-6 sm:px-6">
       <Seo title="Chapters" description="Join OBS chapters worldwide — by country, city, or theme." />
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-ink sm:text-3xl">OBS Chapters</h1>
-        <p className="text-xs text-ink-mute">Join regional or interest-based community hubs worldwide.</p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-ink sm:text-3xl">OBS Chapters</h1>
+          <p className="text-xs text-ink-mute">Join regional or interest-based community hubs worldwide.</p>
+        </div>
+        <button onClick={() => navigate('/chapters/create')} className="rounded-full bg-brand px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition hover:bg-brand-dark">
+          ＋ Start a chapter
+        </button>
       </div>
 
       <div className="relative aspect-[16/5] min-h-[180px] overflow-hidden rounded-xl">

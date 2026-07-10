@@ -19,3 +19,19 @@ export async function leave(req, res) {
   const result = await chapterService.leaveChapter(req.user.id, req.params.id);
   res.status(200).json(result);
 }
+
+// ---- Open creation (§5.1) ----
+export async function create(req, res) {
+  const chapter = await chapterService.createChapter(req.user.id, req.body);
+  res.status(201).json({ chapter });
+}
+
+export async function update(req, res) {
+  const chapter = await chapterService.updateChapter(req.user, req.params.id, req.body);
+  res.status(200).json({ chapter });
+}
+
+export async function mine(req, res) {
+  const chapters = await chapterService.myChapters(req.user.id);
+  res.status(200).json({ chapters });
+}

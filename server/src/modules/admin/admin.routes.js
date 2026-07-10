@@ -51,6 +51,7 @@ router.delete('/categories/:id', validate({ params: schemas.idParam }), asyncHan
 router.get('/chapters', asyncHandler(c.listChapters));
 router.post('/chapters', validate({ body: schemas.createChapterSchema }), asyncHandler(c.createChapter));
 router.patch('/chapters/:id', validate({ params: schemas.idParam, body: schemas.updateChapterSchema }), asyncHandler(c.updateChapter));
+router.patch('/chapters/:id/status', validate({ params: schemas.idParam, body: schemas.setChapterStatusSchema }), asyncHandler(c.setChapterStatus));
 router.delete('/chapters/:id', validate({ params: schemas.idParam }), asyncHandler(c.deleteChapter));
 
 // --- CMS pages CRUD (task 3.5) ---

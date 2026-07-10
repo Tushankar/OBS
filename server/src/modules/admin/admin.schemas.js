@@ -80,6 +80,7 @@ export const createChapterSchema = z.object({
   sortOrder: z.coerce.number().int().optional(),
 });
 export const updateChapterSchema = createChapterSchema.partial();
+export const setChapterStatusSchema = z.object({ status: z.enum(CHAPTER_STATUS) });
 
 // --- CMS pages CRUD (task 3.5) ---
 export const createCmsPageSchema = z.object({

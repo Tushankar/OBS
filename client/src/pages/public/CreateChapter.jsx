@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { createChapter } from '../../mock/api';
+import api, { apiError } from '../../lib/api';
+
+// Friendly UI type → backend CHAPTER_TYPE enum.
+const TYPE_MAP = {
+  Country: 'GEO_COUNTRY',
+  City: 'GEO_CITY',
+  Community: 'LEADERSHIP_COMMUNITY',
+  Industry: 'INDUSTRY_PROFESSIONAL',
+  Interest: 'STRATEGIC_EXPANSION',
+};
 
 export default function CreateChapter() {
   const navigate = useNavigate();
@@ -21,14 +30,14 @@ export default function CreateChapter() {
   }, []);
 
   const countries = [
-    { name: 'India', flag: '🇮🇳' },
-    { name: 'UAE', flag: '🇦🇪' },
-    { name: 'Singapore', flag: '🇸🇬' },
-    { name: 'USA', flag: '🇺🇸' },
-    { name: 'UK', flag: '🇬🇧' },
-    { name: 'Germany', flag: '🇩🇪' },
-    { name: 'Kenya', flag: '🇰🇪' },
-    { name: 'Brazil', flag: '🇧🇷' }
+    { name: 'India', code: 'IN', flag: '🇮🇳' },
+    { name: 'UAE', code: 'AE', flag: '🇦🇪' },
+    { name: 'Singapore', code: 'SG', flag: '🇸🇬' },
+    { name: 'USA', code: 'US', flag: '🇺🇸' },
+    { name: 'UK', code: 'GB', flag: '🇬🇧' },
+    { name: 'Germany', code: 'DE', flag: '🇩🇪' },
+    { name: 'Kenya', code: 'KE', flag: '🇰🇪' },
+    { name: 'Brazil', code: 'BR', flag: '🇧🇷' }
   ];
 
   const types = ['Country', 'City', 'Community', 'Industry', 'Interest'];
@@ -40,7 +49,7 @@ export default function CreateChapter() {
     return err;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) {
       setAuthOpen(true);
@@ -52,26 +61,24 @@ export default function CreateChapter() {
     if (Object.keys(err).length > 0) return;
 
     setSubmitting(true);
-    const selectedCountry = countries.find(c => c.name === form.country);
-    
-    createChapter({
-      name: form.name,
-      flag: (form.type === 'Country' || form.type === 'City') ? selectedCountry?.flag : '',
-      description: form.description,
-      creatorEmail: user.email
-    })
-      .then((res) => {
-        if (res.ok) {
-          pushToast(`Chapter "${form.name}" created successfully!`);
-          navigate(`/chapters`);
-        }
-      })
-      .catch(() => {
-        pushToast('Failed to create chapter. Try again.', false);
-      })
-      .finally(() => {
-        setSubmitting(false);
+    const isGeo = form.type === 'Country' || form.type === 'City';
+    const selectedCountry = countries.find((c) => c.name === form.country);
+    try {
+      const chapter = await api.createMyChapter({
+        name: form.name.trim(),
+        type: TYPE_MAP[form.type] || 'LEADERSHIP_COMMUNITY',
+        description: form.description.trim(),
+        countryCode: isGeo ? selectedCountry?.code : undefined,
+        flagEmoji: isGeo ? selectedCountry?.flag : undefined,
+        coverUrl: form.coverUrl || undefined,
       });
+      pushToast(`Chapter "${chapter.name}" created!`);
+      navigate(`/chapters/${chapter.slug}`);
+    } catch (e2) {
+      pushToast(apiError(e2, 'Failed to create chapter. Try again.'), false);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Auth Gate Screen
