@@ -91,6 +91,16 @@ export default function App() {
       <Routes>
         <Route path="/t/:token" element={<Validate />} />
 
+        {/* Organizer portal — standalone chrome (no public navbar/footer) */}
+        <Route element={<RequireAuth><OrganizerLayout /></RequireAuth>}>
+          <Route path="/organizer" element={<OrganizerDashboard />} />
+          <Route path="/organizer/events" element={<OrganizerEvents />} />
+          <Route path="/organizer/events/new" element={<EventWizard />} />
+          <Route path="/organizer/events/:id/edit" element={<EventWizard />} />
+          <Route path="/organizer/events/:id/registrations" element={<OrganizerRegistrations />} />
+          <Route path="/organizer/events/:id/checkin" element={<OrganizerCheckIn />} />
+        </Route>
+
         {/* Admin panel — standalone chrome (no public navbar/footer) */}
         <Route element={<RequireRole roles={['ADMIN']}><AdminLayout /></RequireRole>}>
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
@@ -127,18 +137,9 @@ export default function App() {
                   {/* Account chapters route */}
                   <Route path="/account/chapters" element={<RequireAuth><MyChapters /></RequireAuth>} />
 
-                  {/* Organizer self-service (real gated application) */}
+                  {/* Organizer self-service application (public chrome; the gated
+                      organizer workspace has its own standalone shell above) */}
                   <Route path="/organizer/apply" element={<RequireAuth><Apply /></RequireAuth>} />
-
-                  {/* Organizer portal (layout gates on an APPROVED profile) */}
-                  <Route element={<RequireAuth><OrganizerLayout /></RequireAuth>}>
-                    <Route path="/organizer" element={<OrganizerDashboard />} />
-                    <Route path="/organizer/events" element={<OrganizerEvents />} />
-                    <Route path="/organizer/events/new" element={<EventWizard />} />
-                    <Route path="/organizer/events/:id/edit" element={<EventWizard />} />
-                    <Route path="/organizer/events/:id/registrations" element={<OrganizerRegistrations />} />
-                    <Route path="/organizer/events/:id/checkin" element={<OrganizerCheckIn />} />
-                  </Route>
 
                   <Route path="/chapters" element={<Chapters />} />
                   <Route path="/chapters/:slug" element={<ChapterDetail />} />
