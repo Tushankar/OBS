@@ -3,7 +3,7 @@ import { connectDB, disconnectDB } from '../config/db.js';
 import { env } from '../config/env.js';
 import { slugify } from '../utils/slugify.js';
 import { buildChapters } from './chapters.data.js';
-import { Category, Chapter, CmsPage, User, OrganizerProfile, Event, Program } from '../models/index.js';
+import { Category, Chapter, CmsPage, User, OrganizerProfile, Event, Program, Speaker, Sponsor, Article } from '../models/index.js';
 import { seedCurrentProgram } from '../modules/programs/programs.service.js';
 
 // Idempotent seed (build plan §13 Phase 0.2): admin user, 12 categories,
@@ -138,6 +138,37 @@ async function seedDemoEvents(profile) {
   return Event.countDocuments({ status: 'PUBLISHED' });
 }
 
+// §5 community/content demo data (idempotent by slug) so the public speakers /
+// sponsors / news pages aren't empty for the demo + Phase-5 EXIT.
+const SEED_SPEAKERS = [
+  { name: 'Aisha Rahman', title: 'Managing Partner', company: 'Meridian Capital', topics: ['Venture Capital', 'Fintech'], isFeatured: true, bio: 'Backs early-stage fintech across MENA and South Asia.', photoUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=600' },
+  { name: 'David Okoro', title: 'Founder & CEO', company: 'Zenith Labs', topics: ['SaaS Scaleup', 'Leadership'], isFeatured: true, bio: 'Scaled Zenith from garage to global.', photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=600' },
+  { name: 'Mei Lin Tan', title: 'Head of Product', company: 'Cloudform', topics: ['Product Engineering', 'AI'], photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600' },
+];
+const SEED_SPONSORS = [
+  { name: 'Aurora Bank', tier: 'TITLE', scope: 'PLATFORM', blurb: 'Title partner for the 100 Days season.', website: 'https://example.com', sortOrder: 1 },
+  { name: 'Nimbus Cloud', tier: 'TECHNOLOGY', scope: 'PLATFORM', blurb: 'Cloud infrastructure partner.', website: 'https://example.com', sortOrder: 2 },
+  { name: 'The Business Times', tier: 'MEDIA', scope: 'PLATFORM', blurb: 'Official media partner.', website: 'https://example.com', sortOrder: 3 },
+];
+const SEED_ARTICLES = [
+  { title: 'OBS 100 Days season kicks off across 54 countries', type: 'NEWS', authorName: 'OBS Newsroom', excerpt: 'The flagship business season returns with a record slate of summits.', content: '# A record season\n\nThe OBS 100 Days season opens with events across every regional chapter.', tags: ['season', 'announcement'] },
+  { title: 'How founders should think about fundraising in 2026', type: 'ARTICLE', authorName: 'Aisha Rahman', excerpt: 'A practical playbook for early-stage founders.', content: '## Fundraising in 2026\n\nStart with the story, then the numbers.', tags: ['fundraising', 'founders'] },
+];
+
+async function seedContent() {
+  for (const s of SEED_SPEAKERS) {
+    await Speaker.updateOne({ slug: slugify(s.name) }, { $set: { ...s, slug: slugify(s.name) } }, { upsert: true });
+  }
+  for (const s of SEED_SPONSORS) {
+    await Sponsor.updateOne({ slug: slugify(s.name) }, { $set: { ...s, slug: slugify(s.name), isActive: true } }, { upsert: true });
+  }
+  for (const a of SEED_ARTICLES) {
+    const slug = slugify(a.title);
+    await Article.updateOne({ slug }, { $set: { ...a, slug, status: 'PUBLISHED' }, $setOnInsert: { publishedAt: new Date() } }, { upsert: true });
+  }
+  return { speakers: await Speaker.countDocuments(), sponsors: await Sponsor.countDocuments(), articles: await Article.countDocuments() };
+}
+
 async function seed() {
   await connectDB();
   console.log('[seed] seeding…');
@@ -151,6 +182,7 @@ async function seed() {
   const demoProfile = await seedDemoOrganizer();
   const publishedEvents = await seedDemoEvents(demoProfile);
   const program = await seedCurrentProgram(); // §5.5 current 100 Days edition + 100 days
+  const content = await seedContent(); // §5 speakers / sponsors / articles demo data
 
   const admins = await User.countDocuments({ role: 'ADMIN' });
 
@@ -162,6 +194,7 @@ async function seed() {
   console.log(`  demo org   : ${DEMO_ORGANIZER.email} / ${DEMO_ORGANIZER.password} (APPROVED)`);
   console.log(`  pub events : ${publishedEvents}`);
   console.log(`  program    : ${program.name} (${await Program.countDocuments()} edition(s))`);
+  console.log(`  content    : ${content.speakers} speakers · ${content.sponsors} sponsors · ${content.articles} articles`);
 
   if (chapters !== 108 || categories !== 12) {
     console.warn(`\n[seed] WARNING: expected 108 chapters + 12 categories, got ${chapters} + ${categories}`);

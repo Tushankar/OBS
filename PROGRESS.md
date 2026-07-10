@@ -1,6 +1,7 @@
 # OBS EVENTS — PROGRESS
 
-Current phase: 5 — IN PROGRESS (community, content & programs). 5.1–5.7 DONE. Next: Phase 5 EXIT dry run. Seed creates the OBS 100 Days 2026 edition (100 days). (Phase 4 code-complete; EXIT = prod deploy + live keys, human sign-off.)
+Current phase: 5 — COMPLETE ✅ (community, content & programs). All 7 tasks + EXIT dry run (11/11) done. **All planned phases (0–5) are code-complete.** Remaining across the project: the Phase-4 EXIT prod deploy + live Stripe keys (human sign-off). Do NOT start new work unprompted.
+Last session: 2026-07-10 — Phase 5 COMPLETE (5.1 chapters 16/16, 5.2 speakers 16/16, 5.3 sponsors 16/16, 5.4 media 14/14, 5.5 program 14/14, 5.6 ownership/launch 11/11, 5.7 polish, EXIT 11/11 ✅) + Razorpay→Stripe-only 13/13. Seed ships demo speakers/sponsors/articles + 2026 program. (Phase 4 code-complete; EXIT = prod deploy + live keys, human sign-off.)
 Last session: 2026-07-10 — Phase 5: 5.1 chapters 16/16 ✅, 5.2 speakers 16/16 ✅; Razorpay removed (Stripe-only) 13/13 ✅. Phase 4 code-complete before this.
 **§5.1 Event fields added in 5.2** (all at once): ownership/isLaunch/launchAt/programId/programDayNumber/speakerIds + indexes. speakerIds used now; the rest wire up in 5.5/5.6.
 Payments note (2026-07-10, user directive): **Razorpay removed — Stripe only** (all currencies incl. INR go through Stripe). See Decisions. Tasks 3.1 (dashboard 7/7) + 3.2 (registrations + XLSX export 11/11) + 3.3 (check-in + scanner 11/11) + 3.4 (refunds 27/27) + 3.5 (admin panel 33/33) ✅ + EXIT dry run 19/19 ✅. Live-keys sign-off (real gateway order/refund calls + S3/inbox) carries over from Phase 2 as the remaining human sign-off. Phase 2 complete before this (EXIT 8/8; live gateway checkout + real S3/inbox remain the human sign-off). Demo organizer: demo.organizer@obs.events / Organizer@123 (APPROVED) + 3 seeded published events. Verify scripts run with `SMTP_HOST=` (jsonTransport) + dummy `RAZORPAY_WEBHOOK_SECRET`/`STRIPE_WEBHOOK_SECRET` for webhook tests.
@@ -51,7 +52,7 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 - [x] 4.5 Deploy: Atlas (M0 dev / M10 prod), EC2 API (pm2 + nginx + certbot), React build on S3 + CloudFront, live webhook URLs, live-keys checklist — config + runbook shipped in deploy/ (actual provisioning = EXIT human sign-off)
 - [~] EXIT: production URL serves a full booking flow — **code-complete; pending human sign-off** (needs AWS provisioning + live Razorpay/Stripe keys + S3/SMTP, then run the `deploy/DEPLOY.md` §7 prod smoke test). The full flow is verified headlessly (Phase 3 EXIT dry run 19/19) and the app boots in NODE_ENV=production (4.5 4/4); everything up to real infra is done.
 
-## Phase 5 — Community, content & programs (post-MVP · UI in obs-frontend-new-sections-ui-prompt.md)
+## Phase 5 — Community, content & programs ✅ COMPLETE (post-MVP · UI in obs-frontend-new-sections-ui-prompt.md)
 - [x] 5.1 Open chapter creation: POST /chapters (any user, isOfficial=false), PATCH (creator edits), GET /me/chapters, admin status/official/flagship; /chapters/create + /account/chapters + Community chapters section. Events stay organizer-gated.
 - [x] 5.2 Speakers: model + admin CRUD, /speakers + /speakers/:slug, organizer attaches speakerIds, speakers block + home rail
 - [x] 5.3 Sponsors & partners: Sponsor model (tiers/scope) + admin CRUD, /sponsors showcase + what-we-offer, event sponsors block, PartnerApplication + /become-a-sponsor → admin queue
@@ -59,7 +60,7 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 - [x] 5.5 100 Days Program: Program + ProgramDay models, seed current edition (15 Oct→22 Jan, 100 days), /program overview (season status + country filter + day-by-day) + /program/day/:n, link events via programId/programDayNumber, home banner; repeats yearly
 - [x] 5.6 Ownership + Launchpad: event ownership OBS/Partner + All/OBS/Partner tabs (?owner); isLaunch/launchAt + /launches with countdowns + home rail
 - [x] 5.7 Frontend polish: AppLoader (initial) + RouteProgress bar + chapter-highlight hero band
-- [ ] EXIT: user creates a community chapter; speaker/sponsor/article render; /program day-by-day works; owner tabs filter; /launches countdown
+- [x] EXIT: user creates a community chapter; speaker/sponsor/article render; /program day-by-day works; owner tabs filter; /launches countdown — ✅ **11/11** (2026-07-10): consolidated dry run — user creates a chapter → appears under Community; 3 seeded speakers + 3 sponsors + 2 articles render (+ article detail); `/programs/current` season status (UPCOMING, 97 days until) + day-5 agenda lists a linked event; `?owner=obs|partner` tabs filter; `/launches` shows a launch with a launchAt countdown target. Seed now ships demo speakers/sponsors/articles + the 2026 program. Full browser click-through = the human sign-off.
 
 ## Decisions
 - Phase 5 task 5.6 (2026-07-10): **Ownership + Launchpad (§5.6)**. Uses the Event fields added in 5.2 (ownership/isLaunch/launchAt). **Ownership**: `listPublicEvents` now honors `?owner=obs|partner` (was accepted-but-ignored) → All/OBS/Partner tabs on `/events`; admin sets it via the extended `PATCH /admin/events/:id {isFeatured?, ownership?}` (`updateEventAdmin`, audits EVENT_OWNERSHIP_SET; adminEventRow + publicEventCard now expose `ownership`, default OBS). **Launchpad**: `isLaunch`/`launchAt` added to the organizer event schema as **POST_PUBLISH_FIELDS** (an organizer can flag even a published event as a launch); `GET /launches?scope=upcoming|recent` (`listLaunches`: upcoming = future/null launchAt soonest-first, recent = past launchAt newest-first). publicEventCard exposes `isLaunch`/`launchAt` for the countdown. Client: `/events` All/OBS/Partner pills (`?owner`, wired through buildQuery); rewired `Launches` off mock → `api.launches(scope)` with a **live ticking Countdown** to launchAt (or startAt); Home "On the Launchpad" rail; admin Events gained an OBS/Partner `<select>` + `api.setEventOwnership`/`api.launches`. Verified E2E **11/11** (default OBS, admin→PARTNER + audit, ?owner=obs/partner/none tabs, organizer flags launch post-publish, /launches upcoming vs recent split by launchAt). Client build clean.
@@ -113,6 +114,9 @@ Stack: MERN (MongoDB Atlas + Mongoose · Express · React 18 + Vite · Node 20) 
 - Client `/t/:status` route param vs plan's `/t/:token` — cosmetic mismatch to reconcile when the validation page is wired (Phase 2.8).
 
 ## Session log
+- 2026-07-10 · Phase 5 EXIT dry run — ✅ 11/11
+  - Seed extended with demo speakers (3) / sponsors (3) / articles (2); re-ran seed.
+  - Consolidated E2E: chapter-create→Community, seeded content renders, program season status + day agenda, owner tabs, launches countdown. Client build clean. **Phase 5 COMPLETE.**
 - 2026-07-10 · task 5.7 (frontend polish) — DONE
   - AppLoader (branded initial loader) + RouteProgress (top bar on navigation) already existed and were wired in App.jsx; `ChapterHighlightBand` existed but was unrendered — added it to Home ("108 chapters. One global business season." band with Explore/Create CTAs). Client build clean. Browser render = human sign-off (pure presentational polish, no HTTP surface).
 - 2026-07-10 · task 5.6 (ownership + launchpad) — DONE
