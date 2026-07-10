@@ -49,6 +49,12 @@ export const AdminIcon = {
   Speakers: (p) => (
     <I {...p}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" /><path d="M12 18v3.5" /></I>
   ),
+  Sponsors: (p) => (
+    <I {...p}><circle cx="12" cy="9" r="5.5" /><path d="M8.5 13.5 7 21l5-2.5L17 21l-1.5-7.5" /></I>
+  ),
+  Mail: (p) => (
+    <I {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 6.5 8.5 6 8.5-6" /></I>
+  ),
   Search: (p) => (
     <I {...p}><circle cx="11" cy="11" r="6.5" /><path d="m20.5 20.5-4.7-4.7" /></I>
   ),

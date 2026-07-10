@@ -23,12 +23,15 @@ const NAV = [
       { to: '/admin/refunds', label: 'Refunds', icon: 'Refunds' },
       { to: '/admin/transactions', label: 'Transactions', icon: 'Transactions' },
       { to: '/admin/users', label: 'Users', icon: 'Users' },
+      { to: '/admin/partner-leads', label: 'Partner leads', icon: 'Mail' },
     ],
   },
   {
     section: 'Content',
     items: [
       { to: '/admin/hero', label: 'Hero carousel', icon: 'Hero' },
+      { to: '/admin/speakers', label: 'Speakers', icon: 'Speakers' },
+      { to: '/admin/sponsors', label: 'Sponsors', icon: 'Sponsors' },
       { to: '/admin/cms', label: 'Site pages', icon: 'Cms' },
       { to: '/admin/categories', label: 'Categories', icon: 'Categories' },
       { to: '/admin/chapters', label: 'Chapters', icon: 'Chapters' },
