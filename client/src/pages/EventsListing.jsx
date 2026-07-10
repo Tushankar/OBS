@@ -8,6 +8,7 @@ import api, { apiError } from '../lib/api';
 
 const DATE_OPTS = [['today', 'Today'], ['tomorrow', 'Tomorrow'], ['weekend', 'This weekend'], ['month', 'This month']];
 const MODE_OPTS = [['venue', 'In-person'], ['online', 'Online']];
+const PRICE_OPTS = [['free', 'Free'], ['paid', 'Paid']];
 const SORTS = { soonest: 'Soonest', newest: 'Newest', popular: 'Popular' };
 const LIMIT = 12;
 
@@ -49,6 +50,7 @@ export default function EventsListing() {
   const date = params.get('date') || '';
   const sort = params.get('sort') || 'soonest';
   const owner = params.get('owner') || '';
+  const price = params.get('price') || '';
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => {
@@ -64,11 +66,12 @@ export default function EventsListing() {
     if (city) query.city = city;
     if (mode) query.mode = mode;
     if (owner) query.owner = owner;
+    if (price) query.price = price;
     const [from, to] = dateRange(date);
     if (from) query.dateFrom = from.toISOString();
     if (to) query.dateTo = to.toISOString();
     return query;
-  }, [q, category, chapter, city, mode, date, sort, owner]);
+  }, [q, category, chapter, city, mode, date, sort, owner, price]);
 
   useEffect(() => {
     let alive = true;
@@ -113,6 +116,7 @@ export default function EventsListing() {
     chapter && { label: chapName || chapter, remove: () => patch('chapter', '') },
     city && { label: city, remove: () => patch('city', '') },
     mode && { label: mode === 'venue' ? 'In-person' : 'Online', remove: () => patch('mode', '') },
+    price && { label: price === 'free' ? 'Free' : 'Paid', remove: () => patch('price', '') },
     date && { label: DATE_OPTS.find((d) => d[0] === date)?.[1], remove: () => patch('date', '') },
   ].filter(Boolean);
 
@@ -140,8 +144,11 @@ export default function EventsListing() {
         <div className="flex flex-wrap gap-2">{chapShown.map((c) => <Chip key={c.slug} active={chapter === c.slug} onClick={() => toggleOne('chapter', chapter, c.slug)}>{c.flagEmoji ? `${c.flagEmoji} ` : ''}{c.name}</Chip>)}</div>
         {chapList.length > 8 && <button onClick={() => setChapMore((v) => !v)} className="mt-2.5 text-xs font-medium text-brand">{chapMore ? 'Show less' : `Show all ${chapList.length}`}</button>}
       </FilterSection>
-      <FilterSection title="Mode" last>
+      <FilterSection title="Mode">
         <div className="flex flex-wrap gap-2">{MODE_OPTS.map(([v, l]) => <Chip key={v} active={mode === v} onClick={() => toggleOne('mode', mode, v)}>{l}</Chip>)}</div>
+      </FilterSection>
+      <FilterSection title="Price" last>
+        <div className="flex flex-wrap gap-2">{PRICE_OPTS.map(([v, l]) => <Chip key={v} active={price === v} onClick={() => toggleOne('price', price, v)}>{l}</Chip>)}</div>
       </FilterSection>
     </>
   );

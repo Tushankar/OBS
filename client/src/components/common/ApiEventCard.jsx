@@ -11,6 +11,14 @@ export function seedOf(id = '') {
 const fmtDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date TBA';
 
+// §10 card price hint. fromPrice is integer paise (from the API); 0 = free.
+const fmtFromPrice = (paise, currency = 'INR') => {
+  if (paise == null) return null;
+  if (paise === 0) return 'Free';
+  const sym = currency === 'INR' ? '₹' : `${currency} `;
+  return `from ${sym}${(paise / 100).toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US')}`;
+};
+
 // Poster-style card (2:3) for real API events. No mock decorations — shows only
 // real data (banner, date, category, venue/online, chapter tag).
 export default function ApiEventCard({ event }) {
@@ -18,6 +26,7 @@ export default function ApiEventCard({ event }) {
   const go = () => navigate(`/event/${event.slug}`);
   const loc = event.isOnline ? 'Online' : event.venueName || event.city || 'Venue TBA';
   const corner = event.isOnline ? 'ONLINE' : event.chapter?.flagEmoji || '';
+  const price = fmtFromPrice(event.fromPrice, event.currency);
 
   return (
     <div
@@ -45,6 +54,7 @@ export default function ApiEventCard({ event }) {
         <div className="text-[11px] font-medium text-ink-mute">
           {loc}{event.chapter ? ` · ${event.chapter.name}` : ''}
         </div>
+        {price && <div className="mt-0.5 text-[12px] font-bold text-ink">{price}</div>}
       </div>
     </div>
   );

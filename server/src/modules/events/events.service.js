@@ -280,6 +280,18 @@ export function publicEventCard(e) {
 
 const EMPTY_PAGE = (page, limit) => ({ events: [], total: 0, page, limit, pages: 0 });
 
+// Min active ticket-type price (paise) per event → Map<eventIdStr, minPaise>.
+// Powers the card "from ₹X" hint (§10) and the free/paid filter. Events with no
+// active ticket type are absent from the map.
+async function minPricesByEvent(eventIds) {
+  if (!eventIds.length) return new Map();
+  const rows = await TicketType.aggregate([
+    { $match: { eventId: { $in: eventIds }, isActive: true } },
+    { $group: { _id: '$eventId', min: { $min: '$price' } } },
+  ]);
+  return new Map(rows.map((r) => [String(r._id), r.min]));
+}
+
 // Public event listing — only PUBLISHED, upcoming by default. Every filter maps
 // to an indexed field (status/startAt, city, categoryId, chapterId).
 export async function listPublicEvents(q) {
@@ -315,6 +327,19 @@ export async function listPublicEvents(q) {
     if (q.dateTo) filter.startAt.$lte = q.dateTo;
   }
 
+  // §10 price filter (free = min active price 0, paid = min active price > 0).
+  // Resolve matching event ids from the candidate set before paginating.
+  if (q.price === 'free' || q.price === 'paid') {
+    const candidateIds = (await Event.find(filter).select('_id')).map((e) => e._id);
+    const pm = await minPricesByEvent(candidateIds);
+    const keep = candidateIds.filter((id) => {
+      const m = pm.get(String(id));
+      if (m === undefined) return false; // no active ticket types → neither free nor paid
+      return q.price === 'free' ? m === 0 : m > 0;
+    });
+    filter._id = { $in: keep };
+  }
+
   const sortSpec =
     sort === 'newest' ? { publishedAt: -1, createdAt: -1 } :
     sort === 'popular' ? { viewsCount: -1, startAt: 1 } :
@@ -329,7 +354,10 @@ export async function listPublicEvents(q) {
       .limit(limit),
     Event.countDocuments(filter),
   ]);
-  return { events: rows.map(publicEventCard), total, page, limit, pages: Math.ceil(total / limit) || 0 };
+  // §10 card "from ₹X": attach the min active ticket price (paise) per card.
+  const priceMap = await minPricesByEvent(rows.map((r) => r._id));
+  const events = rows.map((e) => ({ ...publicEventCard(e), fromPrice: priceMap.has(String(e._id)) ? priceMap.get(String(e._id)) : null }));
+  return { events, total, page, limit, pages: Math.ceil(total / limit) || 0 };
 }
 
 // Full public detail. meetingLink stays hidden in Phase 1 (no ticket holders yet
