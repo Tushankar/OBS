@@ -21,3 +21,4 @@ export { default as Session } from './Session.js';
 export { default as Speaker } from './Speaker.js';
 export { default as Sponsor } from './Sponsor.js';
 export { default as PartnerApplication } from './PartnerApplication.js';
+export { default as Article } from './Article.js';

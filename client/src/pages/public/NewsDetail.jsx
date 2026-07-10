@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getArticle } from '../../mock/api';
+import api from '../../lib/api';
 import EvImage from '../../components/common/EvImage';
 import ArticleCard from '../../components/cards/ArticleCard';
 import { useApp } from '../../context/AppContext';
@@ -15,10 +15,10 @@ export default function NewsDetail() {
   useEffect(() => {
     window.scrollTo(0, 0);
     setLoading(true);
-    getArticle(slug).then((data) => {
-      setArticle(data);
-      setLoading(false);
-    });
+    api.article(slug)
+      .then((data) => setArticle(data))
+      .catch(() => setArticle(null))
+      .finally(() => setLoading(false));
   }, [slug]);
 
   if (loading) {

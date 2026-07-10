@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getArticles } from '../../mock/api';
+import api from '../../lib/api';
 import ArticleCard from '../../components/cards/ArticleCard';
 import { SkeletonGrid } from '../../components/common/Skeleton';
 
@@ -13,11 +13,11 @@ export default function NewsListing() {
     setLoading(true);
     const params = {};
     if (filter !== 'ALL') params.type = filter;
-    
-    getArticles(params).then((data) => {
-      setArticles(data);
-      setLoading(false);
-    });
+
+    api.articles(params)
+      .then((data) => setArticles(Array.isArray(data) ? data : []))
+      .catch(() => setArticles([]))
+      .finally(() => setLoading(false));
   }, [filter]);
 
   const tabs = [
@@ -70,7 +70,7 @@ export default function NewsListing() {
             {gridItems.length > 0 ? (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {gridItems.map((a) => (
-                  <ArticleCard key={a._id} article={a} />
+                  <ArticleCard key={a.id} article={a} />
                 ))}
               </div>
             ) : (

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ApiEventCard from '../components/common/ApiEventCard';
+import ArticleCard from '../components/cards/ArticleCard';
 import { SkeletonGrid } from '../components/common/Skeleton';
 import Seo from '../components/common/Seo';
 import api from '../lib/api';
@@ -37,6 +38,7 @@ export default function Home() {
   const [chapters, setChapters] = useState([]);
   const [speakers, setSpeakers] = useState([]);
   const [sponsors, setSponsors] = useState([]);
+  const [articles, setArticles] = useState([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -46,6 +48,7 @@ export default function Home() {
     api.chapters().then(setChapters).catch(() => {});
     api.speakers().then((d) => setSpeakers((d || []).slice(0, 10))).catch(() => {});
     api.sponsors().then((d) => setSponsors((d || []).slice(0, 12))).catch(() => {});
+    api.articles({ limit: 3 }).then((d) => setArticles(d || [])).catch(() => {});
   }, []);
 
   const spotlight = [...chapters].filter((c) => c.isFlagship).slice(0, 8);
@@ -121,6 +124,19 @@ export default function Home() {
                 {sp.logoUrl ? <img src={sp.logoUrl} alt={sp.name} className="max-h-full max-w-full object-contain opacity-80" /> : <span className="px-1 text-center text-[11px] font-bold uppercase text-ink-mute">{sp.name}</span>}
               </div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Newsroom rail (§5.4) */}
+      {articles.length > 0 && (
+        <section className="mx-auto max-w-container px-4 pt-10 sm:px-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-ink">From the newsroom</h2>
+            <button onClick={() => navigate('/news')} className="text-[13px] font-semibold text-brand hover:underline">See all ›</button>
+          </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {articles.map((a) => <ArticleCard key={a.id} article={a} />)}
           </div>
         </section>
       )}

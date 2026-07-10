@@ -194,6 +194,14 @@ api.deleteSponsor = (id) => unwrap(api.delete(`/admin/sponsors/${id}`));
 api.adminPartnerApplications = (params) => unwrap(api.get('/admin/partner-applications', { params })).then((d) => d.applications);
 api.updatePartnerApplication = (id, body) => unwrap(api.patch(`/admin/partner-applications/${id}`, body)).then((d) => d.application);
 
+// Articles / media (Phase 5.4)
+api.articles = (params) => unwrap(api.get('/articles', { params })).then((d) => d.articles);
+api.article = (slug) => unwrap(api.get(`/articles/${slug}`)).then((d) => d.article);
+api.adminArticles = () => unwrap(api.get('/admin/articles')).then((d) => d.articles);
+api.createArticle = (body) => unwrap(api.post('/admin/articles', body)).then((d) => d.article);
+api.updateArticle = (id, body) => unwrap(api.patch(`/admin/articles/${id}`, body)).then((d) => d.article);
+api.deleteArticle = (id) => unwrap(api.delete(`/admin/articles/${id}`));
+
 // Admin — reports (Phase 4.1)
 api.reportsSummary = () => unwrap(api.get('/admin/reports/summary')).then((d) => d.summary);
 api.reportsMonthly = (year) => unwrap(api.get('/admin/reports/monthly', { params: year ? { year } : {} })).then((d) => d.monthly);

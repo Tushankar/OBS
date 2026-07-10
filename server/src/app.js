@@ -28,6 +28,8 @@ import speakerRoutes from './modules/speakers/speakers.routes.js';
 import speakerAdminRoutes from './modules/speakers/speakers.admin.routes.js';
 import sponsorRoutes from './modules/sponsors/sponsors.routes.js';
 import sponsorAdminRoutes from './modules/sponsors/sponsors.admin.routes.js';
+import articleRoutes from './modules/articles/articles.routes.js';
+import articleAdminRoutes from './modules/articles/articles.admin.routes.js';
 import geoRoutes from './modules/geo/geo.routes.js';
 import paymentRoutes from './modules/payments/payments.routes.js';
 import webhookRoutes from './modules/payments/webhooks.routes.js';
@@ -83,6 +85,7 @@ export function createApp() {
   app.use('/api/v1/pages', pageRoutes);
   app.use('/api/v1/speakers', speakerRoutes);
   app.use('/api/v1', sponsorRoutes); // /sponsors, /events/:slug/sponsors, /partner-applications
+  app.use('/api/v1/articles', articleRoutes);
   app.use('/api/v1/geo', geoRoutes);
   app.use('/api/v1/events', publicEventRoutes);
   app.use('/api/v1/tickets', ticketValidateRoutes);
@@ -100,6 +103,7 @@ export function createApp() {
   app.use('/api/v1/admin/reports', reportRoutes);
   app.use('/api/v1/admin/speakers', speakerAdminRoutes);
   app.use('/api/v1/admin', sponsorAdminRoutes); // /admin/sponsors, /admin/partner-applications
+  app.use('/api/v1/admin/articles', articleAdminRoutes);
   app.use('/api/v1/admin', adminRoutes);
 
   app.use(notFound);
