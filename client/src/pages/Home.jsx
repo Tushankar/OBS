@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ApiEventCard from '../components/common/ApiEventCard';
 import ArticleCard from '../components/cards/ArticleCard';
+import SponsorLogo from '../components/cards/SponsorLogo';
 import ChapterHighlightBand from '../components/home/ChapterHighlightBand';
 import HeroCarousel from '../components/home/HeroCarousel';
 import { SkeletonGrid } from '../components/common/Skeleton';
@@ -43,8 +44,9 @@ export default function Home() {
   const [articles, setArticles] = useState([]);
   const [program, setProgram] = useState(null);
   const [launches, setLaunches] = useState(null);
-  const [heroSlides, setHeroSlides] = useState(null); // null=loading, []=none → static band
+  const [heroSlides, setHeroSlides] = useState(null); // null=loading (skeleton), []=none → static band
   const [featured, setFeatured] = useState([]);
+  const [stats, setStats] = useState(null); // null=loading, {}=failed → metrics softened/omitted
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -59,6 +61,7 @@ export default function Home() {
     api.sponsors().then((d) => setSponsors((d || []).slice(0, 12))).catch(() => {});
     api.articles({ limit: 3 }).then((d) => setArticles(d || [])).catch(() => {});
     api.currentProgram().then(setProgram).catch(() => {});
+    api.stats().then((s) => setStats(s || {})).catch(() => setStats({}));
   }, []);
 
   const programStatus = program?.season?.phase === 'ACTIVE'
@@ -71,18 +74,23 @@ export default function Home() {
 
   return (
     <div className="bg-[#F5F5F5] pb-10">
-      <Seo description="Discover and book business events across 108 OBS chapters worldwide — summits, conferences, networking and more." />
+      <Seo description="Discover and book business events across the global OBS chapter network — summits, conferences, networking and more." />
 
-      {/* Hero — admin-managed carousel (Admin → Hero carousel); static band
-          fallback while loading / when no active slides exist */}
-      {heroSlides?.length > 0 ? (
+      {/* Hero — admin-managed carousel (Admin → Hero carousel). While loading,
+          a neutral skeleton at the carousel's exact size (no flash-then-swap);
+          the static band renders only once we know no active slides exist. */}
+      {heroSlides === null ? (
+        <div className="hero-carousel-container w-full overflow-hidden bg-[#F5F5F5] py-3">
+          <div className="skeleton mx-auto aspect-[16/6] rounded-[8px] md:aspect-[1240/310]" style={{ width: 'var(--slide-width)' }} />
+        </div>
+      ) : heroSlides.length > 0 ? (
         <HeroCarousel slides={heroSlides} />
       ) : (
         <section className="bg-footer">
           <div className="mx-auto max-w-container px-4 py-14 sm:px-6 sm:py-20">
             <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-brand-light">One Business Season</div>
             <h1 className="mt-3 max-w-[720px] text-3xl font-extrabold leading-tight text-white sm:text-[42px]">
-              Discover business events across <span className="text-brand-light">108 chapters</span> worldwide.
+              Discover business events across <span className="text-brand-light">OBS chapters</span> worldwide.
             </h1>
             <p className="mt-3 max-w-[560px] text-sm leading-relaxed text-white/70">
               Summits, conferences, networking and more — find your next event and connect with the OBS community.
@@ -108,8 +116,8 @@ export default function Home() {
         </section>
       )}
 
-      {/* Chapter-highlight hero band (§5.7) */}
-      <ChapterHighlightBand />
+      {/* Chapter-highlight hero band (§5.7) — real /stats counters */}
+      <ChapterHighlightBand stats={stats} />
 
       {/* 100 Days Program banner (§5.5) */}
       {program && (
@@ -125,7 +133,7 @@ export default function Home() {
         </section>
       )}
 
-      {featured.length > 0 && <Rail title="Featured on OBS" events={featured} seeAllTo="/events?owner=obs" navigate={navigate} />}
+      {featured.length > 0 && <Rail title="Featured on OBS" events={featured} seeAllTo="/events?owner=obs&featured=true" navigate={navigate} />}
       <Rail title="Happening soon" events={soon} seeAllTo="/events" navigate={navigate} />
       <Rail title="Recently added" events={recent} seeAllTo="/events?sort=newest" navigate={navigate} empty="No new events yet." />
       {launches?.length > 0 && <Rail title="On the Launchpad" events={launches} seeAllTo="/launches" navigate={navigate} />}
@@ -159,11 +167,7 @@ export default function Home() {
             <button onClick={() => navigate('/sponsors')} className="text-[13px] font-semibold text-brand hover:underline">See all ›</button>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {sponsors.map((sp) => (
-              <div key={sp.id} title={sp.name} className="flex h-[60px] w-[140px] items-center justify-center rounded-xl border border-line bg-white p-2">
-                {sp.logoUrl ? <img src={sp.logoUrl} alt={sp.name} className="max-h-full max-w-full object-contain opacity-80" /> : <span className="px-1 text-center text-[11px] font-bold uppercase text-ink-mute">{sp.name}</span>}
-              </div>
-            ))}
+            {sponsors.map((sp) => <SponsorLogo key={sp.id} sponsor={sp} />)}
           </div>
         </section>
       )}
@@ -186,7 +190,7 @@ export default function Home() {
         <h2 className="mb-4 text-2xl font-bold text-ink">Explore OBS chapters</h2>
         <div className="no-scrollbar flex gap-4 overflow-x-auto pb-2">
           <button onClick={() => navigate('/chapters')} className="flex h-24 w-[200px] shrink-0 items-center justify-center rounded-[10px] border border-brand-soft bg-brand-soft p-3 transition hover:-translate-y-0.5 hover:border-brand">
-            <span className="text-sm font-semibold text-brand">All {chapters.length || 108} chapters ›</span>
+            <span className="text-sm font-semibold text-brand">{chapters.length ? `All ${chapters.length} chapters ›` : 'All chapters ›'}</span>
           </button>
           {spotlight.map((c) => (
             <button key={c.slug} onClick={() => navigate(`/chapters/${c.slug}`)} className="flex h-24 w-[200px] shrink-0 items-center gap-3 rounded-[10px] border border-line bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-brand">
@@ -205,7 +209,7 @@ export default function Home() {
         <div className="flex flex-col items-start justify-between gap-4 rounded-2xl bg-footer px-6 py-8 sm:flex-row sm:items-center sm:px-10">
           <div>
             <div className="text-xl font-bold text-white">Hosting an event?</div>
-            <div className="mt-1 text-sm text-white/70">List it on OBS and reach members across 108 chapters.</div>
+            <div className="mt-1 text-sm text-white/70">List it on OBS and reach members across {stats?.chapters ? `${stats.chapters} chapters` : 'the global chapter network'}.</div>
           </div>
           <button onClick={() => navigate('/list-your-event')} className="shrink-0 rounded-full bg-gold-gradient px-7 py-3 text-[13px] font-extrabold uppercase tracking-wider text-black transition hover:brightness-110">List your event</button>
         </div>

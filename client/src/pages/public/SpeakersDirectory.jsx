@@ -4,25 +4,16 @@ import SpeakerCard from '../../components/cards/SpeakerCard';
 import { SkeletonGrid } from '../../components/common/Skeleton';
 import { Icon } from '../../components/common/Icon';
 
+const TOPIC_CHIP_CAP = 12;
+
 export default function SpeakersDirectory() {
   const [speakers, setSpeakers] = useState([]);
+  const [topics, setTopics] = useState([]);
+  const [showAllTopics, setShowAllTopics] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [topic, setTopic] = useState('All');
   const searchTimeout = useRef(null);
-
-  // Topics list derived from speakers topics
-  const topics = [
-    'All',
-    'Venture Capital',
-    'Fintech',
-    'Consumer Tech',
-    'SaaS Scaleup',
-    'Artificial Intelligence',
-    'D2C Growth',
-    'Leadership',
-    'Product Engineering'
-  ];
 
   const fetchFilteredSpeakers = (q, t) => {
     setLoading(true);
@@ -30,11 +21,17 @@ export default function SpeakersDirectory() {
     if (q) params.q = q;
     if (t && t !== 'All') params.topic = t;
 
-    api.speakers(params)
-      .then((data) => setSpeakers(Array.isArray(data) ? data : []))
+    api.speakersWithMeta(params)
+      .then((data) => {
+        setSpeakers(Array.isArray(data?.speakers) ? data.speakers : []);
+        setTopics(Array.isArray(data?.topics) ? data.topics : []);
+      })
       .catch(() => setSpeakers([]))
       .finally(() => setLoading(false));
   };
+
+  const visibleTopics = showAllTopics ? topics : topics.slice(0, TOPIC_CHIP_CAP);
+  const hiddenTopicCount = topics.length - visibleTopics.length;
 
   useEffect(() => {
     fetchFilteredSpeakers(search, topic);
@@ -74,25 +71,35 @@ export default function SpeakersDirectory() {
             />
           </div>
 
-          {/* Topic Select (mobile) / Topic Chips (desktop) */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-bold text-ink-mute uppercase mr-1 hidden md:inline">Topic:</span>
-            <div className="flex flex-wrap gap-1.5">
-              {topics.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTopic(t)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                    topic === t
-                      ? 'border-brand bg-brand-soft text-brand'
-                      : 'border-line bg-surface text-ink-soft hover:bg-neutral-100'
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+          {/* Topic chips — derived from the topics actually on speaker profiles */}
+          {topics.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-bold text-ink-mute uppercase mr-1 hidden md:inline">Topic:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {['All', ...visibleTopics].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTopic(t)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                      topic === t
+                        ? 'border-brand bg-brand-soft text-brand'
+                        : 'border-line bg-surface text-ink-soft hover:bg-neutral-100'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+                {hiddenTopicCount > 0 && (
+                  <button
+                    onClick={() => setShowAllTopics(true)}
+                    className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-mute transition hover:bg-neutral-100"
+                  >
+                    +{hiddenTopicCount} more
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Speakers Grid */}

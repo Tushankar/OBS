@@ -1,23 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { CHAPTER_TYPE_LABELS } from '../../lib/labels';
 import api, { apiError } from '../../lib/api';
 
-// Friendly UI type → backend CHAPTER_TYPE enum.
-const TYPE_MAP = {
-  Country: 'GEO_COUNTRY',
-  City: 'GEO_CITY',
-  Community: 'LEADERSHIP_COMMUNITY',
-  Industry: 'INDUSTRY_PROFESSIONAL',
-  Interest: 'STRATEGIC_EXPANSION',
-};
+// All six CHAPTER_TYPE enum values, labelled from the shared vocabulary so the
+// word a creator picks here is the exact word the directory shows later.
+const TYPE_OPTIONS = [
+  'GEO_COUNTRY',
+  'GEO_CITY',
+  'LEADERSHIP_COMMUNITY',
+  'INDUSTRY_PROFESSIONAL',
+  'BUSINESS_CAPITAL',
+  'STRATEGIC_EXPANSION',
+].map((value) => ({ value, label: CHAPTER_TYPE_LABELS[value] }));
+const typeLabel = (value) => TYPE_OPTIONS.find((t) => t.value === value)?.label || value;
 
 export default function CreateChapter() {
   const navigate = useNavigate();
   const { user, setAuthOpen, pushToast } = useApp();
   const [form, setForm] = useState({
     name: '',
-    type: 'Community',
+    type: 'LEADERSHIP_COMMUNITY',
     country: 'India',
     description: '',
     coverUrl: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=600'
@@ -40,7 +44,7 @@ export default function CreateChapter() {
     { name: 'Brazil', code: 'BR', flag: '🇧🇷' }
   ];
 
-  const types = ['Country', 'City', 'Community', 'Industry', 'Interest'];
+  const isGeo = form.type === 'GEO_COUNTRY' || form.type === 'GEO_CITY';
 
   const validate = () => {
     const err = {};
@@ -61,18 +65,17 @@ export default function CreateChapter() {
     if (Object.keys(err).length > 0) return;
 
     setSubmitting(true);
-    const isGeo = form.type === 'Country' || form.type === 'City';
     const selectedCountry = countries.find((c) => c.name === form.country);
     try {
       const chapter = await api.createMyChapter({
         name: form.name.trim(),
-        type: TYPE_MAP[form.type] || 'LEADERSHIP_COMMUNITY',
+        type: form.type,
         description: form.description.trim(),
         countryCode: isGeo ? selectedCountry?.code : undefined,
         flagEmoji: isGeo ? selectedCountry?.flag : undefined,
         coverUrl: form.coverUrl || undefined,
       });
-      pushToast(`Chapter "${chapter.name}" created!`);
+      pushToast(`Chapter "${chapter.name}" submitted — it's now under review.`);
       navigate(`/chapters/${chapter.slug}`);
     } catch (e2) {
       pushToast(apiError(e2, 'Failed to create chapter. Try again.'), false);
@@ -103,7 +106,7 @@ export default function CreateChapter() {
   }
 
   const selectedCountry = countries.find(c => c.name === form.country);
-  const displayFlag = (form.type === 'Country' || form.type === 'City') ? selectedCountry?.flag : '';
+  const displayFlag = isGeo ? selectedCountry?.flag : '';
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] pb-16 pt-8">
@@ -139,13 +142,13 @@ export default function CreateChapter() {
                     onChange={(e) => setForm({ ...form, type: e.target.value })}
                     className="h-10 w-full rounded-md border border-line bg-white px-3.5 text-sm text-ink outline-none transition focus:border-brand"
                   >
-                    {types.map((t) => (
-                      <option key={t} value={t}>{t} Chapter</option>
+                    {TYPE_OPTIONS.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
                 </div>
 
-                {(form.type === 'Country' || form.type === 'City') && (
+                {isGeo && (
                   <div>
                     <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">Country *</label>
                     <select
@@ -177,7 +180,7 @@ export default function CreateChapter() {
               </div>
 
               <div className="text-[10.5px] text-ink-mute leading-relaxed border-t border-line pt-4 mt-2">
-                New chapters are reviewed by the OBS operations team and may be marked official later. Live preview represents what it looks like on the directory page.
+                New chapters are reviewed by the OBS operations team and may be marked official later. Until approval, only you can see your chapter's page. Live preview represents what it looks like on the directory page.
               </div>
 
               <button
@@ -185,7 +188,7 @@ export default function CreateChapter() {
                 disabled={submitting}
                 className="mt-2 h-10 w-full rounded-md bg-[#C99E25] text-xs font-bold uppercase tracking-wider text-white shadow-sm transition hover:bg-[#A37E19] disabled:opacity-50 flex items-center justify-center"
               >
-                {submitting ? 'Creating Chapter...' : 'Create chapter'}
+                {submitting ? 'Submitting Chapter...' : 'Create chapter'}
               </button>
             </form>
           </div>
@@ -193,7 +196,7 @@ export default function CreateChapter() {
           {/* Live Preview Column */}
           <aside className="sticky top-[90px]">
             <h3 className="text-xs font-bold text-ink uppercase tracking-wider mb-3 px-1">Live Card Preview</h3>
-            
+
             <div className="rounded-xl border border-line bg-white p-4 shadow-sm">
               <div className="flex items-center gap-3">
                 {displayFlag ? (
@@ -203,13 +206,13 @@ export default function CreateChapter() {
                     {form.name ? form.name[0] : 'O'}
                   </span>
                 )}
-                
+
                 <div className="min-w-0">
                   <div className="truncate text-sm font-bold text-ink">
                     {form.name || 'OBS Chapter Name'}
                   </div>
                   <div className="mt-0.5 text-[11px] text-ink-mute font-medium">
-                    {form.type} · Under review
+                    {typeLabel(form.type)} · Under review
                   </div>
                 </div>
               </div>

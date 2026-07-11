@@ -1,21 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Icon } from '../common/Icon';
 import GoogleButton from '../common/GoogleButton';
-import { apiError } from '../../lib/api';
+import api, { apiError } from '../../lib/api';
+
+// Lets pages open the modal directly on a specific view — e.g. /reset-password
+// sends users with an expired link straight to 'forgot'. Consumed once on open.
+let pendingMode = null;
+export function presetAuthMode(mode) { pendingMode = mode; }
 
 /** Sign in / sign up modal. Controlled by App via `open`/`onClose`. */
 export default function AuthModal({ open, onClose }) {
   const { login, register, loginWithGoogle, pushToast } = useApp();
-  const [mode, setMode] = useState('in');
+  const [mode, setMode] = useState('in'); // 'in' | 'up' | 'forgot'
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false); // forgot-password request dispatched
+
+  useEffect(() => {
+    if (open && pendingMode) { setMode(pendingMode); pendingMode = null; }
+  }, [open]);
 
   if (!open) return null;
   const isSignup = mode === 'up';
+  const isForgot = mode === 'forgot';
 
   const done = (msg) => { pushToast(msg); reset(); onClose(); };
 
@@ -40,6 +51,19 @@ export default function AuthModal({ open, onClose }) {
     }
   };
 
+  const submitForgot = async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return setErr('Enter a valid email address');
+    setErr('');
+    setBusy(true);
+    try {
+      await api.forgotPassword(email);
+    } catch {
+      /* same neutral copy either way — never reveal whether an account exists */
+    }
+    setBusy(false);
+    setSent(true);
+  };
+
   const onGoogle = async (idToken) => {
     setErr('');
     setBusy(true);
@@ -53,7 +77,7 @@ export default function AuthModal({ open, onClose }) {
     }
   };
 
-  const reset = () => { setErr(''); setName(''); setEmail(''); setPass(''); setBusy(false); };
+  const reset = () => { setErr(''); setName(''); setEmail(''); setPass(''); setBusy(false); setSent(false); if (isForgot) setMode('in'); };
 
   const tab = (active) => `pb-2.5 text-sm font-semibold cursor-pointer border-b-2 transition ${active ? 'border-brand text-brand' : 'border-transparent text-ink-soft'}`;
   const input = 'h-10 w-full rounded-md border border-line px-3.5 text-sm text-ink outline-none transition focus:border-brand';
@@ -63,22 +87,53 @@ export default function AuthModal({ open, onClose }) {
       <div className="absolute inset-0 bg-black/45" onClick={() => { reset(); onClose(); }} />
       <div className="relative w-[480px] max-w-full animate-fadeUp rounded-xl bg-white p-7 shadow-[0_20px_60px_rgba(0,0,0,.25)]">
         <button onClick={() => { reset(); onClose(); }} aria-label="Close" className="absolute right-3.5 top-3.5 text-ink-mute"><Icon.Close /></button>
-        <div className="mb-5 flex gap-6 border-b border-line">
-          <button onClick={() => { setMode('in'); setErr(''); }} className={tab(!isSignup)}>Sign in</button>
-          <button onClick={() => { setMode('up'); setErr(''); }} className={tab(isSignup)}>Sign up</button>
-        </div>
-        <div className="flex flex-col gap-3">
-          {isSignup && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className={input} />}
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" className={input} />
-          <input value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !busy && submit()} type="password" placeholder="Password" className={input} />
-          <div className="min-h-[15px] text-xs text-brand">{err}</div>
-          <button onClick={submit} disabled={busy} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60">
-            {busy ? 'Please wait…' : isSignup ? 'Create account' : 'Sign in'}
-          </button>
-          <div className="flex items-center gap-3 text-xs text-ink-mute"><div className="h-px flex-1 bg-line" />or<div className="h-px flex-1 bg-line" /></div>
-          <GoogleButton onCredential={onGoogle} onError={() => setErr('Could not load Google sign-in')} />
-          <div className="text-center text-xs text-ink-mute">By continuing you agree to the OBS terms of use and privacy policy.</div>
-        </div>
+        {isForgot ? (
+          <>
+            <div className="mb-5 border-b border-line">
+              <div className="pb-2.5 text-sm font-semibold text-ink">Reset your password</div>
+            </div>
+            {sent ? (
+              <div className="flex flex-col gap-4">
+                <p className="text-sm leading-relaxed text-ink-soft">If an account exists for that email, a reset link is on its way — check your inbox.</p>
+                <button onClick={() => { setMode('in'); setSent(false); setErr(''); }} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark">
+                  Back to sign in
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm leading-relaxed text-ink-soft">Enter the email you signed up with and we&rsquo;ll send you a link to reset your password.</p>
+                <input value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !busy && submitForgot()} placeholder="Email address" className={input} />
+                <div className="min-h-[15px] text-xs text-brand">{err}</div>
+                <button onClick={submitForgot} disabled={busy} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60">
+                  {busy ? 'Please wait…' : 'Send reset link'}
+                </button>
+                <button onClick={() => { setMode('in'); setErr(''); }} className="text-center text-xs font-medium text-brand hover:underline">Back to sign in</button>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="mb-5 flex gap-6 border-b border-line">
+              <button onClick={() => { setMode('in'); setErr(''); }} className={tab(!isSignup)}>Sign in</button>
+              <button onClick={() => { setMode('up'); setErr(''); }} className={tab(isSignup)}>Sign up</button>
+            </div>
+            <div className="flex flex-col gap-3">
+              {isSignup && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className={input} />}
+              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" className={input} />
+              <input value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !busy && submit()} type="password" placeholder="Password" className={input} />
+              {!isSignup && (
+                <button onClick={() => { setMode('forgot'); setErr(''); }} className="self-end text-xs font-medium text-brand hover:underline">Forgot password?</button>
+              )}
+              <div className="min-h-[15px] text-xs text-brand">{err}</div>
+              <button onClick={submit} disabled={busy} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60">
+                {busy ? 'Please wait…' : isSignup ? 'Create account' : 'Sign in'}
+              </button>
+              <div className="flex items-center gap-3 text-xs text-ink-mute"><div className="h-px flex-1 bg-line" />or<div className="h-px flex-1 bg-line" /></div>
+              <GoogleButton onCredential={onGoogle} onError={() => setErr('Could not load Google sign-in')} />
+              <div className="text-center text-xs text-ink-mute">By continuing you agree to the OBS terms of use and privacy policy.</div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -60,8 +60,9 @@ export const bannerSchema = z.object({
 });
 
 // Public catalog list (§7 GET /events). `category`/`chapter` are slugs. The
-// price/owner/program params are accepted for forward-compat (Phase 2/5) and
-// ignored in Phase 1.
+// `price` (free/paid via min active ticket price) and `owner` (OBS/Partner
+// ownership tabs) params ARE honored by the service; only `program` is still
+// accepted for forward-compat and unused.
 export const publicListQuery = z.object({
   q: z.string().trim().max(160).optional(),
   category: z.string().trim().max(160).optional(),

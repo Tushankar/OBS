@@ -83,6 +83,7 @@ function shapeApplication(a) {
     message: a.message || null,
     status: a.status,
     adminNotes: a.adminNotes || null,
+    sponsorId: a.sponsorId ? String(a.sponsorId) : null,
     createdAt: a.createdAt,
   };
 }
@@ -96,11 +97,34 @@ export async function adminListApplications({ status } = {}) {
   const filter = status ? { status } : {};
   return (await PartnerApplication.find(filter).sort({ createdAt: -1 })).map(shapeApplication);
 }
+// Approval must produce a visible next step: a hidden draft Sponsor the admin
+// finishes in Admin → Sponsors. Idempotent via the sponsorId back-reference.
+async function draftSponsorFromApplication(adminId, app) {
+  const slug = await uniqueSlug(Sponsor, app.orgName);
+  const website = app.website
+    ? (/^https?:\/\//i.test(app.website) ? app.website : `https://${app.website}`)
+    : undefined;
+  const sponsor = await Sponsor.create({
+    name: app.orgName,
+    slug,
+    website,
+    tier: app.interestTier || 'PARTNER',
+    scope: 'PLATFORM',
+    isActive: false,
+  });
+  await writeAudit({ actorId: adminId, action: 'SPONSOR_CREATED', entityType: 'Sponsor', entityId: sponsor._id, meta: { name: sponsor.name, fromApplication: String(app._id) } });
+  return sponsor;
+}
+
 export async function updateApplication(adminId, id, { status, adminNotes }) {
   const app = await PartnerApplication.findById(id);
   if (!app) throw notFoundError('APPLICATION_NOT_FOUND', 'Application not found');
   if (status !== undefined) app.status = status;
   if (adminNotes !== undefined) app.adminNotes = adminNotes;
+  if (app.status === 'APPROVED' && !app.sponsorId) {
+    const sponsor = await draftSponsorFromApplication(adminId, app);
+    app.sponsorId = sponsor._id;
+  }
   await app.save();
   await writeAudit({ actorId: adminId, action: 'PARTNER_APPLICATION_UPDATED', entityType: 'PartnerApplication', entityId: app._id, meta: { status: app.status } });
   return shapeApplication(app);

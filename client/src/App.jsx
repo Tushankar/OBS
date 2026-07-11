@@ -32,6 +32,8 @@ import RefundPolicy from './pages/RefundPolicy';
 import Help from './pages/Help';
 import Webinars from './pages/Webinars';
 import Summits from './pages/Summits';
+import OrganizersDirectory from './pages/OrganizersDirectory';
+import ResetPassword from './pages/ResetPassword';
 import NotFound from './pages/NotFound';
 
 // New pages
@@ -73,6 +75,8 @@ import AdminHero from './pages/admin/Hero';
 import AdminSpeakers from './pages/admin/Speakers';
 import AdminSponsors from './pages/admin/Sponsors';
 import AdminPartnerLeads from './pages/admin/PartnerLeads';
+import AdminPrograms from './pages/admin/Programs';
+import AdminArticles from './pages/admin/Articles';
 import CmsPublicPage from './pages/CmsPublicPage';
 
 export default function App() {
@@ -120,6 +124,8 @@ export default function App() {
           <Route path="/admin/hero" element={<AdminHero />} />
           <Route path="/admin/speakers" element={<AdminSpeakers />} />
           <Route path="/admin/sponsors" element={<AdminSponsors />} />
+          <Route path="/admin/programs" element={<AdminPrograms />} />
+          <Route path="/admin/articles" element={<AdminArticles />} />
           <Route path="/admin/reports" element={<AdminReports />} />
         </Route>
 
@@ -149,8 +155,10 @@ export default function App() {
 
                   <Route path="/chapters" element={<Chapters />} />
                   <Route path="/chapters/:slug" element={<ChapterDetail />} />
+                  <Route path="/organizers" element={<OrganizersDirectory />} />
                   <Route path="/organizers/:slug" element={<Organizer />} />
                   <Route path="/search" element={<SearchResults />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/careers" element={<Careers />} />
                   {/* Admin-managed CMS pages (public render) */}

@@ -35,6 +35,7 @@ import programAdminRoutes from './modules/programs/programs.admin.routes.js';
 import launchRoutes from './modules/events/launches.routes.js';
 import { heroPublicRoutes, heroAdminRoutes } from './modules/hero/hero.routes.js';
 import geoRoutes from './modules/geo/geo.routes.js';
+import statsRoutes from './modules/stats/stats.routes.js';
 import paymentRoutes from './modules/payments/payments.routes.js';
 import webhookRoutes from './modules/payments/webhooks.routes.js';
 import seoRoutes from './modules/seo/seo.routes.js';
@@ -94,6 +95,7 @@ export function createApp() {
   app.use('/api/v1/launches', launchRoutes);
   app.use('/api/v1/hero-slides', heroPublicRoutes);
   app.use('/api/v1/geo', geoRoutes);
+  app.use('/api/v1/stats', statsRoutes);
   app.use('/api/v1/events', publicEventRoutes);
   app.use('/api/v1/tickets', ticketValidateRoutes);
   app.use('/api/v1/organizers', publicOrganizerRoutes);

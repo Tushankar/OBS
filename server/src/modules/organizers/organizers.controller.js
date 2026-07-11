@@ -10,6 +10,11 @@ export async function me(req, res) {
   res.status(200).json({ organizer: profile });
 }
 
+export async function listPublic(req, res) {
+  const organizers = await organizerService.listPublicOrganizers();
+  res.status(200).json({ organizers });
+}
+
 export async function publicProfile(req, res) {
   const result = await organizerService.getPublicProfile(req.params.slug);
   res.status(200).json(result);

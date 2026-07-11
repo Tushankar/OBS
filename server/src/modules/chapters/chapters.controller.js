@@ -6,7 +6,7 @@ export async function list(req, res) {
 }
 
 export async function getBySlug(req, res) {
-  const result = await chapterService.getChapterBySlug(req.params.slug, req.user?.id);
+  const result = await chapterService.getChapterBySlug(req.params.slug, req.user || null);
   res.status(200).json(result);
 }
 
@@ -32,6 +32,6 @@ export async function update(req, res) {
 }
 
 export async function mine(req, res) {
-  const chapters = await chapterService.myChapters(req.user.id);
-  res.status(200).json({ chapters });
+  const result = await chapterService.myChapters(req.user.id);
+  res.status(200).json(result);
 }

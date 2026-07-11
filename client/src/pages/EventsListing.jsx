@@ -51,6 +51,7 @@ export default function EventsListing() {
   const sort = params.get('sort') || 'soonest';
   const owner = params.get('owner') || '';
   const price = params.get('price') || '';
+  const featured = params.get('featured') === 'true' ? 'true' : '';
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => {
@@ -67,11 +68,12 @@ export default function EventsListing() {
     if (mode) query.mode = mode;
     if (owner) query.owner = owner;
     if (price) query.price = price;
+    if (featured) query.featured = featured;
     const [from, to] = dateRange(date);
     if (from) query.dateFrom = from.toISOString();
     if (to) query.dateTo = to.toISOString();
     return query;
-  }, [q, category, chapter, city, mode, date, sort, owner, price]);
+  }, [q, category, chapter, city, mode, date, sort, owner, price, featured]);
 
   useEffect(() => {
     let alive = true;
@@ -109,6 +111,8 @@ export default function EventsListing() {
 
   const catName = cats.find((c) => c.slug === category)?.name;
   const chapName = chapters.find((c) => c.slug === chapter)?.name;
+  // A ?category deep-link that matches no known slug (only decidable once categories load).
+  const badCategory = Boolean(category && cats.length > 0 && !catName);
 
   const applied = [
     q && { label: `“${q}”`, remove: () => patch('q', '') },
@@ -117,6 +121,7 @@ export default function EventsListing() {
     city && { label: city, remove: () => patch('city', '') },
     mode && { label: mode === 'venue' ? 'In-person' : 'Online', remove: () => patch('mode', '') },
     price && { label: price === 'free' ? 'Free' : 'Paid', remove: () => patch('price', '') },
+    featured && { label: 'Featured', remove: () => patch('featured', '') },
     date && { label: DATE_OPTS.find((d) => d[0] === date)?.[1], remove: () => patch('date', '') },
   ].filter(Boolean);
 
@@ -188,6 +193,7 @@ export default function EventsListing() {
           </button>
         ))}
       </div>
+      <p className="mt-2 text-xs text-ink-mute">OBS events are run by the OBS team; Partner events are hosted by approved community organizers.</p>
 
       {applied.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -205,6 +211,13 @@ export default function EventsListing() {
         <div>
           {loading ? (
             <SkeletonGrid />
+          ) : badCategory ? (
+            <div className="flex flex-col items-center py-20 text-center">
+              <span className="grid h-20 w-20 place-items-center rounded-full bg-brand-soft text-brand"><Icon.Search width={30} height={30} /></span>
+              <div className="mt-6 text-lg font-bold text-ink">We couldn't find that category</div>
+              <p className="mt-1.5 max-w-[360px] text-sm leading-relaxed text-ink-mute">“{category}” doesn't match any event category — the link may be out of date. Pick a category from the filters instead.</p>
+              <button onClick={clearAll} className="mt-6 rounded-full bg-brand px-7 py-2.5 text-sm font-semibold text-white shadow-card transition hover:bg-brand-dark">Clear filters</button>
+            </div>
           ) : events.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-center">
               <div className="relative">

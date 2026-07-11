@@ -34,7 +34,7 @@ export async function requestRefund(userId, orderId, reason) {
   if (!order) throw notFoundError('ORDER_NOT_FOUND', 'Order not found');
   if (String(order.userId) !== String(userId)) throw forbidden('NOT_ORDER_OWNER', 'This order is not yours');
   if (order.status !== 'PAID') throw conflict('ORDER_NOT_REFUNDABLE', `A ${order.status.toLowerCase().replace('_', ' ')} order can't be refunded`);
-  if (order.totalAmount <= 0 || order.gateway === 'FREE') throw conflict('ORDER_IS_FREE', 'Free registrations have nothing to refund — cancel the ticket instead');
+  if (order.totalAmount <= 0 || order.gateway === 'FREE') throw conflict('ORDER_IS_FREE', 'Free registrations can be cancelled from Order history.');
 
   const startAt = order.eventId?.startAt;
   if (startAt && Date.now() >= new Date(startAt).getTime() - env.REFUND_CUTOFF_HOURS * 3600_000) {
@@ -93,6 +93,21 @@ export async function rejectRefund(adminId, refundId, notes) {
   await refund.save();
   await Order.updateOne({ _id: refund.orderId, status: 'REFUND_REQUESTED' }, { $set: { status: 'PAID' } });
   await writeAudit({ actorId: adminId, action: 'REFUND_REJECTED', entityType: 'Refund', entityId: refund._id, meta: { notes } });
+
+  // §F46 — a user-initiated request must resolve visibly: mirror the
+  // REFUND_PROCESSED mail so a rejection never lands silently.
+  const order = await Order.findById(refund.orderId).populate('eventId', 'title');
+  const user = order ? await User.findById(order.userId) : null;
+  if (user?.email) {
+    try {
+      await sendMail({
+        to: user.email, type: 'REFUND_REJECTED', subject: 'About your refund request',
+        userId: user._id, orderId: order._id,
+        text: `Hi ${user.name},\n\nWe reviewed your refund request for order ${order.orderNumber}${order.eventId?.title ? ` ("${order.eventId.title}")` : ''} and can't process it this time.${notes ? `\n\nNote from our team: ${notes}` : ''}\n\nYour tickets remain valid. If you have questions, visit ${env.APP_URL}/help.\n\n— OBS Events`,
+        html: `<p>Hi ${user.name},</p><p>We reviewed your refund request for order ${order.orderNumber}${order.eventId?.title ? ` (<strong>${order.eventId.title}</strong>)` : ''} and can't process it this time.</p>${notes ? `<p><strong>Note from our team:</strong> ${notes}</p>` : ''}<p>Your tickets remain valid. Questions? <a href="${env.APP_URL}/help">Visit our help centre</a>.</p><p>— OBS Events</p>`,
+      });
+    } catch (e) { console.error('[refund] REFUND_REJECTED mail failed:', e.message); }
+  }
   return shapeRefund(refund);
 }
 

@@ -7,6 +7,17 @@ import { Icon } from '../../components/common/Icon';
 
 const fmtDay = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
+// Chips keep short labels but `value` carries the full country name the
+// geocoder stores on Event.country (server matches it case-insensitively).
+const COUNTRIES = [
+  { name: 'All', flag: '🌍', value: null },
+  { name: 'India', flag: '🇮🇳', value: 'India' },
+  { name: 'UAE', flag: '🇦🇪', value: 'United Arab Emirates' },
+  { name: 'Singapore', flag: '🇸🇬', value: 'Singapore' },
+  { name: 'USA', flag: '🇺🇸', value: 'United States' },
+  { name: 'UK', flag: '🇬🇧', value: 'United Kingdom' }
+];
+
 export default function ProgramDay() {
   const { n } = useParams();
   const navigate = useNavigate();
@@ -20,23 +31,16 @@ export default function ProgramDay() {
     api.currentProgram().then((p) => setSlug(p?.slug || null)).catch(() => setSlug(null));
   }, []);
 
+  const countryValue = COUNTRIES.find((c) => c.name === country)?.value || null;
+
   useEffect(() => {
     if (!slug) return;
     setLoading(true);
-    api.programDay(slug, n, country === 'All' ? undefined : { country })
+    api.programDay(slug, n, countryValue ? { country: countryValue } : undefined)
       .then((data) => setDayData(data))
       .catch(() => setDayData(null))
       .finally(() => setLoading(false));
-  }, [slug, n, country]);
-
-  const countries = [
-    { name: 'All', flag: '🌍' },
-    { name: 'India', flag: '🇮🇳' },
-    { name: 'UAE', flag: '🇦🇪' },
-    { name: 'Singapore', flag: '🇸🇬' },
-    { name: 'USA', flag: '🇺🇸' },
-    { name: 'UK', flag: '🇬🇧' }
-  ];
+  }, [slug, n, countryValue]);
 
   const handlePrev = () => {
     const prev = parseInt(n) - 1;
@@ -102,7 +106,7 @@ export default function ProgramDay() {
         {/* Country Selector */}
         <div className="flex flex-wrap items-center gap-2 mb-6 bg-white border border-line p-3 rounded-lg shadow-sm">
           <span className="text-xs font-bold text-ink-mute uppercase mr-1">Filter by Country:</span>
-          {countries.map((c) => (
+          {COUNTRIES.map((c) => (
             <button
               key={c.name}
               onClick={() => setCountry(c.name)}
@@ -130,16 +134,30 @@ export default function ProgramDay() {
         ) : (
           <div className="rounded-xl border border-dashed border-line bg-white py-16 text-center shadow-sm">
             <span className="text-4xl">🗓️</span>
-            <h3 className="mt-4 text-base font-bold text-ink">No events scheduled</h3>
+            <h3 className="mt-4 text-base font-bold text-ink">
+              {countryValue ? `No Day-${n} events in ${countryValue} yet` : 'No events scheduled'}
+            </h3>
             <p className="mt-1 text-sm text-ink-mute max-w-xs mx-auto">
-              There are no events scheduled for Day {n} in {country === 'All' ? 'any country' : country}.
+              {countryValue
+                ? 'Other countries may still have events on this day.'
+                : `There are no events scheduled for Day ${n} yet.`}
             </p>
-            <button 
-              onClick={() => navigate('/list-your-event')}
-              className="mt-6 rounded-full bg-brand px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-dark transition-colors"
-            >
-              Host an event on this day
-            </button>
+            {countryValue && (
+              <button
+                onClick={() => setCountry('All')}
+                className="mt-3 text-xs font-bold text-brand hover:underline"
+              >
+                Show all countries
+              </button>
+            )}
+            <div>
+              <button
+                onClick={() => navigate(`/organizer/events/new?program=${dayData?.program?.slug || slug}&day=${n}`)}
+                className="mt-6 rounded-full bg-brand px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-dark transition-colors"
+              >
+                Host an event on Day {n}
+              </button>
+            </div>
           </div>
         )}
       </div>

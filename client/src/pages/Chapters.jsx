@@ -5,6 +5,23 @@ import Seo from '../components/common/Seo';
 import api from '../lib/api';
 
 const TIER_LABEL = { T1: 'Tier 1 markets', T2: 'Tier 2 markets', T3: 'Tier 3 markets', T4: 'Tier 4 markets', T5: 'Tier 5 markets', Growth: 'Growth markets' };
+
+// Trust signal on every card — essential in the flat search grid, where the
+// grouped section headers (and their official/community context) are lost.
+function TrustBadge({ official }) {
+  return official ? (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3" aria-hidden="true">
+        <path fillRule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.2 7.3a1 1 0 0 1-1.4 0L4.3 10.2a1 1 0 1 1 1.4-1.4l3.1 3.1 6.5-6.6a1 1 0 0 1 1.4 0Z" clipRule="evenodd" />
+      </svg>
+      Official
+    </span>
+  ) : (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-line bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-mute">
+      Community-run
+    </span>
+  );
+}
 const THEMATIC = {
   LEADERSHIP_COMMUNITY: 'Leadership & community',
   BUSINESS_CAPITAL: 'Business & capital',
@@ -42,7 +59,10 @@ function ChapterCard({ c, navigate }) {
       {c.flagEmoji ? <span className="shrink-0 text-3xl leading-none">{c.flagEmoji}</span> : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-soft text-sm font-bold text-brand">{c.name[0]}</span>}
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold text-ink">{c.name}</div>
-        <div className="mt-0.5 text-xs text-ink-mute">{c.tier || c.pillarGroup || (c.isOfficial ? 'Official' : 'Community')}</div>
+        <div className="mt-1 flex items-center gap-1.5 text-xs text-ink-mute">
+          <TrustBadge official={c.isOfficial} />
+          {(c.tier || c.pillarGroup) && <span className="truncate">{c.tier || c.pillarGroup}</span>}
+        </div>
       </div>
     </button>
   );

@@ -1,7 +1,7 @@
 import * as svc from './speakers.service.js';
 
 export async function list(req, res) {
-  res.status(200).json({ speakers: await svc.listSpeakers(req.query) });
+  res.status(200).json(await svc.listSpeakers(req.query)); // { speakers, topics }
 }
 export async function getBySlug(req, res) {
   res.status(200).json(await svc.getSpeakerBySlug(req.params.slug));

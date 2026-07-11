@@ -57,7 +57,11 @@ export default function TicketDetail() {
         <div className="p-[22px] text-center">
           <div className="text-lg font-bold text-ink">{ev.title}</div>
           <div className="mt-1.5 text-[13px] text-ink-mute">{fmtDate(ev.startAt)}</div>
-          <div className="text-[13px] text-ink-mute">{venue}</div>
+          {ev.isOnline && ticket.meetingLink ? (
+            <a href={ticket.meetingLink} target="_blank" rel="noopener noreferrer" className="mt-2.5 inline-flex h-[42px] items-center justify-center rounded-md bg-brand px-8 text-sm font-semibold text-white transition hover:bg-brand-dark">Join event</a>
+          ) : (
+            <div className="text-[13px] text-ink-mute">{venue}</div>
+          )}
 
           {ticket.status !== 'VALID' && (
             <div className={`mt-3 inline-block rounded-full px-3 py-1 text-[11px] font-bold ${ticket.status === 'USED' ? 'bg-surface text-ink-mute' : 'bg-[#FDE8EC] text-brand-red'}`}>{ticket.status}{ticket.checkedInAt ? ` · ${new Date(ticket.checkedInAt).toLocaleString('en-IN')}` : ''}</div>
@@ -74,7 +78,17 @@ export default function TicketDetail() {
 
           <div className="mt-5 flex gap-2.5">
             <button onClick={downloadPdf} disabled={downloading} className="h-[42px] flex-1 rounded-md border border-line text-[13px] font-medium text-ink-soft transition hover:border-brand disabled:opacity-60">{downloading ? 'Preparing…' : 'Download PDF'}</button>
-            <button onClick={() => downloadIcs({ title: ev.title, startAt: ev.startAt, endAt: ev.endAt, location: venue, description: `OBS ticket ${ticket.ticketNumber}`, uid: ticket.id })} className="h-[42px] flex-1 rounded-md border border-line text-[13px] font-medium text-ink-soft transition hover:border-brand">Add to calendar</button>
+            <button onClick={() => downloadIcs({ title: ev.title, startAt: ev.startAt, endAt: ev.endAt, location: venue, description: `OBS ticket ${ticket.ticketNumber}`, meetingLink: ticket.meetingLink || undefined, uid: ticket.id })} className="h-[42px] flex-1 rounded-md border border-line text-[13px] font-medium text-ink-soft transition hover:border-brand">Add to calendar</button>
+          </div>
+
+          <div className="mt-4 border-t border-dashed border-line pt-3.5 text-[12.5px] text-ink-mute">
+            <button onClick={() => navigate(`/checkout/${ticket.orderId}/success`)} className="font-semibold text-brand transition hover:underline">View order</button>
+            <div className="mt-1.5">
+              Need a refund or help?{' '}
+              <button onClick={() => navigate('/account/orders')} className="font-semibold text-brand transition hover:underline">Order history</button>
+              {' '}·{' '}
+              <button onClick={() => navigate('/help')} className="font-semibold text-brand transition hover:underline">Help centre</button>
+            </div>
           </div>
         </div>
       </div>

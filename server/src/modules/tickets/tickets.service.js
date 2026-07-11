@@ -7,6 +7,9 @@ import { buildTicketPdf } from '../../utils/pdf.js';
 function shapeTicket(t) {
   const ev = t.eventId && t.eventId._id ? t.eventId : null;
   const tt = t.ticketTypeId && t.ticketTypeId._id ? t.ticketTypeId : null;
+  // The join link is the ticket holder's entitlement (§F6): revealed only for
+  // online events on tickets that still admit (VALID/USED), never on voided ones.
+  const meetingLink = ev?.isOnline && ['VALID', 'USED'].includes(t.status) ? ev.meetingLink || null : null;
   return {
     id: String(t._id),
     ticketNumber: t.ticketNumber,
@@ -16,6 +19,7 @@ function shapeTicket(t) {
     checkedInAt: t.checkedInAt || null,
     ticketType: tt ? tt.name : null,
     orderId: String(t.orderId),
+    meetingLink,
     event: ev
       ? { id: String(ev._id), title: ev.title, slug: ev.slug, startAt: ev.startAt || null, endAt: ev.endAt || null, isOnline: !!ev.isOnline, venueName: ev.venueName || null, city: ev.city || null, country: ev.country || null, bannerUrl: ev.bannerUrl || null, timezone: ev.timezone || 'Asia/Kolkata' }
       : null,
@@ -23,7 +27,7 @@ function shapeTicket(t) {
 }
 
 const populate = (q) =>
-  q.populate('eventId', 'title slug startAt endAt isOnline venueName city country bannerUrl timezone').populate('ticketTypeId', 'name');
+  q.populate('eventId', 'title slug startAt endAt isOnline meetingLink venueName city country bannerUrl timezone').populate('ticketTypeId', 'name');
 
 // scope: upcoming = event ends in the future; past = already ended.
 export async function listMyTickets(userId, scope) {

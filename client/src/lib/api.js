@@ -94,6 +94,14 @@ api.listEvents = (params) => unwrap(api.get('/events', { params }));
 api.event = (slug) => unwrap(api.get(`/events/${slug}`)).then((d) => d.event);
 api.eventSimilar = (slug) => unwrap(api.get(`/events/${slug}/similar`)).then((d) => d.events);
 api.organizerProfile = (slug) => unwrap(api.get(`/organizers/${slug}`));
+api.organizers = () => unwrap(api.get('/organizers')).then((d) => d.organizers);
+
+// Platform-wide public stats (home page credibility numbers — real, never hardcoded)
+api.stats = () => unwrap(api.get('/stats')).then((d) => d.stats);
+
+// Account recovery — both endpoints existed server-side; these are the client half.
+api.forgotPassword = (email) => unwrap(api.post('/auth/forgot-password', { email }));
+api.resetPassword = (token, password) => unwrap(api.post('/auth/reset-password', { token, password }));
 api.chapter = (slug) => unwrap(api.get(`/chapters/${slug}`));
 api.joinChapter = (id) => unwrap(api.post(`/chapters/${id}/join`));
 api.leaveChapter = (id) => unwrap(api.delete(`/chapters/${id}/join`));
@@ -103,7 +111,7 @@ api.leaveChapter = (id) => unwrap(api.delete(`/chapters/${id}/join`));
 // user-facing endpoints.
 api.createMyChapter = (body) => unwrap(api.post('/chapters', body)).then((d) => d.chapter);
 api.updateMyChapter = (id, body) => unwrap(api.patch(`/chapters/${id}`, body)).then((d) => d.chapter);
-api.myChapters = () => unwrap(api.get('/chapters/mine')).then((d) => d.chapters);
+api.myChapters = () => unwrap(api.get('/chapters/mine')); // { created, joined }
 
 // Organizer events (Phase 1.2/1.3)
 api.organizerEvents = (params) => unwrap(api.get('/organizer/events', { params }));
@@ -137,6 +145,9 @@ api.deletePromoCode = (eventId, id) => unwrap(api.delete(`/organizer/events/${ev
 // Checkout, orders & payments (Phase 2)
 api.createOrder = (body) => unwrap(api.post('/orders', body)).then((d) => d.order);
 api.cancelOrder = (id) => unwrap(api.post(`/orders/${id}/cancel`)).then((d) => d.order);
+// Cancel a FREE registration (PAID order with totalAmount 0): voids tickets and
+// releases inventory — paid orders go through the refund flow instead.
+api.cancelRegistration = (id) => unwrap(api.post(`/orders/${id}/cancel-registration`)).then((d) => d.order);
 api.myOrders = (params) => unwrap(api.get('/me/orders', { params }));
 api.myOrder = (id) => unwrap(api.get(`/me/orders/${id}`)).then((d) => d.order);
 api.invoiceUrl = (id) => unwrap(api.get(`/me/orders/${id}/invoice`)); // { url } — short-lived signed GET
@@ -172,6 +183,7 @@ api.deleteCategory = (id) => unwrap(api.delete(`/admin/categories/${id}`));
 api.adminChapters = () => unwrap(api.get('/admin/chapters')).then((d) => d.chapters);
 api.createChapter = (body) => unwrap(api.post('/admin/chapters', body)).then((d) => d.chapter);
 api.updateChapter = (id, body) => unwrap(api.patch(`/admin/chapters/${id}`, body)).then((d) => d.chapter);
+api.setChapterStatus = (id, status) => unwrap(api.patch(`/admin/chapters/${id}/status`, { status })).then((d) => d.chapter);
 api.deleteChapter = (id) => unwrap(api.delete(`/admin/chapters/${id}`));
 api.adminCmsPages = () => unwrap(api.get('/admin/cms')).then((d) => d.pages);
 api.createCmsPage = (body) => unwrap(api.post('/admin/cms', body)).then((d) => d.page);
@@ -190,7 +202,8 @@ api.deleteHeroSlide = (id) => unwrap(api.delete(`/admin/hero-slides/${id}`));
 
 // Speakers (Phase 5.2)
 api.speakers = (params) => unwrap(api.get('/speakers', { params })).then((d) => d.speakers);
-api.speaker = (slug) => unwrap(api.get(`/speakers/${slug}`)); // { speaker, events }
+api.speakersWithMeta = (params) => unwrap(api.get('/speakers', { params })); // { speakers, topics }
+api.speaker = (slug) => unwrap(api.get(`/speakers/${slug}`)); // { speaker, upcoming, past }
 api.adminSpeakers = () => unwrap(api.get('/admin/speakers')).then((d) => d.speakers);
 api.createSpeaker = (body) => unwrap(api.post('/admin/speakers', body)).then((d) => d.speaker);
 api.updateSpeaker = (id, body) => unwrap(api.patch(`/admin/speakers/${id}`, body)).then((d) => d.speaker);
@@ -209,6 +222,7 @@ api.updatePartnerApplication = (id, body) => unwrap(api.patch(`/admin/partner-ap
 
 // Articles / media (Phase 5.4)
 api.articles = (params) => unwrap(api.get('/articles', { params })).then((d) => d.articles);
+api.articlesPaged = (params) => unwrap(api.get('/articles', { params })); // { articles, total, page, limit, pages }
 api.article = (slug) => unwrap(api.get(`/articles/${slug}`)).then((d) => d.article);
 api.adminArticles = () => unwrap(api.get('/admin/articles')).then((d) => d.articles);
 api.createArticle = (body) => unwrap(api.post('/admin/articles', body)).then((d) => d.article);

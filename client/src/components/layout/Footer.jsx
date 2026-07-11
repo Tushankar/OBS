@@ -2,8 +2,9 @@ import { useNavigate } from 'react-router-dom';
 
 const COLS = [
   ['Events', [['Browse events', '/events'], ['Webinars', '/webinars'], ['Summits', '/summits'], ['List your event', '/list-your-event']]],
+  ['Discover', [['Speakers', '/speakers'], ['Organizers', '/organizers'], ['Sponsors', '/sponsors'], ['100 Days program', '/program'], ['Launchpad', '/launches'], ['Newsroom', '/news']]],
   ['Chapters', [['All chapters', '/chapters'], ['Start a chapter', '/chapters/create'], ['Chapter leaders', '/help'], ['Tier benefits', '/help']]],
-  ['Company', [['About OBS', '/about'], ['Careers', '/careers'], ['Press', '/news'], ['Partner with us', '/become-a-sponsor']]],
+  ['Company', [['About OBS', '/about'], ['Careers', '/careers'], ['Partner with us', '/become-a-sponsor']]],
   // Terms & privacy render from the admin-managed CMS (Admin → Site pages).
   ['Help', [['Help center', '/help'], ['FAQs', '/faqs'], ['Refund policy', '/refund-policy'], ['Terms of use', '/terms'], ['Privacy policy', '/privacy']]],
 ];
@@ -95,7 +96,7 @@ export default function Footer() {
       <div style={{ background: '#2B2B2F' }}>
 
         {/* Desktop columns */}
-        <div className="mx-auto hidden max-w-container grid-cols-4 gap-8 px-6 pb-8 md:grid">
+        <div className="mx-auto hidden max-w-container grid-cols-5 gap-8 px-6 pb-8 md:grid">
           {COLS.map(([title, links]) => (
             <div key={title}>
               <div className="mb-3.5 text-[13px] font-semibold text-white">{title}</div>

@@ -56,6 +56,25 @@ export async function getMyProfile(userId) {
   return profile ? publicOrganizer(profile) : null;
 }
 
+// Public organizers directory: every APPROVED organizer, sorted by name, with
+// a count of their upcoming published events (same window as getPublicProfile).
+export async function listPublicOrganizers() {
+  const profiles = await OrganizerProfile.find({ status: 'APPROVED' }).select('orgName slug logoUrl bio').sort({ orgName: 1 });
+  if (!profiles.length) return [];
+  const counts = await Event.aggregate([
+    { $match: { organizerId: { $in: profiles.map((p) => p._id) }, status: 'PUBLISHED', endAt: { $gte: new Date() } } },
+    { $group: { _id: '$organizerId', count: { $sum: 1 } } },
+  ]);
+  const upcomingByOrganizer = new Map(counts.map((c) => [String(c._id), c.count]));
+  return profiles.map((p) => ({
+    name: p.orgName,
+    slug: p.slug,
+    logoUrl: p.logoUrl || null,
+    bio: p.bio || null,
+    upcomingCount: upcomingByOrganizer.get(String(p._id)) || 0,
+  }));
+}
+
 // Public organizer profile (by slug) + their upcoming published events.
 export async function getPublicProfile(slug) {
   const profile = await OrganizerProfile.findOne({ slug, status: 'APPROVED' });

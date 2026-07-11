@@ -1,17 +1,83 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { PageHead, Card, Btn, Loading, EmptyState, Pill, Modal, ConfirmDialog, Field, inputCls, selectCls } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
+import { SPONSOR_TIER_LABELS, sponsorTierLabel } from '../../lib/labels';
+import { fmtDate } from '../../lib/format';
 
-const TIERS = ['TITLE', 'PRESENTING', 'EVENT', 'TECHNOLOGY', 'MEDIA', 'PARTNER'];
-const SCOPES = ['PLATFORM', 'PROGRAM', 'EVENT'];
-const cap = (s) => s.charAt(0) + s.slice(1).toLowerCase();
-const SCOPE_HINT = {
-  PLATFORM: 'Shown site-wide on the Sponsors page.',
-  PROGRAM: 'Tied to a 100 Days program edition (paste its ID).',
-  EVENT: 'Tied to a single event (paste its ID).',
-};
+const TIERS = Object.keys(SPONSOR_TIER_LABELS);
+// "Placement" = where the sponsor shows, orthogonal to tier (= benefit level).
+const PLACEMENT_LABELS = { PLATFORM: 'Platform-wide', PROGRAM: 'Program season', EVENT: 'Single event' };
+const SCOPES = Object.keys(PLACEMENT_LABELS);
+
+// Searchable select: type to filter, pick an option, store the id behind a
+// human-readable label (no raw ObjectIds in the UI).
+function SearchSelect({ value, valueLabel, placeholder, search, onSelect, onClear }) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let live = true;
+    setOptions(null);
+    const t = setTimeout(() => {
+      search(q)
+        .then((opts) => { if (live) setOptions(opts); })
+        .catch(() => { if (live) setOptions([]); });
+    }, 250);
+    return () => { live = false; clearTimeout(t); };
+  }, [open, q, search]);
+
+  if (value) {
+    return (
+      <div className={`${inputCls} flex items-center justify-between gap-2`}>
+        <span className="truncate">{valueLabel || 'Loading…'}</span>
+        <button type="button" onClick={onClear} aria-label="Clear selection" className="shrink-0 text-[#8792A2] transition hover:text-[#DF1B41]">
+          <AdminIcon.Close size={13} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        placeholder={placeholder}
+        className={inputCls}
+      />
+      {open && (
+        <div
+          onMouseDown={(e) => e.preventDefault()} /* keep the input focused while picking/scrolling */
+          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-md border border-[#D5DBE5] bg-white py-1 shadow-lg"
+        >
+          {options === null ? (
+            <div className="px-3 py-2 text-[12px] text-[#8792A2]">Searching…</div>
+          ) : options.length === 0 ? (
+            <div className="px-3 py-2 text-[12px] text-[#8792A2]">No matches</div>
+          ) : (
+            options.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => { onSelect(o); setQ(''); setOpen(false); }}
+                className="block w-full px-3 py-2 text-left text-[13px] text-[#1A1F36] transition hover:bg-[#F7FAFC]"
+              >
+                <span className="block truncate">{o.label}</span>
+                {o.meta && <span className="block truncate text-[11px] text-[#8792A2]">{o.meta}</span>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SponsorEditor({ initial, onClose, onSaved }) {
   const { pushToast } = useApp();
@@ -24,10 +90,50 @@ function SponsorEditor({ initial, onClose, onSaved }) {
     isActive: initial?.isActive ?? true,
   });
   const [busy, setBusy] = useState(false);
+  const [eventLabel, setEventLabel] = useState('');
+  const [programLabel, setProgramLabel] = useState('');
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Resolve human labels for pre-linked ids so editing never shows a raw ObjectId.
+  useEffect(() => {
+    if (initial?.eventId) {
+      api.adminEvent(initial.eventId)
+        .then((e) => setEventLabel(e.title))
+        .catch(() => setEventLabel('Linked event (could not load title)'));
+    }
+    if (initial?.programId) {
+      api.adminPrograms()
+        .then((rows) => {
+          const p = (rows || []).find((r) => r.id === initial.programId);
+          setProgramLabel(p ? p.name : 'Linked program (could not load name)');
+        })
+        .catch(() => setProgramLabel('Linked program (could not load name)'));
+    }
+  }, [initial]);
+
+  const searchEvents = useCallback(
+    (q) => api.adminEvents({ q: q.trim() || undefined, limit: 50 }).then((d) =>
+      (d.events || []).map((e) => ({
+        id: e.id,
+        label: e.title,
+        meta: [e.startAt ? fmtDate(e.startAt) : null, e.isOnline ? 'Online' : e.city, e.status !== 'PUBLISHED' ? e.status : null].filter(Boolean).join(' · '),
+      }))),
+    []
+  );
+  const searchPrograms = useCallback(
+    (q) => api.adminPrograms().then((rows) => {
+      const needle = q.trim().toLowerCase();
+      return (rows || [])
+        .filter((p) => !needle || p.name.toLowerCase().includes(needle) || String(p.year).includes(needle))
+        .map((p) => ({ id: p.id, label: p.name, meta: p.year ? String(p.year) : null }));
+    }),
+    []
+  );
 
   const save = async () => {
     if (form.name.trim().length < 2) { pushToast('Enter the sponsor name', false); return; }
+    if (form.scope === 'EVENT' && !form.eventId) { pushToast('Pick the event this sponsor is attached to', false); return; }
+    if (form.scope === 'PROGRAM' && !form.programId) { pushToast('Pick the program this sponsor is attached to', false); return; }
     const body = {
       name: form.name.trim(),
       logoUrl: form.logoUrl.trim() || undefined,
@@ -37,8 +143,9 @@ function SponsorEditor({ initial, onClose, onSaved }) {
       blurb: form.blurb.trim() || undefined,
       sortOrder: Number(form.sortOrder) || 0,
       isActive: !!form.isActive,
-      eventId: form.scope === 'EVENT' ? (form.eventId.trim() || undefined) : undefined,
-      programId: form.scope === 'PROGRAM' ? (form.programId.trim() || undefined) : undefined,
+      // On edit, send null so switching placement clears the stale link.
+      eventId: form.scope === 'EVENT' ? form.eventId : (editing ? null : undefined),
+      programId: form.scope === 'PROGRAM' ? form.programId : (editing ? null : undefined),
     };
     setBusy(true);
     try {
@@ -70,19 +177,41 @@ function SponsorEditor({ initial, onClose, onSaved }) {
       <div className="grid gap-3.5 sm:grid-cols-2">
         <Field label="Name"><input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Meridian Capital" autoFocus className={inputCls} /></Field>
         <Field label="Logo URL"><input value={form.logoUrl} onChange={(e) => set('logoUrl', e.target.value)} placeholder="https://…" className={inputCls} /></Field>
-        <Field label="Tier">
+        <Field label="Tier" hint="Benefit level — sets the group on the public showcase">
           <select value={form.tier} onChange={(e) => set('tier', e.target.value)} className={`${selectCls} w-full`}>
-            {TIERS.map((t) => <option key={t} value={t}>{cap(t)}</option>)}
+            {TIERS.map((t) => <option key={t} value={t}>{SPONSOR_TIER_LABELS[t]}</option>)}
           </select>
         </Field>
         <Field label="Website"><input value={form.website} onChange={(e) => set('website', e.target.value)} placeholder="https://…" className={inputCls} /></Field>
-        <Field label="Scope" hint={SCOPE_HINT[form.scope]}>
+        <Field label="Placement" hint="Platform-wide / a program season / a single event">
           <select value={form.scope} onChange={(e) => set('scope', e.target.value)} className={`${selectCls} w-full`}>
-            {SCOPES.map((s) => <option key={s} value={s}>{cap(s)}</option>)}
+            {SCOPES.map((s) => <option key={s} value={s}>{PLACEMENT_LABELS[s]}</option>)}
           </select>
         </Field>
-        {form.scope === 'EVENT' && <Field label="Event ID"><input value={form.eventId} onChange={(e) => set('eventId', e.target.value)} placeholder="24-char event id" className={inputCls} /></Field>}
-        {form.scope === 'PROGRAM' && <Field label="Program ID"><input value={form.programId} onChange={(e) => set('programId', e.target.value)} placeholder="24-char program id" className={inputCls} /></Field>}
+        {form.scope === 'EVENT' && (
+          <Field label="Event" hint="Logo + link show on this event's page">
+            <SearchSelect
+              value={form.eventId}
+              valueLabel={eventLabel}
+              placeholder="Search events by title…"
+              search={searchEvents}
+              onSelect={(o) => { set('eventId', o.id); setEventLabel(o.label); }}
+              onClear={() => { set('eventId', ''); setEventLabel(''); }}
+            />
+          </Field>
+        )}
+        {form.scope === 'PROGRAM' && (
+          <Field label="Program" hint="Tied to this 100 Days edition">
+            <SearchSelect
+              value={form.programId}
+              valueLabel={programLabel}
+              placeholder="Search programs by name…"
+              search={searchPrograms}
+              onSelect={(o) => { set('programId', o.id); setProgramLabel(o.label); }}
+              onClear={() => { set('programId', ''); setProgramLabel(''); }}
+            />
+          </Field>
+        )}
         <Field label="Sort order" hint="Lower shows first"><input type="number" value={form.sortOrder} onChange={(e) => set('sortOrder', e.target.value)} className={inputCls} /></Field>
         <div className="sm:col-span-2">
           <Field label="Blurb" hint="One line shown on hover / detail"><textarea value={form.blurb} onChange={(e) => set('blurb', e.target.value)} rows={2} placeholder="Short description of the sponsor…" className={`${inputCls} resize-y`} /></Field>
@@ -147,8 +276,8 @@ export default function Sponsors() {
               </div>
               <div className="mt-3 truncate text-[14px] font-semibold text-[#1A1F36]">{s.name}</div>
               <div className="mt-1.5 flex flex-wrap gap-1">
-                <Pill tone="brand">{cap(s.tier)}</Pill>
-                <Pill tone="gray">{cap(s.scope)}</Pill>
+                <Pill tone="brand">{sponsorTierLabel(s.tier)}</Pill>
+                <Pill tone="gray">{PLACEMENT_LABELS[s.scope] || s.scope}</Pill>
               </div>
               {s.blurb && <div className="mt-2 line-clamp-2 text-[12px] text-[#697386]">{s.blurb}</div>}
               <div className="mt-4 flex gap-1.5 border-t border-[#EDF0F4] pt-3">

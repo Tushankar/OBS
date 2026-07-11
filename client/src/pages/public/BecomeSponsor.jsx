@@ -2,6 +2,7 @@ import { useState } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router-dom';
+import { SPONSOR_TIER_LABELS } from '../../lib/labels';
 
 export default function BecomeSponsor() {
   const navigate = useNavigate();
@@ -141,18 +142,15 @@ export default function BecomeSponsor() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">Interested Tier *</label>
+                  <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">Partnership interest *</label>
                   <select
                     value={form.tier}
                     onChange={(e) => setForm({ ...form, tier: e.target.value })}
                     className={selectStyle('tier')}
                   >
-                    <option value="TITLE">Title Sponsor</option>
-                    <option value="PRESENTING">Presenting Sponsor</option>
-                    <option value="EVENT">Event Sponsor</option>
-                    <option value="TECHNOLOGY">Technology Partner</option>
-                    <option value="MEDIA">Media Partner</option>
-                    <option value="PARTNER">Community Partner</option>
+                    {Object.entries(SPONSOR_TIER_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
                   </select>
                 </div>
               </div>

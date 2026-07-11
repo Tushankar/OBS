@@ -15,7 +15,7 @@ export default function SpeakerProfile() {
     window.scrollTo(0, 0);
     setLoading(true);
     api.speaker(slug)
-      .then((data) => setSpeaker({ ...data.speaker, events: data.events || [] }))
+      .then((data) => setSpeaker({ ...data.speaker, upcoming: data.upcoming || [], past: data.past || [] }))
       .catch(() => setSpeaker(null))
       .finally(() => setLoading(false));
   }, [slug]);
@@ -148,16 +148,30 @@ export default function SpeakerProfile() {
           </div>
         </div>
 
-        {/* Speaking At section */}
-        <div className="mt-12">
-          <h2 className="text-xl font-bold text-ink mb-6">Speaking at</h2>
-          {speaker.events && speaker.events.length > 0 ? (
+        {/* Sessions: upcoming + past, each hidden when empty */}
+        {speaker.upcoming.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-xl font-bold text-ink mb-6">Speaking at</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {speaker.events.map((e) => (
+              {speaker.upcoming.map((e) => (
                 <ApiEventCard key={e.id} event={e} />
               ))}
             </div>
-          ) : (
+          </div>
+        )}
+        {speaker.past.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-xl font-bold text-ink mb-6">Past sessions</h2>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {speaker.past.map((e) => (
+                <ApiEventCard key={e.id} event={e} />
+              ))}
+            </div>
+          </div>
+        )}
+        {speaker.upcoming.length === 0 && speaker.past.length === 0 && (
+          <div className="mt-12">
+            <h2 className="text-xl font-bold text-ink mb-6">Speaking at</h2>
             <div className="rounded-xl border border-dashed border-line bg-white py-12 text-center shadow-sm">
               <span className="text-3xl">🎙️</span>
               <h3 className="mt-3 text-sm font-bold text-ink">No scheduled events</h3>
@@ -165,8 +179,8 @@ export default function SpeakerProfile() {
                 {speaker.name} does not have any upcoming speaking sessions scheduled currently.
               </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

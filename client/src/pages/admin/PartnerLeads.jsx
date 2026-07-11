@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { PageHead, Table, Tabs, Pill, statusTone, Btn, Loading, Modal, Field, inputCls, selectCls } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
+import { sponsorTierLabel } from '../../lib/labels';
 
 const TABS = [['', 'All'], ['NEW', 'New'], ['REVIEWING', 'Reviewing'], ['APPROVED', 'Approved'], ['DECLINED', 'Declined']];
 const STATUSES = ['NEW', 'REVIEWING', 'APPROVED', 'DECLINED'];
@@ -17,8 +19,8 @@ function LeadDrawer({ lead, onClose, onSaved }) {
   const save = async () => {
     setBusy(true);
     try {
-      await api.updatePartnerApplication(lead.id, { status, adminNotes: notes.trim() });
-      pushToast('Lead updated');
+      const updated = await api.updatePartnerApplication(lead.id, { status, adminNotes: notes.trim() });
+      pushToast(updated.sponsorId && !lead.sponsorId ? 'Lead approved — draft sponsor created in Admin → Sponsors' : 'Lead updated');
       onSaved();
     } catch (e) {
       pushToast(apiError(e, 'Could not update lead'), false);
@@ -55,9 +57,15 @@ function LeadDrawer({ lead, onClose, onSaved }) {
         <Row k="Email" v={lead.email} href={`mailto:${lead.email}`} />
         <Row k="Phone" v={lead.phone} href={lead.phone ? `tel:${lead.phone}` : undefined} />
         <Row k="Website" v={lead.website} href={lead.website ? (/^https?:\/\//.test(lead.website) ? lead.website : `https://${lead.website}`) : undefined} />
-        <Row k="Interest" v={lead.interestTier ? cap(lead.interestTier) : null} />
+        <Row k="Interest" v={lead.interestTier ? sponsorTierLabel(lead.interestTier) : null} />
         <Row k="Message" v={lead.message} />
       </div>
+      {lead.status === 'APPROVED' && lead.sponsorId && (
+        <div className="mt-4 rounded-lg border border-[#CBE6D2] bg-[#E5F6E8] px-3.5 py-3 text-[12.5px] text-[#1B7A34]">
+          Draft sponsor created — finish setup in{' '}
+          <Link to="/admin/sponsors" className="font-semibold underline hover:no-underline">Admin → Sponsors</Link>.
+        </div>
+      )}
       <div className="mt-4 grid gap-3.5">
         <Field label="Status">
           <select value={status} onChange={(e) => setStatus(e.target.value)} className={`${selectCls} w-full`}>
@@ -113,7 +121,7 @@ export default function PartnerLeads() {
           </div>
         );
       case 'interest':
-        return a.interestTier ? <Pill tone="gray">{cap(a.interestTier)}</Pill> : <span className="text-ink-mute">—</span>;
+        return a.interestTier ? <Pill tone="gray">{sponsorTierLabel(a.interestTier)}</Pill> : <span className="text-ink-mute">—</span>;
       case 'received':
         return <span className="text-ink-soft">{fmtDate(a.createdAt)}</span>;
       case 'status':

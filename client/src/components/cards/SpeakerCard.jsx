@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import EvImage from '../common/EvImage';
+import { FeaturedBadge } from '../common/ApiEventCard';
 
 export default function SpeakerCard({ speaker }) {
   const navigate = useNavigate();
@@ -13,11 +14,7 @@ export default function SpeakerCard({ speaker }) {
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-[10px] bg-surface">
         <EvImage seed={speaker.name.length} url={speaker.photoUrl} label={speaker.name} wmSize={48} />
-        {speaker.isFeatured && (
-          <span className="absolute left-2 top-2 z-[2] rounded bg-[#C99E25] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white leading-none">
-            ★ Featured
-          </span>
-        )}
+        {speaker.isFeatured && <FeaturedBadge />}
       </div>
 
       <div className="mt-3 flex flex-col gap-1">

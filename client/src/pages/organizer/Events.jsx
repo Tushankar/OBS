@@ -70,6 +70,11 @@ export default function Events() {
       case 'actions':
         return (
           <div className="flex justify-end gap-2">
+            {['PUBLISHED', 'COMPLETED'].includes(ev.status) && ev.slug && (
+              <Btn size="sm" variant="ghost" onClick={() => window.open(`/event/${ev.slug}`, '_blank', 'noopener,noreferrer')}>
+                <AdminIcon.External size={13} /> View live page
+              </Btn>
+            )}
             {['PUBLISHED', 'COMPLETED'].includes(ev.status) && (
               <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/registrations`)}>Registrations</Btn>
             )}

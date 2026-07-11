@@ -32,6 +32,8 @@ const NAV = [
       { to: '/admin/hero', label: 'Hero carousel', icon: 'Hero' },
       { to: '/admin/speakers', label: 'Speakers', icon: 'Speakers' },
       { to: '/admin/sponsors', label: 'Sponsors', icon: 'Sponsors' },
+      { to: '/admin/programs', label: 'Programs', icon: 'Events' },
+      { to: '/admin/articles', label: 'Articles', icon: 'Cms' },
       { to: '/admin/cms', label: 'Site pages', icon: 'Cms' },
       { to: '/admin/categories', label: 'Categories', icon: 'Categories' },
       { to: '/admin/chapters', label: 'Chapters', icon: 'Chapters' },

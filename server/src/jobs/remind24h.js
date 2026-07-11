@@ -19,7 +19,14 @@ export async function remind24h(now = new Date()) {
 
     const tickets = await Ticket.find({ eventId: ev._id, status: 'VALID' }).select('attendeeEmail attendeeName userId');
     const when = ev.startAt ? new Date(ev.startAt).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' }) : 'soon';
-    const where = ev.isOnline ? 'Online — your join link is in your account' : [ev.venueName, ev.city].filter(Boolean).join(', ') || 'see event page';
+    // Online events get the actual join link (§F6) — never promise a link we can't show.
+    const joinLink = ev.isOnline && ev.meetingLink ? ev.meetingLink : null;
+    const where = ev.isOnline
+      ? joinLink ? `Online — join here: ${joinLink}` : 'Online event'
+      : [ev.venueName, ev.city].filter(Boolean).join(', ') || 'see event page';
+    const whereHtml = ev.isOnline
+      ? joinLink ? `Online — <a href="${joinLink}">join the event here</a>` : 'Online event'
+      : where;
     const url = `${env.APP_URL}/event/${ev.slug}`;
 
     const seen = new Set();
@@ -32,7 +39,7 @@ export async function remind24h(now = new Date()) {
           to: email, type: 'EVENT_REMINDER', subject: `Reminder: ${ev.title} is tomorrow`,
           userId: t.userId, eventId: ev._id,
           text: `Hi ${t.attendeeName || 'there'},\n\nJust a reminder that "${ev.title}" starts ${when}.\nWhere: ${where}\n\nDetails & your tickets: ${url}\n\nSee you there!\n— OBS Events`,
-          html: `<p>Hi ${t.attendeeName || 'there'},</p><p>Just a reminder that <strong>${ev.title}</strong> starts <strong>${when}</strong>.</p><p><strong>Where:</strong> ${where}</p><p><a href="${url}">View event & your tickets</a></p><p>See you there!<br/>— OBS Events</p>`,
+          html: `<p>Hi ${t.attendeeName || 'there'},</p><p>Just a reminder that <strong>${ev.title}</strong> starts <strong>${when}</strong>.</p><p><strong>Where:</strong> ${whereHtml}</p><p><a href="${url}">View event & your tickets</a></p><p>See you there!<br/>— OBS Events</p>`,
         });
         reminded += 1;
       } catch (e) {

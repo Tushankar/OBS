@@ -19,9 +19,11 @@ export const createChapterSchema = z.object({
   coverUrl: z.string().trim().url().max(500).optional(),
 });
 
-// PATCH /chapters/:id — creator fields; admin-only fields are ignored for
-// non-admins in the service (superset validated here, authorized there).
+// PATCH /chapters/:id — creator fields (name/description/cover); admin-only
+// fields are ignored for non-admins in the service (superset validated here,
+// authorized there). Renaming never changes the slug.
 export const updateChapterSchema = z.object({
+  name: z.string().trim().min(2).max(120).optional(),
   description: z.string().trim().max(2000).optional(),
   coverUrl: z.string().trim().url().max(500).optional(),
   status: z.enum(CHAPTER_STATUS).optional(),

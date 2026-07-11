@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card, Btn, PageHead, Pill, Field, inputCls, Loading } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError, apiErrorCode, uploadToPresignedUrl } from '../../lib/api';
+import { fmtDateTime } from '../../lib/format';
 import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
 import TicketTypesEditor from '../../components/organizer/TicketTypesEditor';
 import PromoCodesEditor from '../../components/organizer/PromoCodesEditor';
 
-const STEPS = ['Basics', 'Banner', 'Venue', 'Tickets', 'Promos', 'Review'];
+const STEPS = ['Basics', 'Banner', 'Venue', 'Tickets', 'Promos', 'Speakers & extras', 'Review'];
+const EXTRAS_STEP = 6;
+const REVIEW_STEP = STEPS.length; // 7
 
 const pad = (n) => String(n).padStart(2, '0');
 function isoToLocalInput(iso) {
@@ -23,6 +26,8 @@ const BLANK = {
   bannerUrl: '', isOnline: false, meetingLink: '',
   venueName: '', address: '', city: '', country: '', lat: null, lng: null, placeId: '',
   startAt: '', endAt: '',
+  speakerIds: [], programId: '', programDayNumber: '', isLaunch: false, launchAt: '',
+  rejectionReason: '',
 };
 
 const eventToForm = (e) => ({
@@ -32,6 +37,12 @@ const eventToForm = (e) => ({
   venueName: e.venueName || '', address: e.address || '', city: e.city || '', country: e.country || '',
   lat: e.lat ?? null, lng: e.lng ?? null, placeId: e.placeId || '',
   startAt: isoToLocalInput(e.startAt), endAt: isoToLocalInput(e.endAt),
+  speakerIds: (e.speakerIds || []).map(String),
+  programId: e.programId ? String(e.programId) : '',
+  programDayNumber: e.programDayNumber ?? '',
+  isLaunch: !!e.isLaunch,
+  launchAt: isoToLocalInput(e.launchAt),
+  rejectionReason: e.rejectionReason || '',
 });
 
 const RowKV = ({ k, v }) => (
@@ -41,9 +52,16 @@ const RowKV = ({ k, v }) => (
   </div>
 );
 
+const LiveBanner = ({ children, className = '' }) => (
+  <div className={`rounded-md border border-line bg-brand-soft/40 px-4 py-3 text-[13px] text-ink-soft ${className}`}>
+    {children}
+  </div>
+);
+
 export default function EventWizard() {
   const navigate = useNavigate();
   const { id: routeId } = useParams();
+  const [searchParams] = useSearchParams();
   const { pushToast } = useApp();
 
   const [eventId, setEventId] = useState(routeId || null);
@@ -52,6 +70,9 @@ export default function EventWizard() {
   const [form, setForm] = useState(BLANK);
   const [cats, setCats] = useState([]);
   const [chapters, setChapters] = useState([]);
+  const [speakers, setSpeakers] = useState([]);
+  const [program, setProgram] = useState(undefined); // undefined = loading, null = no current season
+  const [speakerQ, setSpeakerQ] = useState('');
   const [loading, setLoading] = useState(!!routeId);
   const [saving, setSaving] = useState(false);
   const [bannerBusy, setBannerBusy] = useState(false);
@@ -62,10 +83,12 @@ export default function EventWizard() {
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  // Reference data for the dropdowns.
+  // Reference data for the dropdowns + speaker/program pickers.
   useEffect(() => {
     api.categories().then(setCats).catch(() => {});
     api.chapters().then(setChapters).catch(() => {});
+    api.speakers().then(setSpeakers).catch(() => {});
+    api.currentProgram().then((p) => setProgram(p || null)).catch(() => setProgram(null));
   }, []);
 
   // Edit mode: load the draft.
@@ -78,6 +101,25 @@ export default function EventWizard() {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [routeId, navigate, pushToast]);
+
+  // Deep links into a NEW event: ?chapter=<id> preselects the chapter dropdown
+  // (chapter-owner CTA), once the chapters list confirms the id is real.
+  useEffect(() => {
+    if (routeId) return;
+    const chapterId = searchParams.get('chapter');
+    if (chapterId && chapters.some((c) => c.id === chapterId)) {
+      setForm((f) => (f.chapterId ? f : { ...f, chapterId }));
+    }
+  }, [routeId, chapters, searchParams]);
+
+  // ?program=<slug>&day=<n> pre-enables the 100 Days section on that day — only
+  // when the slug matches the current season (stale links are ignored).
+  useEffect(() => {
+    if (routeId || !program) return;
+    if (searchParams.get('program') !== program.slug) return;
+    const day = Math.min(100, Math.max(1, parseInt(searchParams.get('day'), 10) || 1));
+    setForm((f) => (f.programId ? f : { ...f, programId: program.id, programDayNumber: day }));
+  }, [routeId, program, searchParams]);
 
   // Google Places Autocomplete on the venue address input (when a browser key is
   // configured). Without a key we degrade to manual entry + server geocode.
@@ -111,6 +153,9 @@ export default function EventWizard() {
   }, [step, form.isOnline]);
 
   const readOnly = !['DRAFT', 'REJECTED'].includes(status);
+  // Speakers/program/launch are post-publish-safe fields (the server lets the
+  // owner patch them on a live event), so the extras step stays editable then.
+  const extrasEditable = !readOnly || status === 'PUBLISHED';
 
   const saveStep1 = useCallback(async () => {
     if (form.title.trim().length < 3) { setErrors({ title: 'Title must be at least 3 characters' }); return false; }
@@ -188,6 +233,28 @@ export default function EventWizard() {
     }
   }, [form, eventId, pushToast]);
 
+  // Persist the speakers / 100 Days / launch selections (post-publish-safe set).
+  const saveExtras = useCallback(async (f = form) => {
+    if (!eventId) return true;
+    setSaving(true);
+    try {
+      const ev = await api.organizerUpdateEvent(eventId, {
+        speakerIds: f.speakerIds,
+        programId: f.programId || null,
+        programDayNumber: f.programId && f.programDayNumber ? Number(f.programDayNumber) : null,
+        isLaunch: f.isLaunch,
+        launchAt: f.isLaunch && f.launchAt ? localInputToISO(f.launchAt) : null,
+      });
+      setStatus(ev.status);
+      return true;
+    } catch (e) {
+      pushToast(apiError(e, 'Could not save'), false);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [form, eventId, pushToast]);
+
   async function submit() {
     setSaving(true);
     try {
@@ -231,10 +298,11 @@ export default function EventWizard() {
   }
 
   async function next() {
-    if (readOnly) { setStep((s) => Math.min(6, s + 1)); return; }
+    if (step === EXTRAS_STEP && extrasEditable && eventId) { if (await saveExtras()) setStep(EXTRAS_STEP + 1); return; }
+    if (readOnly) { setStep((s) => Math.min(REVIEW_STEP, s + 1)); return; }
     if (step === 1) { if (await saveStep1()) setStep(2); return; }
     if (step === 3) { if (await saveStep3()) setStep(4); return; }
-    setStep((s) => Math.min(6, s + 1)); // steps 2/4/5 have nothing to persist on Next
+    setStep((s) => Math.min(REVIEW_STEP, s + 1)); // steps 2/4/5 have nothing to persist on Next
   }
 
   function goStep(n) {
@@ -248,10 +316,29 @@ export default function EventWizard() {
     navigate('/organizer/events');
   }
 
+  const toggleSpeaker = (id) => setForm((f) => ({
+    ...f,
+    speakerIds: f.speakerIds.includes(id) ? f.speakerIds.filter((x) => x !== id) : [...f.speakerIds, id],
+  }));
+
+  // Review-step remove affordances persist immediately (there is no later
+  // "save" between Review and Submit/Done).
+  async function removeExtras(patch) {
+    const nextForm = { ...form, ...patch };
+    setForm(nextForm);
+    if (eventId && extrasEditable) await saveExtras(nextForm);
+  }
+
   if (loading) return <Loading />;
 
   const catName = cats.find((c) => c.id === form.categoryId)?.name;
   const chapName = chapters.find((c) => c.id === form.chapterId)?.name;
+  const selectedSpeakers = form.speakerIds.map((id) => speakers.find((s) => s.id === id)).filter(Boolean);
+  const sq = speakerQ.trim().toLowerCase();
+  const speakerMatches = sq
+    ? speakers.filter((s) => !form.speakerIds.includes(s.id) && `${s.name} ${s.company || ''}`.toLowerCase().includes(sq)).slice(0, 8)
+    : [];
+  const programName = program && form.programId === program.id ? program.name : 'the 100 Days program';
 
   return (
     <div className="pb-10">
@@ -263,7 +350,8 @@ export default function EventWizard() {
 
       {status === 'REJECTED' && (
         <div className="mb-5 rounded-md border border-line bg-brand-soft/40 px-4 py-3 text-[13px] text-ink-soft">
-          This event was sent back for changes. Editing it saves it as a draft again.
+          <p>This event was sent back for changes. Editing it saves it as a draft again.</p>
+          {form.rejectionReason && <p className="mt-1 font-semibold text-ink">Sent back: {form.rejectionReason}</p>}
         </div>
       )}
 
@@ -277,7 +365,7 @@ export default function EventWizard() {
                 <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold ${on ? 'bg-brand text-white' : done ? 'bg-brand-soft text-brand' : 'bg-surface text-ink-mute'}`}>{done ? '✓' : n}</span>
                 <span className={`text-[13px] font-semibold ${on ? 'text-ink' : 'text-ink-mute'}`}>{label}</span>
               </button>
-              {n < 6 && <span className="mx-1 h-px w-5 bg-line" />}
+              {n < REVIEW_STEP && <span className="mx-1 h-px w-5 bg-line" />}
             </div>
           );
         })}
@@ -386,6 +474,9 @@ export default function EventWizard() {
         {step === 4 && (
           eventId ? (
             <div>
+              {status === 'PUBLISHED' && (
+                <LiveBanner className="mb-4">Your event is live — you can still manage ticket inventory and promo codes here.</LiveBanner>
+              )}
               <p className="mb-4 text-[13px] text-ink-mute">Add the tickets attendees can buy. Use ₹0 for a free ticket. Every event needs at least one ticket type before it can sell.</p>
               <TicketTypesEditor eventId={eventId} />
             </div>
@@ -398,6 +489,9 @@ export default function EventWizard() {
         {step === 5 && (
           eventId ? (
             <div>
+              {status === 'PUBLISHED' && (
+                <LiveBanner className="mb-4">Your event is live — you can still manage ticket inventory and promo codes here.</LiveBanner>
+              )}
               <p className="mb-4 text-[13px] text-ink-mute">Optionally add discount codes buyers can apply at checkout.</p>
               <PromoCodesEditor eventId={eventId} />
             </div>
@@ -406,8 +500,126 @@ export default function EventWizard() {
           )
         )}
 
-        {/* Step 6 — Review */}
-        {step === 6 && (
+        {/* Step 6 — Speakers & extras (speakers, 100 Days day, launch flag) */}
+        {step === EXTRAS_STEP && (
+          eventId ? (
+            <div className="grid gap-6">
+              {status === 'PUBLISHED' && (
+                <LiveBanner>Your event is live — speakers, program day and launch details can still be updated here.</LiveBanner>
+              )}
+
+              {/* Speakers */}
+              <div>
+                <h3 className="text-sm font-bold text-ink">Speakers</h3>
+                <p className="mb-3 mt-1 text-[13px] text-ink-mute">Add speakers from the OBS directory. They appear on your event page, and your event shows on their profiles.</p>
+                {selectedSpeakers.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {selectedSpeakers.map((s) => (
+                      <span key={s.id} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-[12.5px] font-semibold text-ink">
+                        {s.name}
+                        {extrasEditable && (
+                          <button type="button" aria-label={`Remove ${s.name}`} onClick={() => toggleSpeaker(s.id)} className="text-ink-mute transition hover:text-ink">✕</button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {extrasEditable && (
+                  speakers.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-line px-4 py-3 text-[13px] text-ink-mute">The speaker directory is empty right now — the OBS team curates it. You can continue without speakers.</p>
+                  ) : (
+                    <div>
+                      <input className={inputCls} value={speakerQ} onChange={(e) => setSpeakerQ(e.target.value)} placeholder="Search speakers by name or company…" />
+                      {sq && (
+                        <div className="mt-2 overflow-hidden rounded-md border border-line">
+                          {speakerMatches.length === 0 ? (
+                            <p className="px-3.5 py-3 text-[13px] text-ink-mute">No speakers match “{speakerQ.trim()}”.</p>
+                          ) : (
+                            speakerMatches.map((s) => (
+                              <button key={s.id} type="button" onClick={() => { toggleSpeaker(s.id); setSpeakerQ(''); }} className="flex w-full items-center gap-3 border-b border-line px-3.5 py-2.5 text-left transition last:border-0 hover:bg-surface">
+                                {s.photoUrl ? (
+                                  <img src={s.photoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                                ) : (
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[12px] font-bold text-brand">{s.name.slice(0, 1)}</span>
+                                )}
+                                <span className="min-w-0">
+                                  <span className="block truncate text-[13px] font-semibold text-ink">{s.name}</span>
+                                  {(s.title || s.company) && <span className="block truncate text-[12px] text-ink-mute">{[s.title, s.company].filter(Boolean).join(' · ')}</span>}
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* 100 Days program */}
+              <div className="border-t border-line pt-5">
+                <h3 className="text-sm font-bold text-ink">100 Days program</h3>
+                <label className={`mt-2 flex items-center gap-2 text-[13.5px] text-ink-soft ${extrasEditable && program ? 'cursor-pointer' : 'opacity-60'}`}>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-brand"
+                    checked={!!form.programId}
+                    disabled={!extrasEditable || !program}
+                    onChange={(e) => {
+                      if (e.target.checked && program) setForm((f) => ({ ...f, programId: program.id, programDayNumber: f.programDayNumber || 1 }));
+                      else setForm((f) => ({ ...f, programId: '', programDayNumber: '' }));
+                    }}
+                  />
+                  Part of the 100 Days program
+                </label>
+                {program === null && (
+                  <p className="mt-1.5 text-[12px] text-ink-mute">No 100 Days season is open right now — check back when the next edition is announced.</p>
+                )}
+                {program && !form.programId && (
+                  <p className="mt-1.5 text-[12px] text-ink-mute">Link this event to one of the 100 days of {program.name}.</p>
+                )}
+                {form.programId && (
+                  <div className="mt-3 max-w-xs">
+                    <Field label={program && form.programId === program.id ? `Day of ${program.name}` : 'Program day'}>
+                      <select className={inputCls} value={form.programDayNumber || ''} disabled={!extrasEditable} onChange={(e) => set('programDayNumber', Number(e.target.value))}>
+                        {!form.programDayNumber && <option value="">Select a day…</option>}
+                        {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Day {n}</option>)}
+                      </select>
+                    </Field>
+                  </div>
+                )}
+              </div>
+
+              {/* Launchpad */}
+              <div className="border-t border-line pt-5">
+                <h3 className="text-sm font-bold text-ink">Launchpad</h3>
+                <label className={`mt-2 flex items-center gap-2 text-[13.5px] text-ink-soft ${extrasEditable ? 'cursor-pointer' : 'opacity-60'}`}>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-brand"
+                    checked={form.isLaunch}
+                    disabled={!extrasEditable}
+                    onChange={(e) => setForm((f) => ({ ...f, isLaunch: e.target.checked, launchAt: e.target.checked ? f.launchAt : '' }))}
+                  />
+                  This is a launch
+                </label>
+                <p className="mt-1.5 text-[12px] text-ink-mute">Launches appear on the OBS Launchpad — product unveilings, book releases, openings.</p>
+                {form.isLaunch && (
+                  <div className="mt-3 max-w-xs">
+                    <Field label="Launch moment (optional)" hint="Adds a countdown on the Launchpad.">
+                      <input type="datetime-local" className={inputCls} value={form.launchAt} disabled={!extrasEditable} onChange={(e) => set('launchAt', e.target.value)} />
+                    </Field>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-ink-mute">Save the basics first (step 1) to add speakers, a program day or launch details.</p>
+          )
+        )}
+
+        {/* Step 7 — Review */}
+        {step === REVIEW_STEP && (
           <div className="grid gap-5">
             <div>
               <h3 className="mb-1 text-sm font-bold text-ink">Basics</h3>
@@ -430,8 +642,48 @@ export default function EventWizard() {
                   <RowKV k="Map" v={form.lat != null ? 'Pinned ✓' : null} />
                 </>
               )}
-              <RowKV k="Starts" v={form.startAt ? new Date(form.startAt).toLocaleString('en-IN') : null} />
-              <RowKV k="Ends" v={form.endAt ? new Date(form.endAt).toLocaleString('en-IN') : null} />
+              <RowKV k="Starts" v={form.startAt ? fmtDateTime(form.startAt) : null} />
+              <RowKV k="Ends" v={form.endAt ? fmtDateTime(form.endAt) : null} />
+            </div>
+            <div>
+              <h3 className="mb-1 text-sm font-bold text-ink">Speakers & extras</h3>
+              <RowKV
+                k="Speakers"
+                v={selectedSpeakers.length ? (
+                  <span className="flex flex-wrap justify-end gap-1.5">
+                    {selectedSpeakers.map((s) => (
+                      <span key={s.id} className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-0.5 text-[12px] font-semibold text-ink">
+                        {s.name}
+                        {extrasEditable && (
+                          <button type="button" aria-label={`Remove ${s.name}`} disabled={saving} onClick={() => removeExtras({ speakerIds: form.speakerIds.filter((x) => x !== s.id) })} className="text-ink-mute transition hover:text-ink">✕</button>
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                ) : null}
+              />
+              <RowKV
+                k="100 Days"
+                v={form.programId ? (
+                  <span className="inline-flex items-center gap-2">
+                    {`Day ${form.programDayNumber || '—'} of ${programName}`}
+                    {extrasEditable && (
+                      <button type="button" aria-label="Remove program link" disabled={saving} onClick={() => removeExtras({ programId: '', programDayNumber: '' })} className="text-ink-mute transition hover:text-ink">✕</button>
+                    )}
+                  </span>
+                ) : null}
+              />
+              <RowKV
+                k="Launch"
+                v={form.isLaunch ? (
+                  <span className="inline-flex items-center gap-2">
+                    {form.launchAt ? `Yes · ${fmtDateTime(form.launchAt)}` : 'Yes'}
+                    {extrasEditable && (
+                      <button type="button" aria-label="Remove launch flag" disabled={saving} onClick={() => removeExtras({ isLaunch: false, launchAt: '' })} className="text-ink-mute transition hover:text-ink">✕</button>
+                    )}
+                  </span>
+                ) : null}
+              />
             </div>
             <div className="rounded-md border border-line bg-surface px-4 py-3 text-[13px] text-ink-mute">
               Set up ticket types (step 4) and any promo codes (step 5) before submitting. An event needs at least one ticket type to sell.
@@ -442,7 +694,7 @@ export default function EventWizard() {
 
       <div className="mt-5 flex items-center justify-between">
         <Btn variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || saving}>Back</Btn>
-        {step < 6 ? (
+        {step < REVIEW_STEP ? (
           <Btn onClick={next} disabled={saving || bannerBusy}>{saving ? 'Saving…' : 'Save & continue'}</Btn>
         ) : readOnly ? (
           <Btn onClick={() => navigate('/organizer/events')}>Done</Btn>

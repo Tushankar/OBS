@@ -104,6 +104,11 @@ async function sendFulfilmentEmails({ order, event, user, tickets, ticketAttachm
   const ticketAttach = attachBytes > 0 && attachBytes <= MAX_EMAIL_ATTACH_BYTES ? ticketAttachments : undefined;
   const attachNote = ticketAttach ? 'Your tickets are attached and in your account.' : 'Your tickets are in your account.';
 
+  // Online events: the join link is part of ticket delivery (§F6).
+  const joinLink = event?.isOnline && event?.meetingLink ? event.meetingLink : null;
+  const joinText = joinLink ? `\nJoin online: ${joinLink}` : '';
+  const joinHtml = joinLink ? `<p><strong>Join online:</strong> <a href="${joinLink}">${joinLink}</a></p>` : '';
+
   const trySend = async (args) => {
     try { await sendMail(args); } catch (e) { console.error(`[fulfilment] ${args.type} mail failed:`, e.message); }
   };
@@ -112,8 +117,8 @@ async function sendFulfilmentEmails({ order, event, user, tickets, ticketAttachm
     await trySend({
       to: user.email, type: 'REGISTRATION_CONFIRMATION', subject: `You're registered for ${event?.title || 'your event'}`,
       userId: user._id, orderId: order._id, eventId: order.eventId, attachments: ticketAttach,
-      text: `Hi ${user.name},\n\nYou're registered for "${event?.title}". ${qty} ticket(s). ${attachNote}\n${ticketsUrl}\n\n— OBS Events`,
-      html: `<p>Hi ${user.name},</p><p>You're registered for <strong>${event?.title}</strong> — ${qty} ticket(s). ${attachNote}</p><p><a href="${ticketsUrl}">View my tickets</a></p><p>— OBS Events</p>`,
+      text: `Hi ${user.name},\n\nYou're registered for "${event?.title}". ${qty} ticket(s). ${attachNote}${joinText}\n${ticketsUrl}\n\n— OBS Events`,
+      html: `<p>Hi ${user.name},</p><p>You're registered for <strong>${event?.title}</strong> — ${qty} ticket(s). ${attachNote}</p>${joinHtml}<p><a href="${ticketsUrl}">View my tickets</a></p><p>— OBS Events</p>`,
     });
     return;
   }
@@ -127,8 +132,8 @@ async function sendFulfilmentEmails({ order, event, user, tickets, ticketAttachm
   await trySend({
     to: user.email, type: 'TICKET_DELIVERY', subject: `Your ${qty} ticket(s) for ${event?.title || 'your event'}`,
     userId: user._id, orderId: order._id, eventId: order.eventId, attachments: ticketAttach,
-    text: `Hi ${user.name},\n\n${attachNote} (${qty} ticket(s) for "${event?.title}")\n${ticketsUrl}\n\n— OBS Events`,
-    html: `<p>Hi ${user.name},</p><p>${attachNote} (${qty} ticket(s) for <strong>${event?.title}</strong>)</p><p><a href="${ticketsUrl}">View my tickets</a></p><p>— OBS Events</p>`,
+    text: `Hi ${user.name},\n\n${attachNote} (${qty} ticket(s) for "${event?.title}")${joinText}\n${ticketsUrl}\n\n— OBS Events`,
+    html: `<p>Hi ${user.name},</p><p>${attachNote} (${qty} ticket(s) for <strong>${event?.title}</strong>)</p>${joinHtml}<p><a href="${ticketsUrl}">View my tickets</a></p><p>— OBS Events</p>`,
   });
 }
 

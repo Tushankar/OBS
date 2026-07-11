@@ -2,7 +2,9 @@
 const stamp = (d) => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 const esc = (s = '') => String(s).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
 
-export function downloadIcs({ title, startAt, endAt, location, description, uid }) {
+export function downloadIcs({ title, startAt, endAt, location, description, meetingLink, uid }) {
+  // Online events carry their join link in the calendar entry too.
+  const desc = [description, meetingLink ? `Join online: ${meetingLink}` : ''].filter(Boolean).join('\n');
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -14,7 +16,7 @@ export function downloadIcs({ title, startAt, endAt, location, description, uid 
     endAt ? `DTEND:${stamp(endAt)}` : '',
     `SUMMARY:${esc(title)}`,
     location ? `LOCATION:${esc(location)}` : '',
-    description ? `DESCRIPTION:${esc(description)}` : '',
+    desc ? `DESCRIPTION:${esc(desc)}` : '',
     'END:VEVENT',
     'END:VCALENDAR',
   ].filter(Boolean).join('\r\n');

@@ -6,7 +6,8 @@ import { asyncHandler } from '../../utils/asyncHandler.js';
 
 const router = Router();
 
-// Public organizer profile, mounted at /api/v1/organizers (plural).
+// Public organizers directory + profile, mounted at /api/v1/organizers (plural).
+router.get('/', asyncHandler(c.listPublic));
 router.get('/:slug', validate({ params: z.object({ slug: z.string().trim().min(1).max(200) }) }), asyncHandler(c.publicProfile));
 
 export default router;

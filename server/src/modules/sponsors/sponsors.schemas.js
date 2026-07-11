@@ -23,7 +23,11 @@ export const createSponsorSchema = z.object({
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.boolean().optional(),
 });
-export const updateSponsorSchema = createSponsorSchema.partial().refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });
+// Update accepts null on the ref fields so changing placement clears a stale link.
+export const updateSponsorSchema = createSponsorSchema
+  .extend({ eventId: objectId.nullable(), programId: objectId.nullable() })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });
 
 // Public "become a sponsor" form.
 export const partnerApplicationSchema = z.object({

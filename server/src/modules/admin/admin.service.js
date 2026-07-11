@@ -1,4 +1,5 @@
-import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, CmsPage } from '../../models/index.js';
+import mongoose from 'mongoose';
+import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, CmsPage, Speaker, Program } from '../../models/index.js';
 import { notFoundError, conflict } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { sendMail } from '../../utils/mailer.js';
@@ -154,6 +155,12 @@ export async function getEventAdmin(id) {
     country: e.country || '',
     bannerUrl: e.bannerUrl || '',
     currency: e.currency || 'INR',
+    // §5.1 community layer — speakers / 100 Days linkage / Launchpad flags.
+    speakerIds: (e.speakerIds || []).map(String),
+    programId: e.programId ? String(e.programId) : null,
+    programDayNumber: e.programDayNumber ?? null,
+    isLaunch: !!e.isLaunch,
+    launchAt: e.launchAt || null,
   };
 }
 
@@ -172,11 +179,16 @@ async function platformOrganizer(adminId) {
   return profile;
 }
 
-const ADMIN_EVENT_FIELDS = ['title', 'description', 'categoryId', 'chapterId', 'isOnline', 'meetingLink', 'venueName', 'address', 'city', 'country', 'startAt', 'endAt', 'currency', 'bannerUrl'];
+const ADMIN_EVENT_FIELDS = ['title', 'description', 'categoryId', 'chapterId', 'isOnline', 'meetingLink', 'venueName', 'address', 'city', 'country', 'startAt', 'endAt', 'currency', 'bannerUrl', 'speakerIds', 'programId', 'programDayNumber', 'isLaunch', 'launchAt'];
 
 async function assertEventRefs(body) {
   if (body.categoryId && !(await Category.exists({ _id: body.categoryId }))) throw conflict('INVALID_CATEGORY', 'Category not found');
   if (body.chapterId && !(await Chapter.exists({ _id: body.chapterId }))) throw conflict('INVALID_CHAPTER', 'Chapter not found');
+  if (body.programId && !(await Program.exists({ _id: body.programId }))) throw conflict('INVALID_PROGRAM', 'Program not found');
+  if (body.speakerIds?.length) {
+    const found = await Speaker.countDocuments({ _id: { $in: body.speakerIds } });
+    if (found !== new Set(body.speakerIds.map(String)).size) throw conflict('INVALID_SPEAKER', 'One or more speakers not found');
+  }
 }
 
 // POST /admin/events — admin creates an OBS-platform event directly (ownership
@@ -355,6 +367,13 @@ export async function listUsers({ search, role, status, page = 1, limit = 20 } =
 
 // PATCH /admin/users/:id — suspend/reactivate + role change. Never lets an admin
 // change their own account (avoids self-lockout / self-demotion).
+//
+// Role changes to/from ORGANIZER also sync the user's OrganizerProfile in the
+// same transaction — the profile is the authoritative organizer capability
+// (requireApprovedOrganizer gates on profile status, never on role), so the
+// role dropdown must actually grant/revoke portal access:
+//   → ORGANIZER: upsert the profile to APPROVED (minimal profile if none).
+//   ORGANIZER → USER: suspend the existing profile.
 export async function updateUser(adminId, id, { status, role }) {
   if (String(adminId) === String(id)) throw conflict('CANNOT_MODIFY_SELF', 'You can’t change your own account here');
   const user = await User.findById(id);
@@ -362,15 +381,61 @@ export async function updateUser(adminId, id, { status, role }) {
 
   const statusChanged = status && status !== user.status;
   const roleChanged = role && role !== user.role;
-  if (statusChanged) user.status = status;
-  if (roleChanged) user.role = role;
-  if (statusChanged || roleChanged) await user.save();
+  const prevRole = user.role;
+
+  let profileAudit = null; // { action, profile } — written after commit
+  if (statusChanged || roleChanged) {
+    const updates = {};
+    if (statusChanged) updates.status = status;
+    if (roleChanged) updates.role = role;
+    // Slug generated before the txn so a retry/abort doesn't re-query mid-txn.
+    const newSlug = roleChanged && role === 'ORGANIZER' ? await uniqueSlug(OrganizerProfile, user.name) : null;
+
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        profileAudit = null; // reset on txn retry
+        await User.updateOne({ _id: user._id }, { $set: updates }, { session });
+        if (!roleChanged) return;
+        if (role === 'ORGANIZER') {
+          let profile = await OrganizerProfile.findOne({ userId: user._id }).session(session);
+          if (!profile) {
+            [profile] = await OrganizerProfile.create(
+              [{ userId: user._id, orgName: user.name, slug: newSlug, status: 'APPROVED', approvedById: adminId, approvedAt: new Date() }],
+              { session }
+            );
+            profileAudit = { action: 'ORGANIZER_APPROVED', profile };
+          } else if (profile.status !== 'APPROVED') {
+            await OrganizerProfile.updateOne(
+              { _id: profile._id },
+              { $set: { status: 'APPROVED', approvedById: adminId, approvedAt: new Date() } },
+              { session }
+            );
+            profileAudit = { action: 'ORGANIZER_APPROVED', profile };
+          }
+        } else if (prevRole === 'ORGANIZER' && role === 'USER') {
+          const profile = await OrganizerProfile.findOne({ userId: user._id }).session(session);
+          if (profile && profile.status !== 'SUSPENDED') {
+            await OrganizerProfile.updateOne({ _id: profile._id }, { $set: { status: 'SUSPENDED' } }, { session });
+            profileAudit = { action: 'ORGANIZER_SUSPENDED', profile };
+          }
+        }
+      });
+    } finally {
+      await session.endSession();
+    }
+    if (statusChanged) user.status = status;
+    if (roleChanged) user.role = role;
+  }
 
   if (statusChanged) {
     await writeAudit({ actorId: adminId, action: status === 'SUSPENDED' ? 'USER_SUSPENDED' : 'USER_REACTIVATED', entityType: 'User', entityId: user._id, meta: { email: user.email } });
   }
   if (roleChanged) {
     await writeAudit({ actorId: adminId, action: 'USER_ROLE_CHANGED', entityType: 'User', entityId: user._id, meta: { email: user.email, role } });
+  }
+  if (profileAudit) {
+    await writeAudit({ actorId: adminId, action: profileAudit.action, entityType: 'OrganizerProfile', entityId: profileAudit.profile._id, meta: { orgName: profileAudit.profile.orgName, via: 'USER_ROLE_CHANGE' } });
   }
   return shapeUser(user);
 }

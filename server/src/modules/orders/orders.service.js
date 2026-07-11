@@ -1,10 +1,11 @@
 import mongoose from 'mongoose';
-import { Order, Event, TicketType, PromoCode, Ticket } from '../../models/index.js';
+import { Order, Event, TicketType, PromoCode, Ticket, Refund } from '../../models/index.js';
 import { nextSeq, formatOrderNumber } from '../../utils/counters.js';
 import { env } from '../../config/env.js';
 import { badRequest, conflict, forbidden, notFoundError } from '../../utils/errors.js';
 import { markPaidAndFulfil } from '../fulfillment/fulfillment.service.js';
 import { presignGet, isS3Configured } from '../../utils/s3.js';
+import { writeAudit } from '../../utils/audit.js';
 
 // ---- pricing (all integer paise; recomputed server-side, never trust client) ----
 
@@ -28,7 +29,7 @@ function discountFor(promo, subtotal) {
   return Math.min(raw, subtotal); // never below zero
 }
 
-function shapeOrder(order, event) {
+function shapeOrder(order, event, lastRefund = null) {
   const ev = event && event._id ? event : order.eventId && order.eventId._id ? order.eventId : null;
   return {
     id: String(order._id),
@@ -54,6 +55,11 @@ function shapeOrder(order, event) {
     // from GET /me/orders/:id/invoice (§4.3 signed reads).
     invoice: order.invoice?.invoiceNumber
       ? { invoiceNumber: order.invoice.invoiceNumber, issuedAt: order.invoice.issuedAt || null, available: !!order.invoice.pdfUrl }
+      : null,
+    // Latest refund outcome (§F46) — lets the UI explain a declined request
+    // instead of silently reverting the badge to PAID.
+    lastRefund: lastRefund
+      ? { status: lastRefund.status, adminNotes: lastRefund.adminNotes || null, updatedAt: lastRefund.updatedAt || null }
       : null,
     createdAt: order.createdAt,
     event: ev
@@ -166,6 +172,50 @@ export async function cancelOrder(userId, orderId) {
   return shapeOrder(updated);
 }
 
+// §F45 — free registrations (PAID, total 0) can be cancelled by their owner:
+// void the tickets and hand the seats back, mirroring the refund inventory restore.
+export async function cancelRegistration(userId, orderId) {
+  const order = await Order.findById(orderId);
+  if (!order) throw notFoundError('ORDER_NOT_FOUND', 'Order not found');
+  if (String(order.userId) !== String(userId)) throw forbidden('NOT_ORDER_OWNER', 'This order is not yours');
+  if (order.status !== 'PAID') throw conflict('ORDER_NOT_CANCELLABLE', `A ${order.status.toLowerCase().replace('_', ' ')} order can't be cancelled`);
+  if (order.totalAmount > 0) throw conflict('ORDER_NOT_FREE', 'Paid orders are refunded, not cancelled — request a refund instead');
+
+  const session = await mongoose.startSession();
+  let cancelled = false;
+  try {
+    await session.withTransaction(async () => {
+      // Conditional flip gates single execution (race-safe against double clicks).
+      const flip = await Order.updateOne({ _id: order._id, status: 'PAID' }, { $set: { status: 'CANCELLED' } }, { session });
+      if (flip.modifiedCount !== 1) { cancelled = false; return; }
+      await Ticket.updateMany({ orderId: order._id, status: { $in: ['VALID', 'USED'] } }, { $set: { status: 'CANCELLED' } }, { session });
+      for (const item of order.items) {
+        await TicketType.updateOne({ _id: item.ticketTypeId }, { $inc: { quantitySold: -item.quantity } }, { session });
+      }
+      cancelled = true;
+    });
+  } finally {
+    await session.endSession();
+  }
+  if (!cancelled) throw conflict('ORDER_NOT_CANCELLABLE', 'This order was just updated — refresh and try again');
+
+  await writeAudit({ actorId: userId, action: 'REGISTRATION_CANCELLED', entityType: 'Order', entityId: order._id, meta: { orderNumber: order.orderNumber, eventId: String(order.eventId) } });
+  const updated = await Order.findById(orderId).populate('eventId', 'title slug startAt bannerUrl isOnline venueName city');
+  return shapeOrder(updated);
+}
+
+// Latest refund per order (§F46) so Orders can show a declined request honestly.
+async function latestRefundsByOrder(orderIds) {
+  if (!orderIds.length) return new Map();
+  const rows = await Refund.find({ orderId: { $in: orderIds } }).sort({ createdAt: -1 }).select('orderId status adminNotes updatedAt');
+  const byOrder = new Map();
+  for (const r of rows) {
+    const key = String(r.orderId);
+    if (!byOrder.has(key)) byOrder.set(key, r);
+  }
+  return byOrder;
+}
+
 export async function getMyOrders(userId, { status, page, limit }) {
   const filter = { userId };
   if (status) filter.status = status;
@@ -173,15 +223,19 @@ export async function getMyOrders(userId, { status, page, limit }) {
     Order.find(filter).populate('eventId', 'title slug startAt bannerUrl isOnline venueName city').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
     Order.countDocuments(filter),
   ]);
-  return { orders: rows.map((o) => shapeOrder(o)), total, page, limit, pages: Math.ceil(total / limit) || 0 };
+  const refunds = await latestRefundsByOrder(rows.map((o) => o._id));
+  return { orders: rows.map((o) => shapeOrder(o, null, refunds.get(String(o._id)) || null)), total, page, limit, pages: Math.ceil(total / limit) || 0 };
 }
 
 export async function getMyOrder(userId, orderId) {
   const order = await Order.findById(orderId).populate('eventId', 'title slug startAt bannerUrl isOnline venueName city');
   if (!order) throw notFoundError('ORDER_NOT_FOUND', 'Order not found');
   if (String(order.userId) !== String(userId)) throw forbidden('NOT_ORDER_OWNER', 'This order is not yours');
-  const ticketCount = await Ticket.countDocuments({ orderId });
-  return { ...shapeOrder(order), ticketCount };
+  const [ticketCount, lastRefund] = await Promise.all([
+    Ticket.countDocuments({ orderId }),
+    Refund.findOne({ orderId }).sort({ createdAt: -1 }).select('status adminNotes updatedAt'),
+  ]);
+  return { ...shapeOrder(order, null, lastRefund), ticketCount };
 }
 
 // §4.3 signed reads — a short-lived presigned GET for the owner's invoice PDF.

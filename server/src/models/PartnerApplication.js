@@ -16,6 +16,8 @@ const partnerApplicationSchema = new Schema(
     message: String,
     status: { type: String, enum: PARTNER_STATUS, default: 'NEW' },
     adminNotes: String,
+    // Draft Sponsor auto-created on approval — links the lead to its showcase entry.
+    sponsorId: { type: Schema.Types.ObjectId, ref: 'Sponsor' },
   },
   { timestamps: true }
 );

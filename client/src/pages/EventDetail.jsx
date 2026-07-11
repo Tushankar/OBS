@@ -5,19 +5,12 @@ import ApiEventCard, { seedOf } from '../components/common/ApiEventCard';
 import BookingCard from '../components/booking/BookingCard';
 import Seo from '../components/common/Seo';
 import { Icon } from '../components/common/Icon';
+import SponsorLogo from '../components/cards/SponsorLogo';
 import { useApp } from '../context/AppContext';
 import api, { apiError } from '../lib/api';
+import { fmtRange, fmtDate } from '../lib/format';
+import { sponsorTierLabel } from '../lib/labels';
 import { paletteFor } from '../data/events';
-
-function fmtRange(startAt, endAt, tz) {
-  if (!startAt) return 'Date to be announced';
-  const opts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz || undefined };
-  const s = new Date(startAt).toLocaleString('en-IN', opts);
-  if (!endAt) return s;
-  const sameDay = new Date(startAt).toDateString() === new Date(endAt).toDateString();
-  const e = new Date(endAt).toLocaleString('en-IN', sameDay ? { hour: 'numeric', minute: '2-digit', timeZone: tz || undefined } : opts);
-  return `${s} – ${e}`;
-}
 
 export default function EventDetail() {
   const { slug } = useParams();
@@ -89,13 +82,24 @@ export default function EventDetail() {
       <div className="mx-auto grid max-w-container grid-cols-1 items-start gap-8 px-4 pt-6 sm:px-6 lg:grid-cols-[1fr_380px]">
         {/* Main column */}
         <div>
-          {event.category && <span className="inline-flex rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand">{event.category.name}</span>}
+          <div className="flex flex-wrap items-center gap-2">
+            {event.category && (
+              <Link to={`/events?category=${event.category.slug}`} className="inline-flex rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand transition hover:bg-brand hover:text-white">
+                {event.category.name}
+              </Link>
+            )}
+            {event.program && (
+              <Link to={`/program/day/${event.program.dayNumber}`} className="inline-flex rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft transition hover:bg-brand-soft hover:text-brand">
+                Part of {event.program.name} · Day {event.program.dayNumber}
+              </Link>
+            )}
+          </div>
           <h1 className="mt-3 text-2xl font-bold leading-tight text-ink sm:text-[28px]">{event.title}</h1>
           <div className="mt-3.5 flex flex-wrap gap-4 text-sm text-ink-soft">
-            <span className="flex items-center gap-1.5"><Icon.Calendar /> {fmtRange(event.startAt, event.endAt, event.timezone)}</span>
+            <span className="flex items-center gap-1.5"><Icon.Calendar /> {fmtRange(event.startAt, event.endAt, event.timezone) || 'Date to be announced'}</span>
             <span className="flex items-center gap-1.5"><Icon.Pin /> {loc}</span>
             {event.chapter && (
-              <button onClick={() => navigate(`/chapters/${event.chapter.slug}`)} className="flex items-center gap-1.5 font-medium text-brand">
+              <button onClick={() => navigate(`/chapters/${event.chapter.slug}`)} className="flex items-center gap-1.5 font-medium text-brand transition hover:text-brand-dark">
                 {event.chapter.flagEmoji} {event.chapter.name}
               </button>
             )}
@@ -121,7 +125,7 @@ export default function EventDetail() {
             <div className="p-[18px]">
               <div className="text-[15px] font-semibold text-ink">{event.isOnline ? 'Online event' : event.venueName || 'Venue to be announced'}</div>
               <div className="mt-1 text-[13px] text-ink-mute">
-                {event.isOnline ? 'Joining link is sent to ticket holders.' : [event.address, event.city, event.country].filter(Boolean).join(', ') || '—'}
+                {event.isOnline ? 'Online event — the join link appears on your ticket after booking.' : [event.address, event.city, event.country].filter(Boolean).join(', ') || '—'}
               </div>
               {directionsUrl && (
                 <a href={directionsUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand hover:text-brand-dark">
@@ -156,9 +160,9 @@ export default function EventDetail() {
               <h2 className="mb-4 mt-8 text-lg font-bold text-ink">Sponsors</h2>
               <div className="flex flex-wrap gap-3">
                 {event.sponsors.map((sp) => (
-                  <div key={sp.id} title={`${sp.name}${sp.tier ? ` · ${sp.tier}` : ''}`} className="flex h-[64px] w-[150px] items-center justify-center rounded-xl border border-line bg-white p-2">
-                    {sp.logoUrl ? <img src={sp.logoUrl} alt={sp.name} className="max-h-full max-w-full object-contain" /> : <span className="px-1 text-center text-[11px] font-bold uppercase text-ink-mute">{sp.name}</span>}
-                  </div>
+                  <span key={sp.id} title={`${sp.name}${sp.tier ? ` · ${sponsorTierLabel(sp.tier)}` : ''}`}>
+                    <SponsorLogo sponsor={sp} />
+                  </span>
                 ))}
               </div>
             </>
@@ -176,6 +180,23 @@ export default function EventDetail() {
                   <span className="mt-0.5 block text-[13px] text-ink-mute">View organizer profile ›</span>
                 </span>
               </button>
+            </>
+          )}
+
+          {event.articles?.length > 0 && (
+            <>
+              <h2 className="mb-3 mt-8 text-lg font-bold text-ink">In the news</h2>
+              <div className="overflow-hidden rounded-xl border border-line">
+                {event.articles.map((a) => (
+                  <Link key={a.slug} to={`/news/${a.slug}`} className="group flex items-center justify-between gap-3 border-t border-line p-4 transition first:border-t-0 hover:bg-surface">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-ink transition group-hover:text-brand">{a.title}</span>
+                      {a.publishedAt && <span className="mt-0.5 block text-xs text-ink-mute">{fmtDate(a.publishedAt)}</span>}
+                    </span>
+                    <span className="shrink-0 text-[13px] font-semibold text-brand">Read ›</span>
+                  </Link>
+                ))}
+              </div>
             </>
           )}
 

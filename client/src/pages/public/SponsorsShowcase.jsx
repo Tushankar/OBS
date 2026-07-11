@@ -31,44 +31,48 @@ export default function SponsorsShowcase() {
     { key: 'PARTNER', label: 'Community Partners', desc: 'Ecosystem organizations, startup hubs and local accelerators.' }
   ];
 
+  // Each package maps to the tier groups shown above; bullets promise only
+  // placements the platform delivers today.
   const packageOffers = [
     {
-      tier: 'Title',
+      name: 'Title Sponsor',
+      group: 'Shown in the “Title Sponsors” group above',
       price: 'Premium',
       bullets: [
-        'Logo in global site header and footer',
-        'Top placement on every single event page',
-        'Featured logo inside the 100 Days hero section',
-        'Dedicated feature article in newsroom',
-        'On-stage and premium booth space at flagship events',
-        '100 VIP passes for all events'
+        'Top billing — largest logo placement in the Title Sponsors group on this page',
+        'Logo and website link on every event page you sponsor',
+        'Logo in the “Our partners” strip on the home page',
+        'Sponsorship announcement in the OBS newsroom'
       ],
       featured: true
     },
     {
-      tier: 'Presenting & Event',
+      name: 'Presenting & Event Sponsors',
+      group: 'Shown in the “Presenting Sponsors” or “Event Sponsors” group above',
       price: 'Standard',
       bullets: [
-        'Logo on global sponsors listing page',
-        'Placement on specific event pages they sponsor',
-        'Co-branding on marketing materials',
-        'Standard booth space at regional events',
-        '30 General tickets to all events'
+        'Logo placement in your tier group on this page',
+        'Logo and website link on each event page you sponsor',
+        'Logo in the “Our partners” strip on the home page',
+        'Sponsorship announcement in the OBS newsroom'
       ],
       featured: false
     },
     {
-      tier: 'Tech & Media',
+      name: 'Technology, Media & Community Partners',
+      group: 'Shown in the “Technology”, “Media” or “Community Partners” group above',
       price: 'Custom',
       bullets: [
-        'Logo under Tech / Media partner section',
-        'Opportunity to run specialized workshop',
-        'Press release distribution on newsroom',
-        '10 General tickets to flagship events'
+        'Logo placement in your partner group on this page',
+        'Logo and website link on each event page you support',
+        'Logo in the “Our partners” strip on the home page',
+        'Partnership announcement in the OBS newsroom'
       ],
       featured: false
     }
   ];
+
+  const hasSponsors = Object.values(groups).some((list) => list.length > 0);
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] pb-16 pt-6">
@@ -87,6 +91,13 @@ export default function SponsorsShowcase() {
             <div className="skeleton h-24 w-full rounded-xl" />
             <div className="skeleton h-16 w-80 rounded" />
           </div>
+        ) : !hasSponsors ? (
+          <section className="rounded-xl border border-dashed border-line bg-white px-6 py-12 text-center">
+            <h2 className="text-base font-bold text-ink">Sponsor roster coming soon</h2>
+            <p className="mx-auto mt-2 max-w-md text-xs text-ink-mute leading-relaxed">
+              Our sponsor roster for this season is coming soon — see what partnership includes below.
+            </p>
+          </section>
         ) : (
           <div className="flex flex-col gap-12">
             {tiers.map((t) => {
@@ -129,15 +140,18 @@ export default function SponsorsShowcase() {
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between border-b border-line pb-4 mb-5">
-                    <h3 className="text-lg font-bold text-ink">{pkg.tier} Tier</h3>
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      pkg.featured ? 'bg-brand text-white' : 'bg-surface text-ink-mute'
-                    }`}>
-                      {pkg.price}
-                    </span>
+                  <div className="border-b border-line pb-4 mb-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-lg font-bold text-ink leading-snug">{pkg.name}</h3>
+                      <span className={`mt-1 shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        pkg.featured ? 'bg-brand text-white' : 'bg-surface text-ink-mute'
+                      }`}>
+                        {pkg.price}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-ink-mute">{pkg.group}</p>
                   </div>
-                  
+
                   <ul className="flex flex-col gap-3">
                     {pkg.bullets.map((b, bIdx) => (
                       <li key={bIdx} className="flex items-start gap-2.5 text-xs text-ink-soft leading-relaxed">

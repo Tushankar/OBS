@@ -22,26 +22,41 @@ export function shapeSpeaker(s) {
   };
 }
 
-// GET /speakers ?q &topic &featured
+// GET /speakers ?q &topic &featured → { speakers, topics }.
+// `topics` is the distinct set across ALL speakers (ignoring the current
+// filters) so the directory chips always reflect the real vocabulary.
 export async function listSpeakers({ q, topic, featured } = {}) {
   const filter = {};
   if (q) filter.$or = [{ name: { $regex: q, $options: 'i' } }, { company: { $regex: q, $options: 'i' } }];
   if (topic) filter.topics = topic;
   if (featured === 'true' || featured === true) filter.isFeatured = true;
-  const rows = await Speaker.find(filter).sort({ sortOrder: 1, name: 1 });
-  return rows.map(shapeSpeaker);
+  const [rows, allTopics] = await Promise.all([
+    Speaker.find(filter).sort({ sortOrder: 1, name: 1 }),
+    Speaker.distinct('topics'),
+  ]);
+  const topics = allTopics.filter(Boolean).sort((a, b) => a.localeCompare(b));
+  return { speakers: rows.map(shapeSpeaker), topics };
 }
 
-// GET /speakers/:slug → profile + their upcoming PUBLISHED events.
+// GET /speakers/:slug → profile + upcoming (PUBLISHED, still running or
+// ahead) and past (PUBLISHED/COMPLETED, already ended, newest first) events.
 export async function getSpeakerBySlug(slug) {
   const speaker = await Speaker.findOne({ slug });
   if (!speaker) throw notFoundError('SPEAKER_NOT_FOUND', 'Speaker not found');
-  const events = await Event.find({ speakerIds: speaker._id, status: 'PUBLISHED', endAt: { $gte: new Date() } })
-    .populate('categoryId', 'name slug')
-    .populate('chapterId', 'name slug flagEmoji')
-    .sort({ startAt: 1 })
-    .limit(24);
-  return { speaker: shapeSpeaker(speaker), events: events.map(publicEventCard) };
+  const now = new Date();
+  const [upcoming, past] = await Promise.all([
+    Event.find({ speakerIds: speaker._id, status: 'PUBLISHED', endAt: { $gte: now } })
+      .populate('categoryId', 'name slug')
+      .populate('chapterId', 'name slug flagEmoji')
+      .sort({ startAt: 1 })
+      .limit(24),
+    Event.find({ speakerIds: speaker._id, status: { $in: ['PUBLISHED', 'COMPLETED'] }, endAt: { $lt: now } })
+      .populate('categoryId', 'name slug')
+      .populate('chapterId', 'name slug flagEmoji')
+      .sort({ startAt: -1 })
+      .limit(24),
+  ]);
+  return { speaker: shapeSpeaker(speaker), upcoming: upcoming.map(publicEventCard), past: past.map(publicEventCard) };
 }
 
 // ---- Admin CRUD ----

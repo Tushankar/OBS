@@ -1,46 +1,96 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { getEvents, getChapterGroups, ORGANIZERS, CITIES, slugify, paletteFor, initials } from '../../data/events';
+import api from '../../lib/api';
+import { fmtDate } from '../../lib/format';
 import { CURRENCIES, CURRENCY_LABEL } from '../../lib/currency';
 import { Icon } from '../common/Icon';
 import PickerModal from '../common/PickerModal';
 
-const SUBNAV = [
+// Durable entry points for every public browse section — the signature sections
+// (Speakers, Sponsors, 100 Days, Launchpad, Newsroom) must stay reachable even
+// when the home rails self-hide.
+const BROWSE_NAV = [
   ['Events', '/events'],
+  ['Webinars', '/webinars'],
+  ['Summits', '/summits'],
   ['Chapters', '/chapters'],
-  ['Categories', '/events'],
-  ['Organizers', '/organizers/obs-india-chapter'],
+  ['Organizers', '/organizers'],
+  ['Speakers', '/speakers'],
+  ['Sponsors', '/sponsors'],
+  ['100 Days', '/program'],
+  ['Launchpad', '/launches'],
+  ['Newsroom', '/news'],
 ];
+
+// Display-city choices for the header picker (a UI preference, not catalog data).
+const CITIES = ['Mumbai', 'Delhi NCR', 'Bengaluru', 'Hyderabad', 'Dubai', 'Singapore', 'London', 'New York'];
+
+// Deterministic gradient + monogram for suggestion thumbnails.
+const PALETTES = [
+  ['#FF9A8B', '#FF6A88'],
+  ['#667EEA', '#764BA2'],
+  ['#F6D365', '#FDA085'],
+  ['#84FAB0', '#8FD3F4'],
+  ['#A18CD1', '#FBC2EB'],
+  ['#FBC2EB', '#F5576C'],
+];
+const paletteFor = (seed) => {
+  let h = 0;
+  for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTES[h % PALETTES.length];
+};
+const initials = (t) =>
+  (t || '').replace(/[^A-Za-z0-9 ]/g, '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
 export default function Header({ onOpenAuth }) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { user, signOut, city, setCity, currency, setCurrency, pushToast } = useApp();
 
   const [q, setQ] = useState('');
   const [focus, setFocus] = useState(false);
   const [hl, setHl] = useState(-1);
+  const [sug, setSug] = useState({ events: [], chapters: [] });
+  const [searching, setSearching] = useState(false);
   const [cityModal, setCityModal] = useState(false);
   const [curModal, setCurModal] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);
   const [mSearch, setMSearch] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const blurT = useRef(null);
+  const chaptersReq = useRef(null); // cached api.chapters() promise — fetched once per session
 
-  const query = q.trim().toLowerCase();
-  const results = useMemo(() => {
-    if (query.length < 2) return { events: [], chapters: [], orgs: [], flat: [] };
-    const events = getEvents().filter((e) => (e.title + ' ' + e.cat + ' ' + e.city).toLowerCase().includes(query)).slice(0, 4);
-    const chapters = getChapterGroups().flatMap((g) => g.items).filter((c) => c.name.toLowerCase().includes(query)).slice(0, 3);
-    const orgs = ORGANIZERS.map((n, i) => ({ n, i })).filter((o) => o.n.toLowerCase().includes(query)).slice(0, 2);
-    const flat = [
-      ...events.map((e) => ({ go: () => navigate(`/event/${e.slug}`) })),
-      ...chapters.map((c) => ({ go: () => navigate(`/chapters/${slugify(c.name)}`) })),
-      ...orgs.map((o) => ({ go: () => navigate(`/organizers/${slugify(o.n)}`) })),
-    ];
-    return { events, chapters, orgs, flat };
-  }, [query, navigate]);
+  const query = q.trim();
+
+  // Real-data typeahead: debounced event search plus a client-filtered match
+  // over the (cached) public chapter list. Suggestions carry real slugs.
+  useEffect(() => {
+    if (query.length < 2) { setSug({ events: [], chapters: [] }); setSearching(false); return undefined; }
+    let alive = true;
+    setSearching(true);
+    const t = setTimeout(() => {
+      if (!chaptersReq.current) {
+        chaptersReq.current = api.chapters().catch(() => { chaptersReq.current = null; return []; });
+      }
+      Promise.all([api.listEvents({ q: query, limit: 5 }), chaptersReq.current])
+        .then(([evs, allChapters]) => {
+          if (!alive) return;
+          const needle = query.toLowerCase();
+          setSug({
+            events: evs.events || [],
+            chapters: (allChapters || []).filter((c) => c.name.toLowerCase().includes(needle)).slice(0, 3),
+          });
+        })
+        .catch(() => { if (alive) setSug({ events: [], chapters: [] }); })
+        .finally(() => { if (alive) setSearching(false); });
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [query]);
+
+  const flat = useMemo(() => [
+    ...sug.events.map((e) => ({ go: () => navigate(`/event/${e.slug}`) })),
+    ...sug.chapters.map((c) => ({ go: () => navigate(`/chapters/${c.slug}`) })),
+  ], [sug, navigate]);
 
   useEffect(() => { setHl(-1); }, [query]);
 
@@ -48,10 +98,10 @@ export default function Header({ onOpenAuth }) {
   const submitSearch = () => navigate(`/search?q=${encodeURIComponent(q)}`);
 
   const onKey = (e) => {
-    const n = results.flat.length;
+    const n = flat.length;
     if (e.key === 'ArrowDown' && n) { e.preventDefault(); setHl((h) => (h + 1) % n); }
     else if (e.key === 'ArrowUp' && n) { e.preventDefault(); setHl((h) => (h - 1 + n) % n); }
-    else if (e.key === 'Enter') { const r = results.flat[hl]; r ? r.go() : submitSearch(); setFocus(false); }
+    else if (e.key === 'Enter') { const r = flat[hl]; r ? r.go() : submitSearch(); setFocus(false); }
   };
 
   const Thumb = ({ seed, glyph }) => {
@@ -63,12 +113,10 @@ export default function Header({ onOpenAuth }) {
     );
   };
 
-  const isEventsActive = location.pathname === '/events' || location.pathname === '/';
-  const isChaptersActive = location.pathname.startsWith('/chapters');
-
   const acctMenu = [
     ...(user?.role === 'ADMIN' ? [['Admin panel', '/admin']] : []),
     ...(user?.role === 'ORGANIZER' ? [['Organizer portal', '/organizer']] : []),
+    ...(user && user.role !== 'ORGANIZER' && user.role !== 'ADMIN' ? [['Become an organizer', '/organizer/apply']] : []),
     ['My tickets', '/account/tickets'],
     ['Order history', '/account/orders'],
     ['My chapters', '/account/chapters'],
@@ -97,23 +145,24 @@ export default function Header({ onOpenAuth }) {
           />
           {showDropdown && (
             <div className="absolute inset-x-0 top-12 z-[60] overflow-hidden rounded-lg border border-line bg-white shadow-pop">
-              {results.events.length > 0 && <Group label="EVENTS" />}
-              {results.events.map((e, i) => (
+              {sug.events.length > 0 && <Group label="EVENTS" />}
+              {sug.events.map((e, i) => (
                 <Row key={e.id} active={hl === i} onDown={() => navigate(`/event/${e.slug}`)}
-                  thumb={<Thumb seed={e.id} glyph={initials(e.title)} />} title={e.title} meta={`${e.cat} · ${e.city}`} />
+                  thumb={<Thumb seed={e.slug} glyph={initials(e.title)} />} title={e.title}
+                  meta={[e.category?.name, e.isOnline ? 'Online' : e.city, fmtDate(e.startAt, { timeZone: e.timezone })].filter(Boolean).join(' · ')} />
               ))}
-              {results.chapters.length > 0 && <Group label="CHAPTERS" />}
-              {results.chapters.map((c, i) => (
-                <Row key={c.name} active={hl === results.events.length + i} onDown={() => navigate(`/chapters/${slugify(c.name)}`)}
-                  thumb={<Thumb seed={c.name.length} glyph={c.flag || c.letter} />} title={c.name} meta={`${c.tier} · ${c.count} events`} />
+              {sug.chapters.length > 0 && <Group label="CHAPTERS" />}
+              {sug.chapters.map((c, i) => (
+                <Row key={c.slug} active={hl === sug.events.length + i} onDown={() => navigate(`/chapters/${c.slug}`)}
+                  thumb={<Thumb seed={c.slug} glyph={c.flagEmoji || c.name[0]} />} title={c.name}
+                  meta={c.tier || c.pillarGroup || 'Chapter'} />
               ))}
-              {results.orgs.length > 0 && <Group label="ORGANIZERS" />}
-              {results.orgs.map((o, i) => (
-                <Row key={o.n} active={hl === results.events.length + results.chapters.length + i} onDown={() => navigate(`/organizers/${slugify(o.n)}`)}
-                  thumb={<Thumb seed={o.i + 3} glyph={o.n[0]} />} title={o.n} meta="Organizer" />
-              ))}
-              {results.flat.length === 0 && <div className="p-3.5 text-[13px] text-ink-mute">No matches — try another search.</div>}
-              <div onMouseDown={submitSearch} className="cursor-pointer border-t border-line px-3.5 py-2.5 text-[13px] font-medium text-brand hover:bg-surface">See all results ›</div>
+              {flat.length === 0 && (
+                searching
+                  ? <div className="p-3.5 text-[13px] text-ink-mute">Searching…</div>
+                  : <div className="p-3.5 text-[13px] text-ink-mute">No matches yet — press Enter to search everything.</div>
+              )}
+              <div onMouseDown={submitSearch} className="cursor-pointer border-t border-line px-3.5 py-2.5 text-[13px] font-medium text-brand hover:bg-surface">See all results for “{query}” ›</div>
             </div>
           )}
         </div>
@@ -185,15 +234,13 @@ export default function Header({ onOpenAuth }) {
 
       {/* Subnav */}
       <div className="border-b border-[#F2F2F3] bg-[#FAFAFA]">
-        <nav className="mx-auto hidden h-[40px] max-w-container items-center justify-between px-6 lg:flex">
-          <div className="flex gap-6 text-[13px] text-ink-soft">
-            <button onClick={() => navigate('/events')} className="hover:text-brand transition py-2 font-medium">Events</button>
-            <button onClick={() => navigate('/webinars')} className="hover:text-brand transition py-2 font-medium">Webinars</button>
-            <button onClick={() => navigate('/summits')} className="hover:text-brand transition py-2 font-medium">Summits</button>
-            <button onClick={() => navigate('/chapters')} className="hover:text-brand transition py-2 font-medium">Chapters</button>
-            <button onClick={() => navigate('/organizers/obs-india-chapter')} className="hover:text-brand transition py-2 font-medium">Organizers</button>
+        <nav className="no-scrollbar mx-auto hidden h-[40px] max-w-container items-center justify-between gap-8 overflow-x-auto px-6 lg:flex">
+          <div className="flex shrink-0 gap-5 whitespace-nowrap text-[13px] text-ink-soft">
+            {BROWSE_NAV.map(([label, to]) => (
+              <button key={to} onClick={() => navigate(to)} className="hover:text-brand transition py-2 font-medium">{label}</button>
+            ))}
           </div>
-          <div className="flex gap-6 text-[13px] text-ink-soft">
+          <div className="flex shrink-0 gap-5 whitespace-nowrap text-[13px] text-ink-soft">
             <button onClick={() => navigate('/chapters/create')} className="hover:text-brand transition py-2 font-semibold text-[#C99E25]">＋ Create chapter</button>
             <button onClick={() => navigate('/list-your-event')} className="hover:text-brand transition py-2 font-medium">List your event</button>
             <button onClick={() => navigate('/about')} className="hover:text-brand transition py-2 font-medium">About</button>
@@ -252,9 +299,17 @@ function Drawer({ open, onClose, onOpenAuth }) {
   const menuItems = [
     { icon: 'Bell', label: 'Events', desc: '', hasChevron: true, locked: false, labelColor: '#333', to: '/events' },
     { icon: 'Orders', label: 'Chapters', desc: '', hasChevron: true, locked: false, labelColor: '#333', to: '/chapters' },
+    { icon: 'Film', label: 'Speakers', desc: '', hasChevron: true, locked: false, labelColor: '#333', to: '/speakers' },
+    { icon: 'Gift', label: 'Sponsors', desc: '', hasChevron: true, locked: false, labelColor: '#333', to: '/sponsors' },
+    { icon: 'Calendar', label: '100 Days program', desc: '', hasChevron: true, locked: false, labelColor: '#333', to: '/program' },
+    { icon: 'Clock', label: 'Launchpad', desc: '', hasChevron: true, locked: false, labelColor: '#333', to: '/launches' },
+    { icon: 'Share', label: 'Newsroom', desc: '', hasChevron: true, locked: false, labelColor: '#333', to: '/news' },
     { icon: 'Ticket', label: 'My tickets', desc: 'View all your bookings & purchases', hasChevron: true, locked: false, labelColor: '#333', to: '/account/tickets' },
     { icon: 'CreditCard', label: 'Order history', desc: 'View your past orders', hasChevron: true, locked: false, labelColor: '#333', to: '/account/orders' },
     { icon: 'Settings', label: 'Profile', desc: 'Location, Payments, Permissions & More', hasChevron: true, locked: false, labelColor: '#333', to: '/account' },
+    ...(user && user.role !== 'ORGANIZER' && user.role !== 'ADMIN'
+      ? [{ icon: 'Check', label: 'Become an organizer', desc: 'Apply to host events on OBS', hasChevron: true, locked: false, labelColor: '#333', to: '/organizer/apply' }]
+      : []),
     { icon: 'Headphones', label: 'Help', desc: 'View commonly asked queries and Chat', hasChevron: true, locked: false, labelColor: '#333', to: '/help' },
   ];
 

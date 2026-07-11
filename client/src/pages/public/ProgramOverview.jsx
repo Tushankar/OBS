@@ -2,8 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import Seo from '../../components/common/Seo';
+import SponsorLogo from '../../components/cards/SponsorLogo';
+import SpeakerCard from '../../components/cards/SpeakerCard';
 
 const fmtDay = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
+
+// Chips keep short labels but `value` carries the full country name the
+// geocoder stores on Event.country (compared case-insensitively).
+const COUNTRIES = [
+  { name: 'All', flag: '🌍', value: null },
+  { name: 'India', flag: '🇮🇳', value: 'India' },
+  { name: 'UAE', flag: '🇦🇪', value: 'United Arab Emirates' },
+  { name: 'Singapore', flag: '🇸🇬', value: 'Singapore' },
+  { name: 'USA', flag: '🇺🇸', value: 'United States' },
+  { name: 'UK', flag: '🇬🇧', value: 'United Kingdom' }
+];
 
 function seasonLabel(season) {
   if (!season) return '';
@@ -16,6 +29,8 @@ export default function ProgramOverview() {
   const navigate = useNavigate();
   const [program, setProgram] = useState(null);
   const [days, setDays] = useState([]);
+  const [sponsors, setSponsors] = useState([]);
+  const [speakers, setSpeakers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [country, setCountry] = useState('All');
   const [visible, setVisible] = useState(20);
@@ -26,7 +41,12 @@ export default function ProgramOverview() {
     api.currentProgram()
       .then((p) => {
         if (!p) { setLoading(false); return null; }
-        return api.program(p.slug).then((full) => { setProgram(full.program); setDays(full.days || []); });
+        return api.program(p.slug).then((full) => {
+          setProgram(full.program);
+          setDays(full.days || []);
+          setSponsors(full.sponsors || []);
+          setSpeakers(full.speakers || []);
+        });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -50,10 +70,11 @@ export default function ProgramOverview() {
     );
   }
 
-  const countries = [{ name: 'All', flag: '🌍' }, { name: 'India', flag: '🇮🇳' }, { name: 'UAE', flag: '🇦🇪' }, { name: 'Singapore', flag: '🇸🇬' }, { name: 'USA', flag: '🇺🇸' }, { name: 'UK', flag: '🇬🇧' }];
   const todayNum = program.season?.phase === 'ACTIVE' ? program.season.dayOfSeason : null;
   const progressPct = todayNum ? Math.round((todayNum / (program.season.totalDays || 100)) * 100) : 0;
-  const eventsForDay = (day) => (country === 'All' ? day.events : day.events.filter((e) => e.country === country));
+  const countryValue = COUNTRIES.find((c) => c.name === country)?.value || null;
+  const eventsForDay = (day) =>
+    (countryValue ? day.events.filter((e) => (e.country || '').toLowerCase() === countryValue.toLowerCase()) : day.events);
 
   const scrollToDay = (n) => {
     if (n > visible) setVisible(Math.min(100, n + 10));
@@ -89,7 +110,7 @@ export default function ProgramOverview() {
         <div>
           <div className="mb-6 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-white p-3 shadow-sm">
             <span className="mr-1 text-xs font-bold uppercase text-ink-mute">Filter by country:</span>
-            {countries.map((c) => (
+            {COUNTRIES.map((c) => (
               <button key={c.name} onClick={() => setCountry(c.name)} className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${country === c.name ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-surface text-ink-soft hover:bg-neutral-100'}`}>
                 <span>{c.flag}</span><span>{c.name}</span>
               </button>
@@ -122,7 +143,9 @@ export default function ProgramOverview() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-xs text-ink-mute">No events scheduled yet for this day.</div>
+                      <div className="text-xs text-ink-mute">
+                        {countryValue ? `No Day-${day.dayNumber} events in ${countryValue} yet.` : 'No events scheduled yet for this day.'}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -144,6 +167,33 @@ export default function ProgramOverview() {
           </div>
         </aside>
       </div>
+
+      {speakers.length > 0 && (
+        <div className="mx-auto max-w-container px-4 pt-10 sm:px-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-black text-ink">Featured speakers</h2>
+            <button onClick={() => navigate('/speakers')} className="text-xs font-bold text-brand hover:underline">All speakers →</button>
+          </div>
+          <div className="no-scrollbar flex gap-4 overflow-x-auto pb-2">
+            {speakers.map((s) => (
+              <div key={s.id} className="w-[180px] shrink-0">
+                <SpeakerCard speaker={s} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sponsors.length > 0 && (
+        <div className="mx-auto max-w-container px-4 pt-10 sm:px-6">
+          <h2 className="mb-4 text-lg font-black text-ink">Season sponsors</h2>
+          <div className="flex flex-wrap gap-3">
+            {sponsors.map((s) => (
+              <SponsorLogo key={s.id} sponsor={s} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

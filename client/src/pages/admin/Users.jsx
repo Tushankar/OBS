@@ -90,6 +90,7 @@ export default function Users() {
           </select>
         </div>
       </Card>
+      <p className="mb-3 text-[12px] text-ink-mute">Promoting to Organizer approves their organizer profile; demoting to User suspends it.</p>
       {!data ? <Loading /> : <Table columns={COLUMNS} rows={data.users} renderCell={renderCell} empty="No users match your filters." />}
 
       <ConfirmDialog

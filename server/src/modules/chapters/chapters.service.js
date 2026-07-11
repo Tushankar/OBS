@@ -1,5 +1,5 @@
-import { Chapter, ChapterMember, Event } from '../../models/index.js';
-import { notFoundError, forbidden, conflict } from '../../utils/errors.js';
+import { Article, Chapter, ChapterMember, Event } from '../../models/index.js';
+import { notFoundError, forbidden, conflict, badRequest } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { publicEventCard } from '../events/events.service.js';
@@ -38,25 +38,33 @@ export async function listChapters({ type, tier, scope } = {}) {
   return rows.map(shapeChapter);
 }
 
-// Chapter detail (by slug) + member count + upcoming events + (if signed in)
-// whether the caller is a member.
-export async function getChapterBySlug(slug, userId) {
-  const chapter = await Chapter.findOne({ slug, status: 'APPROVED' });
+// Chapter detail (by slug) + member count + upcoming events + recent press +
+// (if signed in) whether the caller is a member. Non-APPROVED chapters are
+// visible only to their creator or an admin; everyone else gets the same 404.
+export async function getChapterBySlug(slug, viewer) {
+  const chapter = await Chapter.findOne({ slug });
   if (!chapter) throw notFoundError('CHAPTER_NOT_FOUND', 'Chapter not found');
-  const [memberCount, events, membership] = await Promise.all([
+  if (chapter.status !== 'APPROVED') {
+    const isAdmin = viewer?.role === 'ADMIN';
+    const isCreator = viewer && chapter.createdById && String(chapter.createdById) === String(viewer.id);
+    if (!isAdmin && !isCreator) throw notFoundError('CHAPTER_NOT_FOUND', 'Chapter not found');
+  }
+  const [memberCount, events, membership, articles] = await Promise.all([
     ChapterMember.countDocuments({ chapterId: chapter._id }),
     Event.find({ chapterId: chapter._id, status: 'PUBLISHED', endAt: { $gte: new Date() } })
       .populate('categoryId', 'name slug')
       .populate('chapterId', 'name slug flagEmoji')
       .sort({ startAt: 1 })
       .limit(24),
-    userId ? ChapterMember.exists({ chapterId: chapter._id, userId }) : Promise.resolve(null),
+    viewer ? ChapterMember.exists({ chapterId: chapter._id, userId: viewer.id }) : Promise.resolve(null),
+    Article.find({ chapterId: chapter._id, status: 'PUBLISHED' }).sort({ publishedAt: -1 }).limit(3),
   ]);
   return {
-    chapter: { ...shapeChapter(chapter), description: chapter.description || null, coverUrl: chapter.coverUrl || null },
+    chapter: shapeChapterFull(chapter),
     memberCount,
     isMember: !!membership,
     events: events.map(publicEventCard),
+    articles: articles.map((a) => ({ title: a.title, slug: a.slug, publishedAt: a.publishedAt || null })),
   };
 }
 
@@ -82,10 +90,20 @@ export async function leaveChapter(userId, chapterId) {
   return { joined: false, memberCount: await memberCountOf(chapterId) };
 }
 
+// Community chapters may not impersonate official OBS chapters (admin-managed
+// chapters are exempt — the admin CRUD lives in the admin module).
+function assertCommunityName(name) {
+  if (/^\s*obs\b/i.test(name)) {
+    throw badRequest('CHAPTER_NAME_RESERVED', 'Chapter names starting with "OBS" are reserved for official chapters.');
+  }
+}
+
 // ---- Open chapter creation (§5.1, v1.3) — any signed-in user ----
-// User-created chapters are community (isOfficial=false) and go live immediately
-// (status APPROVED per the moderation choice in the plan); admins can SUSPEND.
+// User-created chapters are community (isOfficial=false) and enter the review
+// queue as PENDING (the create page promises an ops review); admins approve or
+// suspend from Admin > Chapters. Only APPROVED chapters are publicly listed.
 export async function createChapter(userId, { name, type, countryCode, flagEmoji, description, coverUrl }) {
+  assertCommunityName(name);
   const slug = await uniqueSlug(Chapter, name);
   const chapter = await Chapter.create({
     name, type, slug,
@@ -95,13 +113,14 @@ export async function createChapter(userId, { name, type, countryCode, flagEmoji
     coverUrl: coverUrl || undefined,
     createdById: userId,
     isOfficial: false,
-    status: 'APPROVED',
+    status: 'PENDING',
   });
   return shapeChapterFull(chapter);
 }
 
-// PATCH /chapters/:id — the creator may edit description/cover; an admin may also
-// set status/isOfficial/isFlagship/tier/sortOrder (superset).
+// PATCH /chapters/:id — the creator may edit name/description/cover; an admin
+// may also set status/isOfficial/isFlagship/tier/sortOrder (superset). Renames
+// never change the slug — it is the chapter's stable public URL.
 export async function updateChapter(actor, id, body) {
   const chapter = await Chapter.findById(id);
   if (!chapter) throw notFoundError('CHAPTER_NOT_FOUND', 'Chapter not found');
@@ -109,6 +128,10 @@ export async function updateChapter(actor, id, body) {
   const isCreator = chapter.createdById && String(chapter.createdById) === String(actor.id);
   if (!isAdmin && !isCreator) throw forbidden('NOT_CHAPTER_OWNER', 'You can only edit chapters you created');
 
+  if (body.name !== undefined) {
+    if (!isAdmin) assertCommunityName(body.name);
+    chapter.name = body.name;
+  }
   if (body.description !== undefined) chapter.description = body.description;
   if (body.coverUrl !== undefined) chapter.coverUrl = body.coverUrl;
   if (isAdmin) {
@@ -121,15 +144,30 @@ export async function updateChapter(actor, id, body) {
   return shapeChapterFull(chapter);
 }
 
-// GET /me/chapters — chapters I created (+ member counts).
+// GET /chapters/mine — { created, joined } (+ member counts). `created` spans
+// every status so owners can track PENDING/SUSPENDED chapters; `joined` is the
+// APPROVED chapters the user is a member of, excluding ones they created.
 export async function myChapters(userId) {
-  const rows = await Chapter.find({ createdById: userId }).sort({ createdAt: -1 });
-  const counts = await ChapterMember.aggregate([{ $match: { chapterId: { $in: rows.map((r) => r._id) } } }, { $group: { _id: '$chapterId', n: { $sum: 1 } } }]);
+  const [created, memberships] = await Promise.all([
+    Chapter.find({ createdById: userId }).sort({ createdAt: -1 }),
+    ChapterMember.find({ userId }).sort({ joinedAt: -1 }),
+  ]);
+  const createdIds = new Set(created.map((c) => String(c._id)));
+  const joinedIds = memberships.map((m) => m.chapterId).filter((id) => !createdIds.has(String(id)));
+  const joinedRows = joinedIds.length ? await Chapter.find({ _id: { $in: joinedIds }, status: 'APPROVED' }) : [];
+  const byId = new Map(joinedRows.map((c) => [String(c._id), c]));
+  const joined = joinedIds.map((id) => byId.get(String(id))).filter(Boolean); // most recently joined first
+  const counts = await ChapterMember.aggregate([
+    { $match: { chapterId: { $in: [...created, ...joined].map((c) => c._id) } } },
+    { $group: { _id: '$chapterId', n: { $sum: 1 } } },
+  ]);
   const cmap = new Map(counts.map((c) => [String(c._id), c.n]));
-  return rows.map((c) => ({ ...shapeChapterFull(c), memberCount: cmap.get(String(c._id)) || 0 }));
+  const withCount = (c) => ({ ...shapeChapterFull(c), memberCount: cmap.get(String(c._id)) || 0 });
+  return { created: created.map(withCount), joined: joined.map(withCount) };
 }
 
-// (admin) PATCH /admin/chapters/:id/status — flip APPROVED↔SUSPENDED.
+// (admin) PATCH /admin/chapters/:id/status — review queue: PENDING→APPROVED,
+// or APPROVED↔SUSPENDED.
 export async function adminSetChapterStatus(adminId, id, status) {
   const chapter = await Chapter.findById(id);
   if (!chapter) throw notFoundError('CHAPTER_NOT_FOUND', 'Chapter not found');

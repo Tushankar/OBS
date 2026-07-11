@@ -48,22 +48,27 @@ export default function MyTickets() {
       ) : (
         <div className="mt-5 flex flex-col gap-3">
           {tickets.map((t) => (
-            <button key={t.id} onClick={() => navigate(`/account/tickets/${t.id}`)} className="flex items-stretch overflow-hidden rounded-xl border border-line bg-white text-left shadow-card transition hover:-translate-y-0.5 hover:shadow-cardHover">
-              <div className="relative w-20 shrink-0"><EvImage seed={seedOf(t.event?.id || t.id)} url={t.event?.bannerUrl} label={t.event?.title} wmSize={20} /></div>
-              <div className="min-w-0 flex-1 p-3.5">
-                <div className="truncate text-[15px] font-semibold text-ink">{t.event?.title || 'Event'}</div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-ink-mute">
-                  <span className="inline-flex items-center gap-1"><Icon.Calendar width={12} height={12} /> {fmtDate(t.event?.startAt)}</span>
-                  <span className="text-ink-faint">·</span>
-                  <span className="inline-flex items-center gap-1"><Icon.Pin width={12} height={12} /> {t.event?.isOnline ? 'Online' : [t.event?.venueName, t.event?.city].filter(Boolean).join(', ') || '—'}</span>
+            <div key={t.id} className="flex items-stretch overflow-hidden rounded-xl border border-line bg-white shadow-card transition hover:-translate-y-0.5 hover:shadow-cardHover">
+              <button onClick={() => navigate(`/account/tickets/${t.id}`)} className="flex min-w-0 flex-1 items-stretch text-left">
+                <div className="relative w-20 shrink-0"><EvImage seed={seedOf(t.event?.id || t.id)} url={t.event?.bannerUrl} label={t.event?.title} wmSize={20} /></div>
+                <div className="min-w-0 flex-1 p-3.5">
+                  <div className="truncate text-[15px] font-semibold text-ink">{t.event?.title || 'Event'}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-ink-mute">
+                    <span className="inline-flex items-center gap-1"><Icon.Calendar width={12} height={12} /> {fmtDate(t.event?.startAt)}</span>
+                    <span className="text-ink-faint">·</span>
+                    <span className="inline-flex items-center gap-1"><Icon.Pin width={12} height={12} /> {t.event?.isOnline ? 'Online' : [t.event?.venueName, t.event?.city].filter(Boolean).join(', ') || '—'}</span>
+                  </div>
+                  <div className="mt-1 font-mono text-[11px] text-ink-faint">{t.ticketNumber} · {t.ticketType}</div>
                 </div>
-                <div className="mt-1 font-mono text-[11px] text-ink-faint">{t.ticketNumber} · {t.ticketType}</div>
-              </div>
+              </button>
               <div className="flex shrink-0 items-center gap-3 pr-4">
+                {t.event?.isOnline && t.meetingLink && (
+                  <a href={t.meetingLink} target="_blank" rel="noopener noreferrer" className="rounded-md border border-brand px-2.5 py-1 text-[11px] font-semibold text-brand transition hover:bg-brand-soft">Join</a>
+                )}
                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${TONE[t.status] || 'bg-surface text-ink-mute'}`}>{t.status}</span>
-                <Icon.ChevronRight width={14} height={14} className="text-ink-faint" />
+                <button onClick={() => navigate(`/account/tickets/${t.id}`)} aria-label="View ticket" className="text-ink-faint transition hover:text-brand"><Icon.ChevronRight width={14} height={14} /></button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}

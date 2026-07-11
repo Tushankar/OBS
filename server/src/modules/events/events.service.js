@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Event, Category, Chapter, TicketType, Ticket, Speaker } from '../../models/index.js';
+import { Event, Category, Chapter, TicketType, Ticket, Speaker, Program, Article } from '../../models/index.js';
 import { sponsorsForEvent } from '../sponsors/sponsors.service.js';
 import { registrationsWorkbook } from '../../utils/xlsx.js';
 import { uniqueSlug } from '../../utils/slugify.js';
@@ -43,6 +43,12 @@ function shapeEvent(e) {
     endAt: e.endAt || null,
     rejectionReason: e.rejectionReason || null,
     isFeatured: !!e.isFeatured,
+    // §5.1 community layer — speakers / 100 Days linkage / Launchpad flags.
+    speakerIds: (e.speakerIds || []).map(String),
+    programId: e.programId ? String(e.programId) : null,
+    programDayNumber: e.programDayNumber ?? null,
+    isLaunch: !!e.isLaunch,
+    launchAt: e.launchAt || null,
     viewsCount: e.viewsCount || 0,
     publishedAt: e.publishedAt || null,
     createdAt: e.createdAt,
@@ -50,13 +56,17 @@ function shapeEvent(e) {
   };
 }
 
-// Validate any referenced category/chapter actually exist (when supplied).
-async function assertRefs({ categoryId, chapterId, speakerIds }) {
+// Validate any referenced category/chapter/program/speakers actually exist
+// (when supplied).
+async function assertRefs({ categoryId, chapterId, programId, speakerIds }) {
   if (categoryId && !(await Category.exists({ _id: categoryId }))) {
     throw badRequest('INVALID_CATEGORY', 'Category not found');
   }
   if (chapterId && !(await Chapter.exists({ _id: chapterId }))) {
     throw badRequest('INVALID_CHAPTER', 'Chapter not found');
+  }
+  if (programId && !(await Program.exists({ _id: programId }))) {
+    throw badRequest('INVALID_PROGRAM', 'Program not found');
   }
   if (speakerIds?.length) {
     const found = await Speaker.countDocuments({ _id: { $in: speakerIds } });
@@ -147,7 +157,7 @@ export async function deleteEvent(organizerId, id) {
 
 // Fields that must be present before an event can be submitted for approval
 // (the model relaxes these for draft-first; completeness is enforced here).
-function assertSubmittable(e) {
+async function assertSubmittable(e) {
   const missing = [];
   if (!e.categoryId) missing.push('category');
   if (!e.description || e.description.trim().length < 10) missing.push('description (min 10 characters)');
@@ -164,6 +174,11 @@ function assertSubmittable(e) {
   if (missing.length) {
     throw new AppError(422, 'EVENT_INCOMPLETE', `Complete these before submitting: ${missing.join(', ')}`, { missing });
   }
+  // The wizard promises tickets are required before submit — enforce it, so a
+  // published event is never un-bookable.
+  if (!(await TicketType.exists({ eventId: e._id, isActive: true }))) {
+    throw new AppError(422, 'NO_TICKET_TYPES', 'Add at least one ticket type before submitting.');
+  }
 }
 
 // DRAFT → PENDING_APPROVAL (§6). Enforced in the service; only a complete draft
@@ -173,7 +188,7 @@ export async function submitEvent(organizerId, id) {
   if (event.status !== 'DRAFT') {
     throw conflict('INVALID_EVENT_STATE', `Only a draft event can be submitted (this one is ${event.status})`);
   }
-  assertSubmittable(event);
+  await assertSubmittable(event);
   event.status = 'PENDING_APPROVAL';
   await event.save();
   await event.populate('categoryId', 'name slug');
@@ -413,7 +428,8 @@ export async function getPublicEventBySlug(slug) {
     .populate('categoryId', 'name slug')
     .populate('chapterId', 'name slug flagEmoji type tier')
     .populate('organizerId', 'orgName slug logoUrl bio website')
-    .populate('speakerIds', 'name slug photoUrl title company'); // §5.2 Speakers block
+    .populate('speakerIds', 'name slug photoUrl title company') // §5.2 Speakers block
+    .populate('programId', 'name slug'); // §5.5 "Part of <Program> · Day N" chip
   if (!event) throw notFoundError('EVENT_NOT_FOUND', 'Event not found');
   // Best-effort view counter (don't block the response).
   Event.updateOne({ _id: event._id }, { $inc: { viewsCount: 1 } }).catch(() => {});
@@ -422,7 +438,16 @@ export async function getPublicEventBySlug(slug) {
     id: String(s._id), name: s.name, slug: s.slug, photoUrl: s.photoUrl || null, title: s.title || null, company: s.company || null,
   }));
   const sponsors = await sponsorsForEvent(event._id); // §5.3 Sponsors block
-  return { ...publicEventFull(event), speakers, sponsors, ticketTypes: ticketTypes.map(publicTicketType) };
+  // §5.4 "In the news" — latest published coverage of this event.
+  const articles = (
+    await Article.find({ eventId: event._id, status: 'PUBLISHED' })
+      .select('title slug publishedAt')
+      .sort({ publishedAt: -1 })
+      .limit(3)
+  ).map((a) => ({ title: a.title, slug: a.slug, publishedAt: a.publishedAt || null }));
+  const prog = event.programId && event.programId._id ? event.programId : null;
+  const program = prog ? { name: prog.name, slug: prog.slug, dayNumber: event.programDayNumber ?? null } : null;
+  return { ...publicEventFull(event), program, speakers, sponsors, articles, ticketTypes: ticketTypes.map(publicTicketType) };
 }
 
 // Next 4 upcoming published events sharing the category or chapter.
@@ -442,22 +467,25 @@ export async function similarEvents(slug) {
 }
 
 // GET /launches ?scope=upcoming|recent — events flagged isLaunch (§5.6).
+// Partitioned on the *effective* launch time (launchAt, falling back to startAt
+// for TBA launches) so a launch whose start has passed lands in "recent"
+// instead of showing "Live now" in "Upcoming" forever.
 export async function listLaunches({ scope = 'upcoming' } = {}) {
   const now = new Date();
   const filter = { status: 'PUBLISHED', isLaunch: true };
-  let sortSpec;
   if (scope === 'recent') {
-    filter.launchAt = { $lte: now };
-    sortSpec = { launchAt: -1 };
+    filter.$or = [{ launchAt: { $lte: now } }, { launchAt: null, startAt: { $lte: now } }];
   } else {
-    // upcoming: a future launchAt, or none set yet (TBA) — soonest first.
-    filter.$or = [{ launchAt: { $gte: now } }, { launchAt: null }];
-    sortSpec = { launchAt: 1, startAt: 1 };
+    // upcoming: effective time in the future, or fully undated (still TBA).
+    filter.$or = [{ launchAt: { $gt: now } }, { launchAt: null, startAt: { $gt: now } }, { launchAt: null, startAt: null }];
   }
   const rows = await Event.find(filter)
     .populate('categoryId', 'name slug')
-    .populate('chapterId', 'name slug flagEmoji')
-    .sort(sortSpec)
-    .limit(48);
-  return rows.map(publicEventCard);
+    .populate('chapterId', 'name slug flagEmoji');
+  // Sort on the effective time in JS (Mongo can't sort on a coalesced field
+  // without an aggregation): upcoming soonest-first (undated TBA last), recent
+  // newest-first.
+  const effective = (e) => (e.launchAt || e.startAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+  rows.sort((a, b) => (scope === 'recent' ? effective(b) - effective(a) : effective(a) - effective(b)));
+  return rows.slice(0, 48).map(publicEventCard);
 }

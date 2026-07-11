@@ -42,6 +42,14 @@ const eventContentShape = {
   endAt: z.coerce.date(),
   currency: z.string().trim().length(3).toUpperCase(),
   bannerUrl: z.string().trim().max(1000),
+  // §5.2 — speakers attached to the event.
+  speakerIds: z.array(objectId).max(50),
+  // §5.5 — link an event to a 100 Days edition + day (nullable to unlink).
+  programId: objectId.nullable(),
+  programDayNumber: z.coerce.number().int().min(1).max(100).nullable(),
+  // §5.6 — Launchpad: flag an event as a launch (+ optional countdown).
+  isLaunch: z.boolean(),
+  launchAt: z.coerce.date().nullable(),
 };
 
 // POST /admin/events — admin creates an OBS event (title required; publish to go

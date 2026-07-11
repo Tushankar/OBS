@@ -13,6 +13,7 @@ router.use(requireAuth);
 
 router.post('/', validate({ body: schemas.createOrderSchema }), asyncHandler(c.create));
 router.post('/:id/cancel', validate({ params: schemas.idParam }), asyncHandler(c.cancel));
+router.post('/:id/cancel-registration', validate({ params: schemas.idParam }), asyncHandler(c.cancelRegistration));
 router.post('/:id/refund-request', validate({ params: schemas.idParam, body: refundRequestSchema }), asyncHandler(refunds.request));
 
 export default router;

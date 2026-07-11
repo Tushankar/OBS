@@ -1,12 +1,16 @@
-import { Program, ProgramDay, Event } from '../../models/index.js';
+import { Program, ProgramDay, Event, Sponsor, Speaker } from '../../models/index.js';
 import { notFoundError, conflict } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { publicEventCard } from '../events/events.service.js';
+import { shapeSponsor } from '../sponsors/sponsors.service.js';
+import { shapeSpeaker } from '../speakers/speakers.service.js';
 
 const DAY_MS = 24 * 3600 * 1000;
 export const PROGRAM_LENGTH = 100;
+const PROGRAM_SPEAKERS_LIMIT = 12;
 const addDays = (date, n) => new Date(new Date(date).getTime() + n * DAY_MS);
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Live season status (independent of the stored status field), §5.5:
 // before start → { phase: UPCOMING, daysUntil }; during → { phase: ACTIVE,
@@ -70,34 +74,49 @@ export async function getCurrentProgram(now = new Date()) {
 
 // GET /programs/:slug — edition + its 100 days, each with its PUBLISHED events
 // (grouped by programDayNumber in one query so the overview needs no per-day
-// round-trips).
+// round-trips), plus the season's PROGRAM-scoped sponsors and a rail of
+// distinct speakers aggregated from the season's events.
 export async function getProgramBySlug(slug, now = new Date()) {
   const program = await Program.findOne({ slug });
   if (!program) throw notFoundError('PROGRAM_NOT_FOUND', 'Program not found');
-  const [days, events] = await Promise.all([
+  const [days, events, sponsors] = await Promise.all([
     ProgramDay.find({ programId: program._id }).sort({ dayNumber: 1 }),
     Event.find({ programId: program._id, status: 'PUBLISHED' })
       .populate('categoryId', 'name slug')
       .populate('chapterId', 'name slug flagEmoji')
       .sort({ startAt: 1 }),
+    Sponsor.find({ scope: 'PROGRAM', programId: program._id, isActive: true }).sort({ sortOrder: 1, name: 1 }),
   ]);
   const byDay = new Map();
+  const speakerIds = new Set();
   for (const e of events) {
+    for (const id of e.speakerIds || []) speakerIds.add(String(id));
     if (!e.programDayNumber) continue;
     if (!byDay.has(e.programDayNumber)) byDay.set(e.programDayNumber, []);
     byDay.get(e.programDayNumber).push(publicEventCard(e));
   }
-  return { program: shapeProgram(program, now), days: days.map((d) => ({ ...shapeDay(d), events: byDay.get(d.dayNumber) || [] })) };
+  const speakers = speakerIds.size
+    ? await Speaker.find({ _id: { $in: [...speakerIds] } })
+        .sort({ isFeatured: -1, sortOrder: 1, name: 1 })
+        .limit(PROGRAM_SPEAKERS_LIMIT)
+    : [];
+  return {
+    program: shapeProgram(program, now),
+    days: days.map((d) => ({ ...shapeDay(d), events: byDay.get(d.dayNumber) || [] })),
+    sponsors: sponsors.map(shapeSponsor),
+    speakers: speakers.map(shapeSpeaker),
+  };
 }
 
-// GET /programs/:slug/days/:n — day n + that day's PUBLISHED events (?country).
+// GET /programs/:slug/days/:n — day n + that day's PUBLISHED events (?country,
+// matched exact but case-insensitively against the stored geocoder long name).
 export async function getProgramDay(slug, n, { country } = {}, now = new Date()) {
   const program = await Program.findOne({ slug });
   if (!program) throw notFoundError('PROGRAM_NOT_FOUND', 'Program not found');
   if (n < 1 || n > PROGRAM_LENGTH) throw conflict('INVALID_DAY', `Day must be between 1 and ${PROGRAM_LENGTH}`);
   const day = await ProgramDay.findOne({ programId: program._id, dayNumber: n });
   const filter = { programId: program._id, programDayNumber: n, status: 'PUBLISHED' };
-  if (country) filter.country = country;
+  if (country) filter.country = { $regex: `^${escapeRegex(country)}$`, $options: 'i' };
   const events = await Event.find(filter)
     .populate('categoryId', 'name slug')
     .populate('chapterId', 'name slug flagEmoji')

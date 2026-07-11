@@ -3,27 +3,6 @@ import api from '../../lib/api';
 import ApiEventCard from '../../components/common/ApiEventCard';
 import { SkeletonGrid } from '../../components/common/Skeleton';
 
-// Live countdown to a target date.
-function Countdown({ target }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (!target) return null;
-  const ms = new Date(target).getTime() - now;
-  if (ms <= 0) return <span className="text-[11px] font-bold uppercase tracking-wider text-success">● Live now</span>;
-  const d = Math.floor(ms / 864e5);
-  const h = Math.floor((ms % 864e5) / 36e5);
-  const m = Math.floor((ms % 36e5) / 6e4);
-  const s = Math.floor((ms % 6e4) / 1000);
-  return (
-    <span className="font-mono text-[12px] font-bold text-[#C99E25]">
-      {d > 0 && `${d}d `}{String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
-    </span>
-  );
-}
-
 export default function Launches() {
   const [launches, setLaunches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +23,9 @@ export default function Launches() {
     <div className="min-h-screen bg-[#F5F5F5] pb-16 pt-6">
       <div className="mx-auto max-w-container px-4 sm:px-6">
         <h1 className="text-3xl font-black text-ink">Launchpad</h1>
-        <p className="mt-1 text-sm text-ink-mute">What&apos;s launching across the global One Business Season network.</p>
+        <p className="mt-1 text-sm text-ink-mute">
+          Launches are debut events — product unveilings and first-edition summits flagged as a launch by their organizers.
+        </p>
 
         <div className="mb-6 mt-6 flex gap-6 border-b border-line">
           {tabs.map(([key, label]) => (
@@ -59,15 +40,7 @@ export default function Launches() {
         ) : launches.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {launches.map((e) => (
-              <div key={e.id} className="flex flex-col gap-2">
-                <ApiEventCard event={e} />
-                {tab === 'upcoming' && (
-                  <div className="flex items-center justify-between rounded-lg border border-line bg-white px-3 py-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-ink-mute">🚀 Launches in</span>
-                    <Countdown target={e.launchAt || e.startAt} />
-                  </div>
-                )}
-              </div>
+              <ApiEventCard key={e.id} event={e} />
             ))}
           </div>
         ) : (
