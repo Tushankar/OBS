@@ -54,6 +54,12 @@ export const listEventsQuery = z.object({
 
 export const idParam = z.object({ id: objectId });
 
+// Cancelling a live event requires an honest reason — it goes into the
+// attendee notification email verbatim.
+export const cancelEventSchema = z.object({
+  reason: z.string().trim().min(5, 'Tell attendees why (at least 5 characters)').max(1000),
+});
+
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export const bannerSchema = z.object({
   contentType: z.enum(IMAGE_TYPES, { errorMap: () => ({ message: 'Banner must be a JPEG, PNG, WebP or GIF image' }) }),

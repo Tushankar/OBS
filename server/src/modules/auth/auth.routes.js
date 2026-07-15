@@ -19,5 +19,12 @@ router.post('/reset-password', authLimiter, validate({ body: schemas.resetSchema
 router.post('/refresh', asyncHandler(c.refresh));
 router.post('/logout', asyncHandler(c.logout));
 router.get('/me', requireAuth, asyncHandler(c.me));
+router.patch('/me', requireAuth, validate({ body: schemas.updateMeSchema }), asyncHandler(c.updateMe));
+router.post('/change-password', requireAuth, authLimiter, validate({ body: schemas.changePasswordSchema }), asyncHandler(c.changePassword));
+
+// Email verification: the emailed link posts its token here (public);
+// signed-in users can request a fresh link (rate-limited).
+router.post('/verify-email', authLimiter, validate({ body: schemas.verifyEmailSchema }), asyncHandler(c.verifyEmail));
+router.post('/resend-verification', requireAuth, authLimiter, asyncHandler(c.resendVerification));
 
 export default router;

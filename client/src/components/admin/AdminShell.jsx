@@ -13,6 +13,7 @@ const NAV = [
     items: [
       { to: '/admin/dashboard', label: 'Dashboard', icon: 'Dashboard' },
       { to: '/admin/reports', label: 'Reports', icon: 'Reports' },
+      { to: '/admin/activity', label: 'Activity', icon: 'Search' },
     ],
   },
   {
@@ -21,9 +22,17 @@ const NAV = [
       { to: '/admin/organizers', label: 'Organizers', icon: 'Organizers' },
       { to: '/admin/events', label: 'Events', icon: 'Events' },
       { to: '/admin/refunds', label: 'Refunds', icon: 'Refunds' },
+      { to: '/admin/promos', label: 'Promo codes', icon: 'Star' },
       { to: '/admin/transactions', label: 'Transactions', icon: 'Transactions' },
       { to: '/admin/users', label: 'Users', icon: 'Users' },
       { to: '/admin/partner-leads', label: 'Partner leads', icon: 'Mail' },
+    ],
+  },
+  {
+    section: 'Communications',
+    items: [
+      { to: '/admin/campaigns', label: 'Campaigns', icon: 'Mail' },
+      { to: '/admin/emails', label: 'Email log', icon: 'Eye' },
     ],
   },
   {
@@ -88,9 +97,10 @@ export default function AdminShell({ children }) {
 
   const Sidebar = ({ onNavigate }) => (
     <div className="flex h-full flex-col">
-      <button onClick={() => { onNavigate?.(); navigate('/admin/dashboard'); }} className="flex items-center gap-2.5 px-5 pb-2 pt-5 text-left">
-        <span className="font-serif text-[26px] font-bold leading-none text-brand" style={{ fontFamily: 'Georgia, serif' }}>OBS</span>
-        <span className="rounded border border-[#E3E8EE] bg-[#F7FAFC] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#697386]">Admin</span>
+      <button onClick={() => { onNavigate?.(); navigate('/admin/dashboard'); }} className="flex items-center gap-2 px-5 pb-2.5 pt-5 text-left">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand text-[13px] font-extrabold tracking-[-0.02em] text-white">OB</span>
+        <span className="text-[15px] font-extrabold tracking-[-0.01em] text-[#1A1F36]">OBS</span>
+        <span className="rounded-md bg-[#F1F3F7] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#697386]">Admin</span>
       </button>
       <NavItems onNavigate={onNavigate} />
       <div className="border-t border-[#E3E8EE] p-3">

@@ -14,6 +14,9 @@ const userSchema = new Schema(
     role: { type: String, enum: ROLE, default: 'USER' },
     status: { type: String, enum: USER_STATUS, default: 'ACTIVE' },
     emailVerifiedAt: Date,
+    // Marketing consent — campaigns skip anyone opted out (transactional mail
+    // is unaffected). Toggled from Profile or the email unsubscribe link.
+    marketingOptIn: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

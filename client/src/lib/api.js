@@ -75,6 +75,7 @@ const unwrap = (p) => p.then((r) => r.data);
 // Organizer self-service (Phase 1.1)
 api.applyOrganizer = (body) => unwrap(api.post('/organizer/apply', body)).then((d) => d.organizer);
 api.myOrganizerProfile = () => unwrap(api.get('/organizer/me')).then((d) => d.organizer);
+api.updateOrganizerProfile = (body) => unwrap(api.patch('/organizer/me', body)).then((d) => d.organizer);
 
 // Admin — organizers (Phase 1.1)
 api.adminOrganizers = (params) => unwrap(api.get('/admin/organizers', { params })).then((d) => d.organizers);
@@ -102,6 +103,13 @@ api.stats = () => unwrap(api.get('/stats')).then((d) => d.stats);
 // Account recovery — both endpoints existed server-side; these are the client half.
 api.forgotPassword = (email) => unwrap(api.post('/auth/forgot-password', { email }));
 api.resetPassword = (token, password) => unwrap(api.post('/auth/reset-password', { token, password }));
+
+// Account self-service.
+api.updateMe = (body) => unwrap(api.patch('/auth/me', body)).then((d) => d.user);
+api.changePassword = (currentPassword, newPassword) => unwrap(api.post('/auth/change-password', { currentPassword, newPassword }));
+api.unsubscribeMarketing = (token) => unwrap(api.post('/marketing/unsubscribe', { token }));
+api.verifyEmail = (token) => unwrap(api.post('/auth/verify-email', { token }));
+api.resendVerification = () => unwrap(api.post('/auth/resend-verification'));
 api.chapter = (slug) => unwrap(api.get(`/chapters/${slug}`));
 api.joinChapter = (id) => unwrap(api.post(`/chapters/${id}/join`));
 api.leaveChapter = (id) => unwrap(api.delete(`/chapters/${id}/join`));
@@ -122,6 +130,9 @@ api.organizerDeleteEvent = (id) => unwrap(api.delete(`/organizer/events/${id}`))
 api.organizerBannerPresign = (id, contentType) =>
   unwrap(api.post(`/organizer/events/${id}/banner`, { contentType }));
 api.organizerSubmitEvent = (id) => unwrap(api.post(`/organizer/events/${id}/submit`)).then((d) => d.event);
+// Cancel a live event: voids tickets, auto-refunds paid orders, emails attendees.
+api.organizerCancelEvent = (id, reason) => unwrap(api.post(`/organizer/events/${id}/cancel`, { reason }));
+api.adminCancelEvent = (id, reason) => unwrap(api.post(`/admin/events/${id}/cancel`, { reason }));
 api.organizerDashboard = () => unwrap(api.get('/organizer/dashboard'));
 api.organizerRegistrations = (eventId, params) => unwrap(api.get(`/organizer/events/${eventId}/registrations`, { params }));
 api.registrationsExportBlob = (eventId) => api.get(`/organizer/events/${eventId}/registrations/export`, { responseType: 'blob' }).then((r) => r.data);
@@ -137,10 +148,22 @@ api.eventTicketTypes = (eventId) => unwrap(api.get(`/organizer/events/${eventId}
 api.createTicketType = (eventId, body) => unwrap(api.post(`/organizer/events/${eventId}/ticket-types`, body)).then((d) => d.ticketType);
 api.updateTicketType = (eventId, id, body) => unwrap(api.patch(`/organizer/events/${eventId}/ticket-types/${id}`, body)).then((d) => d.ticketType);
 api.deleteTicketType = (eventId, id) => unwrap(api.delete(`/organizer/events/${eventId}/ticket-types/${id}`));
+// Organizer-submitted event sponsors (created PENDING → admin approves).
+api.eventSponsorsOrg = (eventId) => unwrap(api.get(`/organizer/events/${eventId}/sponsors`)).then((d) => d.sponsors);
+api.createEventSponsor = (eventId, body) => unwrap(api.post(`/organizer/events/${eventId}/sponsors`, body)).then((d) => d.sponsor);
+api.updateEventSponsor = (eventId, id, body) => unwrap(api.patch(`/organizer/events/${eventId}/sponsors/${id}`, body)).then((d) => d.sponsor);
+api.deleteEventSponsor = (eventId, id) => unwrap(api.delete(`/organizer/events/${eventId}/sponsors/${id}`));
+
 api.eventPromoCodes = (eventId) => unwrap(api.get(`/organizer/events/${eventId}/promo-codes`)).then((d) => d.promoCodes);
 api.createPromoCode = (eventId, body) => unwrap(api.post(`/organizer/events/${eventId}/promo-codes`, body)).then((d) => d.promoCode);
 api.updatePromoCode = (eventId, id, body) => unwrap(api.patch(`/organizer/events/${eventId}/promo-codes/${id}`, body)).then((d) => d.promoCode);
 api.deletePromoCode = (eventId, id) => unwrap(api.delete(`/organizer/events/${eventId}/promo-codes/${id}`));
+
+// Admin — platform-wide promo campaigns (apply across every event).
+api.adminPromos = () => unwrap(api.get('/admin/promos')).then((d) => d.promoCodes);
+api.createPromo = (body) => unwrap(api.post('/admin/promos', body)).then((d) => d.promoCode);
+api.updatePromo = (id, body) => unwrap(api.patch(`/admin/promos/${id}`, body)).then((d) => d.promoCode);
+api.deletePromo = (id) => unwrap(api.delete(`/admin/promos/${id}`));
 
 // Checkout, orders & payments (Phase 2)
 api.createOrder = (body) => unwrap(api.post('/orders', body)).then((d) => d.order);
@@ -174,6 +197,24 @@ api.adminDashboard = () => unwrap(api.get('/admin/dashboard'));
 api.adminUsers = (params) => unwrap(api.get('/admin/users', { params }));
 api.updateUser = (id, body) => unwrap(api.patch(`/admin/users/${id}`, body)).then((d) => d.user);
 api.adminTransactions = (params) => unwrap(api.get('/admin/transactions', { params }));
+
+// Email delivery log — every transactional mail + campaign send, with status.
+api.adminEmails = (params) => unwrap(api.get('/admin/emails', { params }));
+api.organizerEmails = (params) => unwrap(api.get('/organizer/emails', { params }));
+
+// Admin activity (audit) trail + per-user drill-down.
+api.adminAudit = (params) => unwrap(api.get('/admin/audit', { params }));
+api.adminUser = (id) => unwrap(api.get(`/admin/users/${id}`)); // { user, organizer, stats, orders }
+
+// Organizer settlement statement (per-event ticket revenue / refunds / net).
+api.organizerPayouts = () => unwrap(api.get('/organizer/payouts'));
+
+// Admin email campaigns (announcement blasts / new-event launches).
+api.adminCampaigns = () => unwrap(api.get('/admin/campaigns')).then((d) => d.campaigns);
+api.createCampaign = (body) => unwrap(api.post('/admin/campaigns', body)).then((d) => d.campaign);
+api.updateCampaign = (id, body) => unwrap(api.patch(`/admin/campaigns/${id}`, body)).then((d) => d.campaign);
+api.deleteCampaign = (id) => unwrap(api.delete(`/admin/campaigns/${id}`));
+api.sendCampaign = (id) => unwrap(api.post(`/admin/campaigns/${id}/send`)).then((d) => d.campaign);
 
 // Admin — categories / chapters / CMS CRUD (Phase 3.5)
 api.adminCategories = () => unwrap(api.get('/admin/categories')).then((d) => d.categories);
@@ -211,6 +252,7 @@ api.deleteSpeaker = (id) => unwrap(api.delete(`/admin/speakers/${id}`));
 
 // Sponsors & partners (Phase 5.3)
 api.sponsors = (params) => unwrap(api.get('/sponsors', { params })).then((d) => d.sponsors);
+api.sponsor = (slug) => unwrap(api.get(`/sponsors/${slug}`)); // { sponsor, events }
 api.eventSponsors = (slug) => unwrap(api.get(`/events/${slug}/sponsors`)).then((d) => d.sponsors);
 api.submitPartnerApplication = (body) => unwrap(api.post('/partner-applications', body)).then((d) => d.application);
 api.adminSponsors = () => unwrap(api.get('/admin/sponsors')).then((d) => d.sponsors);

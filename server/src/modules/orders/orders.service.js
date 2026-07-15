@@ -11,8 +11,11 @@ import { writeAudit } from '../../utils/audit.js';
 
 async function resolvePromo(eventId, code, subtotal) {
   if (!code) return null;
-  const promo = await PromoCode.findOne({ eventId, code: code.trim().toUpperCase() });
-  if (!promo || !promo.isActive) throw badRequest('PROMO_INVALID', 'This promo code is not valid for this event');
+  const c = code.trim().toUpperCase();
+  // Prefer a code scoped to THIS event; fall back to a platform-wide code.
+  let promo = await PromoCode.findOne({ eventId, code: c });
+  if (!promo) promo = await PromoCode.findOne({ scope: 'PLATFORM', code: c });
+  if (!promo || !promo.isActive) throw badRequest('PROMO_INVALID', 'This promo code is not valid');
   const now = new Date();
   if (promo.validFrom && now < promo.validFrom) throw badRequest('PROMO_NOT_STARTED', 'This promo code is not active yet');
   if (promo.validUntil && now > promo.validUntil) throw badRequest('PROMO_EXPIRED', 'This promo code has expired');

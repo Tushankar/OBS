@@ -17,6 +17,9 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
   const { pushToast } = useApp();
   const editing = !!initial?.id;
   const [cats, setCats] = useState([]);
+  const [speakers, setSpeakers] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [speakerQ, setSpeakerQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     title: initial?.title || '',
@@ -33,10 +36,19 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     bannerUrl: initial?.bannerUrl || '',
     isFeatured: initial?.isFeatured ?? false,
     publish: initial ? initial.status === 'PUBLISHED' : true,
+    speakerIds: (initial?.speakerIds || []).map(String),
+    programId: initial?.programId ? String(initial.programId) : '',
+    programDayNumber: initial?.programDayNumber ?? '',
+    isLaunch: initial?.isLaunch ?? false,
+    launchAt: toLocal(initial?.launchAt),
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  useEffect(() => { api.categories().then(setCats).catch(() => {}); }, []);
+  useEffect(() => {
+    api.categories().then(setCats).catch(() => {});
+    api.speakers().then(setSpeakers).catch(() => {});
+    api.adminPrograms().then((rows) => setPrograms(Array.isArray(rows) ? rows : [])).catch(() => {});
+  }, []);
 
   // Edit mode: fetch the full event (the list row omits description/venue/etc.)
   // and prefill — so admins can edit live events without wiping hidden fields.
@@ -58,8 +70,23 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
       bannerUrl: e.bannerUrl || '',
       isFeatured: !!e.isFeatured,
       publish: e.status === 'PUBLISHED',
+      speakerIds: (e.speakerIds || []).map(String),
+      programId: e.programId ? String(e.programId) : '',
+      programDayNumber: e.programDayNumber ?? '',
+      isLaunch: !!e.isLaunch,
+      launchAt: toLocal(e.launchAt),
     }))).catch(() => {});
   }, [editing, initial]);
+
+  const toggleSpeaker = (id) => setForm((f) => ({
+    ...f,
+    speakerIds: f.speakerIds.includes(id) ? f.speakerIds.filter((x) => x !== id) : [...f.speakerIds, id],
+  }));
+  const selectedSpeakers = form.speakerIds.map((id) => speakers.find((s) => s.id === id)).filter(Boolean);
+  const sq = speakerQ.trim().toLowerCase();
+  const speakerMatches = sq
+    ? speakers.filter((s) => !form.speakerIds.includes(s.id) && `${s.name} ${s.company || ''}`.toLowerCase().includes(sq)).slice(0, 8)
+    : [];
 
   const save = async () => {
     if (form.title.trim().length < 3) { pushToast('Title must be at least 3 characters', false); return; }
@@ -87,6 +114,12 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
       if (form.address.trim()) body.address = form.address.trim();
       if (form.city.trim()) body.city = form.city.trim();
     }
+    // Speakers / 100 Days / launch — nullable so admins can unlink.
+    body.speakerIds = form.speakerIds;
+    body.programId = form.programId || null;
+    body.programDayNumber = form.programId && form.programDayNumber ? Number(form.programDayNumber) : null;
+    body.isLaunch = form.isLaunch;
+    body.launchAt = form.isLaunch && form.launchAt ? new Date(form.launchAt).toISOString() : null;
 
     setBusy(true);
     try {
@@ -162,6 +195,85 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
         <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#3C4257]">
           <input type="checkbox" checked={form.isFeatured} onChange={(e) => set('isFeatured', e.target.checked)} className="h-4 w-4 accent-[#C99E25]" /> Feature on home
         </label>
+
+        {/* Speakers */}
+        <div className="sm:col-span-2 border-t border-line pt-3.5">
+          <div className="text-[13.5px] font-semibold text-[#1A1F36]">Speakers</div>
+          <p className="mb-2 mt-0.5 text-[12px] text-ink-mute">Attach speakers from the directory — they appear on the event page and this event shows on their profiles.</p>
+          {selectedSpeakers.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {selectedSpeakers.map((s) => (
+                <span key={s.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-[12px] text-ink">
+                  {s.name}
+                  <button type="button" aria-label={`Remove ${s.name}`} onClick={() => toggleSpeaker(s.id)} className="text-ink-mute transition hover:text-ink">✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+          {speakers.length === 0 ? (
+            <p className="rounded-md border border-dashed border-line px-3 py-2 text-[12px] text-ink-mute">The speaker directory is empty. Add speakers under Admin → Speakers first.</p>
+          ) : (
+            <div className="relative">
+              <input value={speakerQ} onChange={(e) => setSpeakerQ(e.target.value)} placeholder="Search speakers by name or company…" className={inputCls} />
+              {sq && (
+                <div className="mt-1 max-h-52 overflow-auto rounded-md border border-line bg-white shadow-sm">
+                  {speakerMatches.length === 0 ? (
+                    <p className="px-3 py-2 text-[12px] text-ink-mute">No speakers match “{speakerQ.trim()}”.</p>
+                  ) : (
+                    speakerMatches.map((s) => (
+                      <button key={s.id} type="button" onClick={() => { toggleSpeaker(s.id); setSpeakerQ(''); }} className="flex w-full items-center gap-2 border-b border-line px-3 py-2 text-left text-[13px] transition last:border-0 hover:bg-surface">
+                        <span className="font-medium text-ink">{s.name}</span>
+                        {s.company && <span className="text-ink-mute">· {s.company}</span>}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 100 Days program */}
+        <div className="sm:col-span-2">
+          <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#3C4257]">
+            <input
+              type="checkbox"
+              checked={!!form.programId}
+              disabled={programs.length === 0}
+              onChange={(e) => {
+                if (e.target.checked && programs.length) setForm((f) => ({ ...f, programId: programs[0].id, programDayNumber: f.programDayNumber || 1 }));
+                else setForm((f) => ({ ...f, programId: '', programDayNumber: '' }));
+              }}
+              className="h-4 w-4 accent-[#C99E25]"
+            />
+            Part of a 100 Days program
+            {programs.length === 0 && <span className="text-[12px] text-ink-mute">(create a program first)</span>}
+          </label>
+          {form.programId && (
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Program">
+                <select value={form.programId} onChange={(e) => set('programId', e.target.value)} className={`${selectCls} w-full`}>
+                  {programs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Day (1–100)">
+                <input type="number" min={1} max={100} value={form.programDayNumber || ''} onChange={(e) => set('programDayNumber', Number(e.target.value))} className={inputCls} />
+              </Field>
+            </div>
+          )}
+        </div>
+
+        {/* Launch */}
+        <div className="sm:col-span-2">
+          <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#3C4257]">
+            <input type="checkbox" checked={form.isLaunch} onChange={(e) => set('isLaunch', e.target.checked)} className="h-4 w-4 accent-[#C99E25]" /> This is a launch (shows on the Launchpad)
+          </label>
+          {form.isLaunch && (
+            <div className="mt-2">
+              <Field label="Launch date & time" hint="Optional — defaults to the event start if left blank."><input type="datetime-local" value={form.launchAt} onChange={(e) => set('launchAt', e.target.value)} className={inputCls} /></Field>
+            </div>
+          )}
+        </div>
       </div>
     </Modal>
   );

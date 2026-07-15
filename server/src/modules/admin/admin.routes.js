@@ -31,6 +31,12 @@ router.post(
   validate({ params: schemas.idParam, body: schemas.rejectEventSchema }),
   asyncHandler(c.rejectEvent)
 );
+// Cancel a PUBLISHED event — voids tickets, auto-refunds, notifies attendees.
+router.post(
+  '/events/:id/cancel',
+  validate({ params: schemas.idParam, body: schemas.rejectEventSchema }),
+  asyncHandler(c.cancelEvent)
+);
 router.patch('/events/:id', validate({ params: schemas.idParam, body: schemas.featureEventSchema }), asyncHandler(c.featureEvent));
 
 // --- Dashboard (task 3.5) ---
@@ -38,10 +44,17 @@ router.get('/dashboard', asyncHandler(c.dashboard));
 
 // --- Users (task 3.5) ---
 router.get('/users', validate({ query: schemas.listUsersQuery }), asyncHandler(c.listUsers));
+router.get('/users/:id', validate({ params: schemas.idParam }), asyncHandler(c.getUser));
 router.patch('/users/:id', validate({ params: schemas.idParam, body: schemas.updateUserSchema }), asyncHandler(c.updateUser));
+
+// --- Audit trail ---
+router.get('/audit', validate({ query: schemas.listAuditQuery }), asyncHandler(c.listAudit));
 
 // --- Transactions (task 3.5) ---
 router.get('/transactions', validate({ query: schemas.listTransactionsQuery }), asyncHandler(c.listTransactions));
+
+// --- Email delivery log ---
+router.get('/emails', validate({ query: schemas.listEmailsQuery }), asyncHandler(c.listEmails));
 
 // --- Categories CRUD (task 3.5) ---
 router.get('/categories', asyncHandler(c.listCategories));

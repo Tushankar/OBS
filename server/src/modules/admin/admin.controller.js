@@ -31,6 +31,11 @@ export async function rejectEvent(req, res) {
   res.status(200).json({ event });
 }
 
+export async function cancelEvent(req, res) {
+  const result = await adminService.adminCancelEvent(req.user.id, req.params.id, req.body.reason);
+  res.status(200).json(result);
+}
+
 export async function createEvent(req, res) {
   const event = await adminService.createEventAdmin(req.user.id, req.body);
   res.status(201).json({ event });
@@ -65,6 +70,24 @@ export async function updateUser(req, res) {
 // --- Transactions ---
 export async function listTransactions(req, res) {
   const result = await adminService.listTransactions(req.query);
+  res.status(200).json(result);
+}
+
+// --- Email delivery log ---
+export async function listEmails(req, res) {
+  const result = await adminService.listEmails(req.query);
+  res.status(200).json(result);
+}
+
+// --- Audit trail ---
+export async function listAudit(req, res) {
+  const result = await adminService.listAudit(req.query);
+  res.status(200).json(result);
+}
+
+// --- User drill-down ---
+export async function getUser(req, res) {
+  const result = await adminService.getUserDetail(req.params.id);
   res.status(200).json(result);
 }
 

@@ -9,6 +9,9 @@ import { AdminIcon } from '../admin/AdminIcons';
 const NAV = [
   { to: '/organizer', label: 'Dashboard', icon: 'Dashboard', end: true },
   { to: '/organizer/events', label: 'Events', icon: 'Events' },
+  { to: '/organizer/emails', label: 'Emails', icon: 'Mail' },
+  { to: '/organizer/payouts', label: 'Payouts', icon: 'Transactions' },
+  { to: '/organizer/profile', label: 'Profile', icon: 'Organizers' },
 ];
 
 // Topbar title for the current route (incl. per-event sub-pages).
@@ -17,6 +20,9 @@ function pageTitle(pathname) {
   if (/\/registrations$/.test(pathname)) return 'Registrations';
   if (/\/checkin$/.test(pathname)) return 'Check-in';
   if (/\/edit$/.test(pathname)) return 'Edit event';
+  if (pathname.startsWith('/organizer/emails')) return 'Emails';
+  if (pathname.startsWith('/organizer/payouts')) return 'Payouts';
+  if (pathname.startsWith('/organizer/profile')) return 'Profile';
   if (pathname.startsWith('/organizer/events')) return 'Events';
   return 'Dashboard';
 }

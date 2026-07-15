@@ -85,7 +85,7 @@ export async function getProgramBySlug(slug, now = new Date()) {
       .populate('categoryId', 'name slug')
       .populate('chapterId', 'name slug flagEmoji')
       .sort({ startAt: 1 }),
-    Sponsor.find({ scope: 'PROGRAM', programId: program._id, isActive: true }).sort({ sortOrder: 1, name: 1 }),
+    Sponsor.find({ scope: 'PROGRAM', programId: program._id, isActive: true, status: 'APPROVED' }).sort({ sortOrder: 1, name: 1 }),
   ]);
   const byDay = new Map();
   const speakerIds = new Set();

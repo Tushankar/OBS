@@ -3,8 +3,9 @@ import { connectDB, disconnectDB } from '../config/db.js';
 import { env } from '../config/env.js';
 import { slugify } from '../utils/slugify.js';
 import { buildChapters } from './chapters.data.js';
-import { Category, Chapter, CmsPage, User, OrganizerProfile, Event, Program, Speaker, Sponsor, Article, HeroSlide } from '../models/index.js';
+import { Category, Chapter, CmsPage, User, OrganizerProfile, Event, Program, Speaker, Sponsor, Article, HeroSlide, TicketType } from '../models/index.js';
 import { seedCurrentProgram } from '../modules/programs/programs.service.js';
+import { seedCmsPages } from './cms.data.js';
 
 // Idempotent seed (build plan §13 Phase 0.2): admin user, 12 categories,
 // 108 chapters (Appendix A), 3 CMS page stubs. Phase 1 adds a demo organizer +
@@ -14,12 +15,6 @@ import { seedCurrentProgram } from '../modules/programs/programs.service.js';
 const CATEGORIES = [
   'Networking', 'Conference', 'Summit', 'Workshop', 'Investor Meetup', 'Trade Delegation',
   'Gala Dinner', 'Awards Night', 'Webinar', 'Masterclass', 'Expo', 'Product Launch',
-];
-
-const CMS_PAGES = [
-  { slug: 'about', title: 'About OBS Events', content: '# About OBS Events\n\n_Placeholder — edit in the admin CMS (Phase 3)._' },
-  { slug: 'terms', title: 'Terms & Conditions', content: '# Terms & Conditions\n\n_Placeholder — edit in the admin CMS (Phase 3)._' },
-  { slug: 'privacy', title: 'Privacy Policy', content: '# Privacy Policy\n\n_Placeholder — edit in the admin CMS (Phase 3)._' },
 ];
 
 async function seedCategories() {
@@ -36,18 +31,6 @@ async function seedChapters() {
     await Chapter.updateOne({ slug: ch.slug }, { $set: ch }, { upsert: true });
   }
   return Chapter.countDocuments();
-}
-
-async function seedCmsPages() {
-  for (const p of CMS_PAGES) {
-    // Only set on insert so admin edits made later are not clobbered by a re-seed.
-    await CmsPage.updateOne(
-      { slug: p.slug },
-      { $setOnInsert: { ...p, status: 'PUBLISHED' } },
-      { upsert: true }
-    );
-  }
-  return CmsPage.countDocuments();
 }
 
 async function seedAdmin() {
@@ -79,17 +62,79 @@ const DEMO_ORGANIZER = {
   website: 'https://demo.obs.events',
 };
 
-// Three PUBLISHED sample events (dates refreshed to the near future each reseed).
+// PUBLISHED sample events (dates refreshed to the near future each reseed).
+// Banners are self-hosted in client/public/images/events so cards and detail
+// pages demo with real imagery.
 const DEMO_EVENTS = [
   { title: 'OBS Founders Summit 2026', categorySlug: 'summit', chapterSlug: 'india', days: 30, dur: 8,
     venueName: 'Jio World Convention Centre', address: 'BKC, Mumbai, India', city: 'Mumbai', country: 'India', lat: 19.063, lng: 72.866,
+    bannerUrl: '/images/events/investor_summit.jpg', ownership: 'OBS', isFeatured: true,
     description: 'A full-day gathering of founders, investors and operators — keynotes, curated roundtables and an evening networking mixer.' },
   { title: 'AI Builders Networking Night', categorySlug: 'networking', chapterSlug: 'ai', days: 14, dur: 3,
     venueName: 'The Leela Palace', address: 'Old Airport Road, Bengaluru, India', city: 'Bengaluru', country: 'India', lat: 12.9606, lng: 77.6485,
+    bannerUrl: '/images/events/founders_networking.jpg', ownership: 'PARTNER',
     description: 'An evening for AI founders and engineers to connect over demos, lightning talks and drinks.' },
   { title: 'Global Trade Masterclass (Online)', categorySlug: 'webinar', chapterSlug: 'global-trade', days: 7, dur: 2, isOnline: true,
+    bannerUrl: '/images/events/global_trade.jpg', ownership: 'PARTNER',
     description: 'A live online masterclass on cross-border trade, logistics and market-entry strategy for growing businesses.' },
+  { title: 'D2C Growth Masterclass', categorySlug: 'masterclass', chapterSlug: 'india', days: 21, dur: 4,
+    venueName: 'WeWork Galaxy', address: 'Residency Road, Bengaluru, India', city: 'Bengaluru', country: 'India', lat: 12.9716, lng: 77.5946,
+    bannerUrl: '/images/events/d2c_masterclass.jpg', ownership: 'OBS', isFeatured: true,
+    description: 'A hands-on masterclass on scaling direct-to-consumer brands: unit economics, retention and channel strategy.' },
+  { title: 'Family Office Investor Roundtable', categorySlug: 'investor-meetup', chapterSlug: 'india', days: 10, dur: 3,
+    venueName: 'The Taj Mahal Palace', address: 'Apollo Bunder, Mumbai, India', city: 'Mumbai', country: 'India', lat: 18.9217, lng: 72.8332,
+    bannerUrl: '/images/events/family_office.jpg', ownership: 'OBS',
+    description: 'A closed-door roundtable connecting family offices with growth-stage founders across sectors.' },
+  { title: 'Annual Gala Dinner & Awards Night', categorySlug: 'gala-dinner', chapterSlug: 'india', days: 45, dur: 5,
+    venueName: 'The Oberoi', address: 'Dr Zakir Hussain Marg, New Delhi, India', city: 'New Delhi', country: 'India', lat: 28.6027, lng: 77.2219,
+    bannerUrl: '/images/events/gala_dinner.jpg', ownership: 'OBS',
+    description: 'The season finale: awards for the network’s standout chapters and founders, followed by a black-tie dinner.' },
 ];
+
+// Ticket tiers per event so booking, "from ₹X" card prices and the sold-out /
+// low-stock states all demo. quantitySold is $setOnInsert-only so a reseed
+// never clobbers real sales. Prices in paise.
+const DEMO_TICKETS = {
+  'OBS Founders Summit 2026': [
+    { name: 'Early Bird', price: 149900, quantityTotal: 25, quantitySold: 25, description: 'Full-day access — early pricing.' }, // sold out (demo)
+    { name: 'Standard', price: 249900, quantityTotal: 200, quantitySold: 38, description: 'Full-day access, lunch included.' },
+    { name: 'VIP', price: 599900, quantityTotal: 30, quantitySold: 24, maxPerOrder: 4, description: 'Front rows, speaker dinner & lounge.' }, // only 6 left (demo)
+  ],
+  'AI Builders Networking Night': [
+    { name: 'Standard', price: 79900, quantityTotal: 120, quantitySold: 41, description: 'Entry + two drinks.' },
+  ],
+  'Global Trade Masterclass (Online)': [
+    { name: 'Free registration', price: 0, quantityTotal: 500, quantitySold: 122, maxPerOrder: 2, description: 'Live online session + recording.' },
+  ],
+  'D2C Growth Masterclass': [
+    { name: 'Standard', price: 129900, quantityTotal: 80, quantitySold: 17, description: 'Workshop seat + playbook templates.' },
+  ],
+  'Family Office Investor Roundtable': [
+    { name: 'Founder seat', price: 199900, quantityTotal: 40, quantitySold: 9, maxPerOrder: 2, description: 'Curated seating by sector.' },
+  ],
+  'Annual Gala Dinner & Awards Night': [
+    { name: 'Dinner seat', price: 349900, quantityTotal: 150, quantitySold: 12, description: 'Black-tie dinner & awards.' },
+    { name: 'Table of 8', price: 2499900, quantityTotal: 12, quantitySold: 2, minPerOrder: 1, maxPerOrder: 2, description: 'A reserved table for your team.' },
+  ],
+};
+
+async function seedTicketTypes() {
+  let count = 0;
+  for (const [title, tiers] of Object.entries(DEMO_TICKETS)) {
+    const event = await Event.findOne({ slug: slugify(title) }).select('_id');
+    if (!event) continue;
+    for (const t of tiers) {
+      const { quantitySold, ...rest } = t;
+      await TicketType.updateOne(
+        { eventId: event._id, name: t.name },
+        { $set: { ...rest, eventId: event._id, isActive: true }, $setOnInsert: { quantitySold: quantitySold || 0 } },
+        { upsert: true }
+      );
+      count += 1;
+    }
+  }
+  return count;
+}
 
 async function seedDemoOrganizer() {
   const passwordHash = await bcrypt.hash(DEMO_ORGANIZER.password, 12);
@@ -125,6 +170,9 @@ async function seedDemoEvents(profile) {
       status: 'PUBLISHED',
       publishedAt: new Date(),
       isOnline: !!e.isOnline,
+      bannerUrl: e.bannerUrl,
+      ownership: e.ownership || 'OBS',
+      isFeatured: !!e.isFeatured,
       currency: 'INR',
       timezone: 'Asia/Kolkata',
       startAt,
@@ -146,9 +194,10 @@ const SEED_SPEAKERS = [
   { name: 'Mei Lin Tan', title: 'Head of Product', company: 'Cloudform', topics: ['Product Engineering', 'AI'], photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600' },
 ];
 const SEED_SPONSORS = [
-  { name: 'Aurora Bank', tier: 'TITLE', scope: 'PLATFORM', blurb: 'Title partner for the 100 Days season.', website: 'https://example.com', sortOrder: 1 },
-  { name: 'Nimbus Cloud', tier: 'TECHNOLOGY', scope: 'PLATFORM', blurb: 'Cloud infrastructure partner.', website: 'https://example.com', sortOrder: 2 },
-  { name: 'The Business Times', tier: 'MEDIA', scope: 'PLATFORM', blurb: 'Official media partner.', website: 'https://example.com', sortOrder: 3 },
+  { name: 'Aurora Bank', tier: 'TITLE', scope: 'PLATFORM', blurb: 'Title partner for the 100 Days season.', website: 'https://example.com', sortOrder: 1, logoUrl: '/images/sponsors/apex_group.svg' },
+  { name: 'Nimbus Cloud', tier: 'TECHNOLOGY', scope: 'PLATFORM', blurb: 'Cloud infrastructure partner.', website: 'https://example.com', sortOrder: 2, logoUrl: '/images/sponsors/cloud_host.svg' },
+  { name: 'The Business Times', tier: 'MEDIA', scope: 'PLATFORM', blurb: 'Official media partner.', website: 'https://example.com', sortOrder: 3, logoUrl: '/images/sponsors/business_standard.svg' },
+  { name: 'Growth Labs', tier: 'PARTNER', scope: 'PLATFORM', blurb: 'Community growth partner.', website: 'https://example.com', sortOrder: 5, logoUrl: '/images/sponsors/growth_labs.svg' },
 ];
 const SEED_ARTICLES = [
   { title: 'OBS 100 Days season kicks off across 54 countries', type: 'NEWS', authorName: 'OBS Newsroom', excerpt: 'The flagship business season returns with a record slate of summits.', content: '# A record season\n\nThe OBS 100 Days season opens with events across every regional chapter.', tags: ['season', 'announcement'] },
@@ -176,13 +225,76 @@ async function seedContent() {
     await Speaker.updateOne({ slug: slugify(s.name) }, { $set: { ...s, slug: slugify(s.name) } }, { upsert: true });
   }
   for (const s of SEED_SPONSORS) {
-    await Sponsor.updateOne({ slug: slugify(s.name) }, { $set: { ...s, slug: slugify(s.name), isActive: true } }, { upsert: true });
+    await Sponsor.updateOne({ slug: slugify(s.name) }, { $set: { ...s, slug: slugify(s.name), isActive: true, status: 'APPROVED' } }, { upsert: true });
   }
   for (const a of SEED_ARTICLES) {
     const slug = slugify(a.title);
     await Article.updateOne({ slug }, { $set: { ...a, slug, status: 'PUBLISHED' }, $setOnInsert: { publishedAt: new Date() } }, { upsert: true });
   }
   return { speakers: await Speaker.countDocuments(), sponsors: await Sponsor.countDocuments(), articles: await Article.countDocuments() };
+}
+
+// Wire the demo entities together so the connected surfaces (event speakers,
+// the 100 Days agenda, the Launchpad, article↔event/chapter links, program
+// sponsors) all render with real data. Runs after events + program + content
+// exist; idempotent (targeted $set by id/slug).
+async function seedRelations(profile, program) {
+  const events = await Event.find({ organizerId: profile._id }).sort({ startAt: 1 });
+  if (!events.length) return { speakersLinked: 0, launches: 0 };
+  const speakers = await Speaker.find({}).sort({ isFeatured: -1, name: 1 });
+  const speakerIds = speakers.map((s) => s._id);
+
+  const summit = events.find((e) => /Founders Summit/i.test(e.title)) || events[0];
+  const networking = events.find((e) => /Networking Night/i.test(e.title)) || events[1] || events[0];
+
+  // 1) Speakers on events (all on the summit, first two on the networking night).
+  if (speakerIds.length) {
+    const summitSet = { speakerIds };
+    if (program?._id) { summitSet.programId = program._id; summitSet.programDayNumber = 5; } // 2) 100 Days link
+    await Event.updateOne({ _id: summit._id }, { $set: summitSet });
+    if (networking && String(networking._id) !== String(summit._id)) {
+      await Event.updateOne({ _id: networking._id }, { $set: { speakerIds: speakerIds.slice(0, 2) } });
+    }
+  }
+
+  // 3) Flag the networking night as a launch with a near-future countdown target.
+  let launches = 0;
+  if (networking && networking.startAt) {
+    const launchAt = new Date(networking.startAt.getTime() - 2 * 864e5);
+    await Event.updateOne({ _id: networking._id }, { $set: { isLaunch: true, launchAt } });
+    launches = 1;
+  }
+
+  // 4) Point the two seed articles at a subject event + its chapter (both directions render).
+  const linkArticle = async (title, ev) => {
+    if (!ev) return;
+    const set = { eventId: ev._id };
+    if (ev.chapterId) set.chapterId = ev.chapterId;
+    await Article.updateOne({ slug: slugify(title) }, { $set: set });
+  };
+  await linkArticle(SEED_ARTICLES[0].title, summit);
+  await linkArticle(SEED_ARTICLES[1].title, networking);
+
+  // 5) A PROGRAM-scoped sponsor so the program page's sponsor strip renders.
+  if (program?._id) {
+    const slug = slugify('Season Partners Group');
+    await Sponsor.updateOne(
+      { slug },
+      { $set: { name: 'Season Partners Group', slug, tier: 'PRESENTING', scope: 'PROGRAM', programId: program._id, blurb: 'Presenting partner for the 100 Days season.', website: 'https://example.com', sortOrder: 4, isActive: true, status: 'APPROVED', logoUrl: '/images/sponsors/founders_circle.svg' } },
+      { upsert: true }
+    );
+  }
+
+  // 6) An EVENT-scoped sponsor on the summit so the event-page sponsor block
+  // and the sponsor profile's "events they support" list both demo.
+  const swSlug = slugify('Summit Works');
+  await Sponsor.updateOne(
+    { slug: swSlug },
+    { $set: { name: 'Summit Works', slug: swSlug, tier: 'EVENT', scope: 'EVENT', eventId: summit._id, blurb: 'Event partner for the Founders Summit.', website: 'https://example.com', sortOrder: 6, isActive: true, status: 'APPROVED', logoUrl: '/images/sponsors/summit_works.svg' } },
+    { upsert: true }
+  );
+
+  return { speakersLinked: speakerIds.length ? (String(networking?._id) === String(summit._id) ? 1 : 2) : 0, launches };
 }
 
 async function seed() {
@@ -192,13 +304,15 @@ async function seed() {
   const [categories, chapters, cmsPages, adminEmail] = [
     await seedCategories(),
     await seedChapters(),
-    await seedCmsPages(),
+    await seedCmsPages(CmsPage),
     await seedAdmin(),
   ];
   const demoProfile = await seedDemoOrganizer();
   const publishedEvents = await seedDemoEvents(demoProfile);
+  const ticketTypes = await seedTicketTypes(); // tiers per event (booking + sold-out/low-stock demo)
   const program = await seedCurrentProgram(); // §5.5 current 100 Days edition + 100 days
   const content = await seedContent(); // §5 speakers / sponsors / articles demo data
+  const relations = await seedRelations(demoProfile, program); // wire speakers/program/launch/articles/program-sponsor
   const heroSlides = await seedHeroSlides(); // home hero carousel (admin-editable)
 
   const admins = await User.countDocuments({ role: 'ADMIN' });
@@ -209,9 +323,10 @@ async function seed() {
   console.log(`  cms pages  : ${cmsPages}`);
   console.log(`  admins     : ${admins} (${adminEmail})`);
   console.log(`  demo org   : ${DEMO_ORGANIZER.email} / ${DEMO_ORGANIZER.password} (APPROVED)`);
-  console.log(`  pub events : ${publishedEvents}`);
+  console.log(`  pub events : ${publishedEvents} (${ticketTypes} ticket tiers)`);
   console.log(`  program    : ${program.name} (${await Program.countDocuments()} edition(s))`);
   console.log(`  content    : ${content.speakers} speakers · ${content.sponsors} sponsors · ${content.articles} articles`);
+  console.log(`  relations  : speakers on ${relations.speakersLinked} event(s) · ${relations.launches} launch · program+article links wired`);
   console.log(`  hero       : ${heroSlides} slide(s)`);
 
   if (chapters !== 108 || categories !== 12) {

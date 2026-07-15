@@ -9,6 +9,8 @@ import {
   signResetToken,
   verifyResetToken,
   resetFingerprint,
+  signEmailVerifyToken,
+  verifyEmailVerifyToken,
   newJti,
 } from '../../utils/tokens.js';
 import { badRequest, unauthorized, conflict, forbidden, notFoundError } from '../../utils/errors.js';
@@ -29,8 +31,38 @@ export function publicUser(u) {
     role: u.role,
     status: u.status,
     emailVerifiedAt: u.emailVerifiedAt || null,
+    marketingOptIn: u.marketingOptIn !== false,
+    hasPassword: !!u.passwordHash, // Google-only accounts set one via the reset flow
     createdAt: u.createdAt,
   };
+}
+
+// PATCH /auth/me — the signed-in user keeps their own details current.
+// Email is deliberately immutable here (it's the login identity).
+export async function updateMe(userId, body) {
+  const user = await User.findById(userId);
+  if (!user) throw notFoundError('USER_NOT_FOUND', 'User not found');
+  for (const f of ['name', 'phone', 'marketingOptIn']) {
+    if (body[f] !== undefined) user[f] = body[f];
+  }
+  await user.save();
+  return publicUser(user);
+}
+
+// POST /auth/change-password — signed-in password rotation. Requires the
+// current password; Google-only accounts (no hash yet) are sent to the email
+// reset flow instead, which safely sets a first password.
+export async function changePassword(userId, { currentPassword, newPassword }) {
+  const user = await User.findById(userId);
+  if (!user) throw notFoundError('USER_NOT_FOUND', 'User not found');
+  if (!user.passwordHash) {
+    throw conflict('NO_PASSWORD_SET', 'This account signs in with Google — use “Forgot password?” to set a password first');
+  }
+  const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!ok) throw unauthorized('INVALID_CURRENT_PASSWORD', 'Your current password is incorrect');
+  user.passwordHash = await bcrypt.hash(newPassword, BCRYPT_COST);
+  await user.save();
+  return { ok: true };
 }
 
 // Create a Session row (jti) and sign the access + refresh pair against it.
@@ -45,12 +77,58 @@ async function issueTokens(user, meta = {}) {
   };
 }
 
+// Fire-and-forget verification mail — a mailer hiccup must never block signup.
+async function sendVerificationEmail(user) {
+  const url = `${env.APP_URL}/verify-email?token=${encodeURIComponent(signEmailVerifyToken(user))}`;
+  try {
+    await sendMail({
+      to: user.email,
+      subject: 'Verify your email — OBS Events',
+      text: `Hi ${user.name},\n\nConfirm this is your address to finish setting up your OBS Events account:\n${url}\n\nThe link is valid for 7 days. If you didn't sign up, you can ignore this email.`,
+      html: `<p>Hi ${user.name},</p><p>Confirm this is your address to finish setting up your OBS Events account:</p><p><a href="${url}">Verify my email</a></p><p style="color:#999;font-size:12px;">The link is valid for 7 days. If you didn’t sign up, ignore this email.</p>`,
+      type: 'EMAIL_VERIFICATION',
+      userId: user._id,
+    });
+  } catch (err) {
+    console.error('[auth] verification email failed:', err.message);
+  }
+}
+
 export async function register({ name, email, password }, meta) {
   const existing = await User.findOne({ email });
   if (existing) throw conflict('EMAIL_TAKEN', 'An account with this email already exists');
   const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
   const user = await User.create({ name, email, passwordHash, role: 'USER', status: 'ACTIVE' });
+  sendVerificationEmail(user); // deliberately not awaited
   return { user: publicUser(user), ...(await issueTokens(user, meta)) };
+}
+
+// POST /auth/verify-email — the emailed link lands here. Idempotent.
+export async function verifyEmail({ token }) {
+  let payload;
+  try {
+    payload = verifyEmailVerifyToken(token);
+  } catch {
+    throw badRequest('VERIFY_TOKEN_INVALID', 'This verification link is invalid or has expired');
+  }
+  const user = await User.findById(payload.sub);
+  if (!user || user.email !== payload.email) {
+    throw badRequest('VERIFY_TOKEN_INVALID', 'This verification link is invalid or has expired');
+  }
+  if (!user.emailVerifiedAt) {
+    user.emailVerifiedAt = new Date();
+    await user.save();
+  }
+  return { ok: true, user: publicUser(user) };
+}
+
+// POST /auth/resend-verification — signed-in nudge from the profile page.
+export async function resendVerification(userId) {
+  const user = await User.findById(userId);
+  if (!user) throw notFoundError('USER_NOT_FOUND', 'User not found');
+  if (user.emailVerifiedAt) return { ok: true, alreadyVerified: true };
+  await sendVerificationEmail(user);
+  return { ok: true };
 }
 
 export async function login({ email, password }, meta) {

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, CmsPage, Speaker, Program } from '../../models/index.js';
+import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, CmsPage, Speaker, Program, EmailLog, AuditLog, Ticket } from '../../models/index.js';
+import { cancelEventCascade } from '../events/events.service.js';
 import { notFoundError, conflict } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { sendMail } from '../../utils/mailer.js';
@@ -296,6 +297,14 @@ export async function approveEvent(adminId, id) {
   return adminEventRow(event);
 }
 
+// Admin cancels any PUBLISHED event — same cascade as the organizer path
+// (void tickets, auto-refund, notify attendees).
+export async function adminCancelEvent(adminId, id, reason) {
+  const event = await Event.findById(id);
+  if (!event) throw notFoundError('EVENT_NOT_FOUND', 'Event not found');
+  return cancelEventCascade(event, { reason, actorId: adminId });
+}
+
 export async function rejectEvent(adminId, id, reason) {
   const event = await loadEventWithOrganizer(id);
   if (event.status !== 'PENDING_APPROVAL') {
@@ -446,12 +455,20 @@ export async function listTransactions({ gateway, status, search, page = 1, limi
   if (gateway) filter.gateway = gateway;
   if (status) filter.status = status;
   if (search) {
-    const orders = await Order.find({ orderNumber: { $regex: search, $options: 'i' } }).select('_id');
+    // Match by order number OR the buyer's name/email — "who booked what" is a
+    // person-first question as often as an order-first one.
+    const rx = { $regex: search, $options: 'i' };
+    const users = await User.find({ $or: [{ email: rx }, { name: rx }] }).select('_id');
+    const orders = await Order.find({ $or: [{ orderNumber: rx }, { userId: { $in: users.map((u) => u._id) } }] }).select('_id');
     filter.orderId = { $in: orders.map((o) => o._id) };
   }
   const [rows, total] = await Promise.all([
     Payment.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
-      .populate({ path: 'orderId', select: 'orderNumber eventId currency', populate: { path: 'eventId', select: 'title' } }),
+      .populate({
+        path: 'orderId',
+        select: 'orderNumber eventId userId currency',
+        populate: [{ path: 'eventId', select: 'title' }, { path: 'userId', select: 'name email' }],
+      }),
     Payment.countDocuments(filter),
   ]);
   return {
@@ -461,6 +478,8 @@ export async function listTransactions({ gateway, status, search, page = 1, limi
         id: String(p._id),
         orderNumber: o?.orderNumber || '—',
         event: o?.eventId?.title || '—',
+        buyer: o?.userId?.name || '—',
+        buyerEmail: o?.userId?.email || null,
         gateway: p.gateway,
         method: p.method || '—',
         amount: p.amount,
@@ -469,6 +488,91 @@ export async function listTransactions({ gateway, status, search, page = 1, limi
         date: p.createdAt,
       };
     }),
+    total, page, limit, pages: Math.ceil(total / limit) || 1,
+  };
+}
+
+// GET /admin/audit — every privileged mutation (approvals, role changes,
+// refunds, cancellations, campaign sends), who did it and when.
+export async function listAudit({ entityType, search, page = 1, limit = 50 } = {}) {
+  const filter = {};
+  if (entityType) filter.entityType = entityType;
+  if (search) filter.action = { $regex: search, $options: 'i' };
+  const [rows, total] = await Promise.all([
+    AuditLog.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
+      .populate('actorId', 'name email'),
+    AuditLog.countDocuments(filter),
+  ]);
+  return {
+    entries: rows.map((a) => ({
+      id: String(a._id),
+      action: a.action,
+      entityType: a.entityType || null,
+      entityId: a.entityId || null,
+      actor: a.actorId?.name || '—',
+      actorEmail: a.actorId?.email || null,
+      meta: a.meta || null,
+      at: a.createdAt,
+    })),
+    total, page, limit, pages: Math.ceil(total / limit) || 1,
+  };
+}
+
+// GET /admin/users/:id — the CRM drill-down: who this person is, their
+// organizer standing, and everything they've booked.
+export async function getUserDetail(id) {
+  const user = await User.findById(id);
+  if (!user) throw notFoundError('USER_NOT_FOUND', 'User not found');
+  const allOrders = await Order.find({ userId: user._id }).sort({ createdAt: -1 }).populate('eventId', 'title slug');
+  const [profile, ticketCount] = await Promise.all([
+    OrganizerProfile.findOne({ userId: user._id }).select('orgName slug status'),
+    Ticket.countDocuments({ orderId: { $in: allOrders.map((o) => o._id) }, status: { $in: ['VALID', 'USED'] } }),
+  ]);
+  const spend = allOrders.filter((o) => ['PAID', 'REFUND_REQUESTED'].includes(o.status)).reduce((s, o) => s + (o.totalAmount || 0), 0);
+  const orders = allOrders.slice(0, 20);
+  return {
+    user: shapeUser(user),
+    organizer: profile ? { orgName: profile.orgName, slug: profile.slug, status: profile.status } : null,
+    stats: { orders: allOrders.length, tickets: ticketCount, spend },
+    orders: orders.map((o) => ({
+      id: String(o._id),
+      orderNumber: o.orderNumber,
+      event: o.eventId?.title || '—',
+      eventSlug: o.eventId?.slug || null,
+      totalAmount: o.totalAmount,
+      currency: o.currency || 'INR',
+      status: o.status,
+      createdAt: o.createdAt,
+    })),
+  };
+}
+
+// GET /admin/emails — the delivery audit (EmailLog) behind every transactional
+// mail and campaign send: what went out, to whom, and whether it landed.
+export async function listEmails({ type, status, search, page = 1, limit = 50 } = {}) {
+  const filter = {};
+  if (type) filter.type = type;
+  if (status) filter.status = status;
+  if (search) {
+    const rx = { $regex: search, $options: 'i' };
+    filter.$or = [{ toEmail: rx }, { subject: rx }];
+  }
+  const [rows, total] = await Promise.all([
+    EmailLog.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
+      .populate('eventId', 'title'),
+    EmailLog.countDocuments(filter),
+  ]);
+  return {
+    emails: rows.map((e) => ({
+      id: String(e._id),
+      type: e.type,
+      to: e.toEmail,
+      subject: e.subject || '—',
+      status: e.status,
+      error: e.error || null,
+      event: e.eventId?.title || null,
+      sentAt: e.sentAt || e.createdAt,
+    })),
     total, page, limit, pages: Math.ceil(total / limit) || 1,
   };
 }

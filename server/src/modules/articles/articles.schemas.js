@@ -23,7 +23,8 @@ export const createArticleSchema = z.object({
   status: z.enum(ARTICLE_STATUS).optional(),
   authorName: z.string().trim().max(120).optional(),
   tags: z.array(z.string().trim().max(40)).max(20).optional(),
-  eventId: objectId.optional(),
-  chapterId: objectId.optional(),
+  // nullable so an admin can clear an existing event/chapter link, not just set it.
+  eventId: objectId.nullable().optional(),
+  chapterId: objectId.nullable().optional(),
 });
 export const updateArticleSchema = createArticleSchema.partial().omit({ slug: true }).refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });

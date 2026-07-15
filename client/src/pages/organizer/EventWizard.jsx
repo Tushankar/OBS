@@ -7,6 +7,7 @@ import { fmtDateTime } from '../../lib/format';
 import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
 import TicketTypesEditor from '../../components/organizer/TicketTypesEditor';
 import PromoCodesEditor from '../../components/organizer/PromoCodesEditor';
+import SponsorsEditor from '../../components/organizer/SponsorsEditor';
 
 const STEPS = ['Basics', 'Banner', 'Venue', 'Tickets', 'Promos', 'Speakers & extras', 'Review'];
 const EXTRAS_STEP = 6;
@@ -612,9 +613,15 @@ export default function EventWizard() {
                   </div>
                 )}
               </div>
+
+              {/* Event sponsors — submitted for admin approval */}
+              <div className="border-t border-line pt-5">
+                <h3 className="text-sm font-bold text-ink">Event sponsors</h3>
+                <SponsorsEditor eventId={eventId} />
+              </div>
             </div>
           ) : (
-            <p className="py-8 text-center text-[13px] text-ink-mute">Save the basics first (step 1) to add speakers, a program day or launch details.</p>
+            <p className="py-8 text-center text-[13px] text-ink-mute">Save the basics first (step 1) to add speakers, sponsors, a program day or launch details.</p>
           )
         )}
 

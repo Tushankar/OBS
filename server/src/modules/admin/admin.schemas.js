@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ORGANIZER_STATUS, EVENT_STATUS, ROLE, USER_STATUS, GATEWAY, PAYMENT_STATUS, CHAPTER_TYPE, CHAPTER_STATUS, PAGE_STATUS, EVENT_OWNERSHIP } from '../../constants.js';
+import { ORGANIZER_STATUS, EVENT_STATUS, ROLE, USER_STATUS, GATEWAY, PAYMENT_STATUS, CHAPTER_TYPE, CHAPTER_STATUS, PAGE_STATUS, EVENT_OWNERSHIP, EMAIL_TYPE, EMAIL_STATUS } from '../../constants.js';
 
 export const listOrganizersQuery = z.object({
   status: z.enum(ORGANIZER_STATUS).optional(),
@@ -88,6 +88,23 @@ export const listTransactionsQuery = z.object({
   search: z.string().trim().max(160).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+// --- Audit trail ---
+export const listAuditQuery = z.object({
+  entityType: z.string().trim().max(60).optional(),
+  search: z.string().trim().max(160).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+// --- Email delivery log ---
+export const listEmailsQuery = z.object({
+  type: z.enum(EMAIL_TYPE).optional(),
+  status: z.enum(EMAIL_STATUS).optional(),
+  search: z.string().trim().max(160).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
 // --- Categories CRUD (task 3.5) ---

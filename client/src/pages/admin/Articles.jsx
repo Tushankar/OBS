@@ -204,7 +204,7 @@ function ArticleEditor({ initial, onClose, onSaved }) {
           <Field label="Excerpt" hint="One-line summary shown on cards"><textarea value={form.excerpt} onChange={(e) => set('excerpt', e.target.value)} rows={2} placeholder="Short summary…" className={`${inputCls} resize-y`} /></Field>
         </div>
         <div className="sm:col-span-2">
-          <Field label="Body" hint="Markdown supported"><textarea value={form.content} onChange={(e) => set('content', e.target.value)} rows={8} placeholder="Write the article in Markdown…" className={`${inputCls} resize-y font-mono text-[12.5px]`} /></Field>
+          <Field label="Body" hint="Markdown supported"><textarea value={form.content} onChange={(e) => set('content', e.target.value)} rows={8} placeholder="Write the article in Markdown…" className={`${inputCls} resize-y font-mono`} /></Field>
         </div>
         <div className="sm:col-span-2">
           <Field label="Tags" hint="Comma-separated"><input value={form.tags} onChange={(e) => set('tags', e.target.value)} placeholder="Summit, Dubai, Founders" className={inputCls} /></Field>

@@ -59,3 +59,19 @@ export async function resetPassword(req, res) {
 export async function me(req, res) {
   res.status(200).json({ user: await authService.getMe(req.user.id) });
 }
+
+export async function updateMe(req, res) {
+  res.status(200).json({ user: await authService.updateMe(req.user.id, req.body) });
+}
+
+export async function changePassword(req, res) {
+  res.status(200).json(await authService.changePassword(req.user.id, req.body));
+}
+
+export async function verifyEmail(req, res) {
+  res.status(200).json(await authService.verifyEmail(req.body));
+}
+
+export async function resendVerification(req, res) {
+  res.status(200).json(await authService.resendVerification(req.user.id));
+}

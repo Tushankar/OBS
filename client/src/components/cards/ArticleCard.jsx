@@ -1,13 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import EvImage from '../common/EvImage';
+import { fmtDate } from '../../lib/format';
 
 export default function ArticleCard({ article, horizontal = false }) {
   const navigate = useNavigate();
-  const formattedDate = new Date(article.publishedAt).toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  const formattedDate = fmtDate(article.publishedAt);
 
   if (horizontal) {
     // Featured lead article layout

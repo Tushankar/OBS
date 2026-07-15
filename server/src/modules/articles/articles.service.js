@@ -16,8 +16,31 @@ function shapeCard(a) {
     publishedAt: a.publishedAt || null,
   };
 }
+// A populated ref renders as { title/name, slug }; an unpopulated ObjectId is
+// returned as a bare id string so the admin editor can still show/clear it.
+function linkedEvent(ev) {
+  if (!ev) return null;
+  if (ev._id) return { id: String(ev._id), title: ev.title, slug: ev.slug };
+  return null;
+}
+function linkedChapter(ch) {
+  if (!ch) return null;
+  if (ch._id) return { id: String(ch._id), name: ch.name, slug: ch.slug };
+  return null;
+}
+
 function shapeFull(a) {
-  return { ...shapeCard(a), content: a.content || '', status: a.status, updatedAt: a.updatedAt };
+  return {
+    ...shapeCard(a),
+    content: a.content || '',
+    status: a.status,
+    updatedAt: a.updatedAt,
+    // Raw ids for admin editing; populated summaries for public rendering.
+    eventId: a.eventId ? String(a.eventId._id || a.eventId) : null,
+    chapterId: a.chapterId ? String(a.chapterId._id || a.chapterId) : null,
+    event: a.eventId && a.eventId.title ? linkedEvent(a.eventId) : null,
+    chapter: a.chapterId && a.chapterId.name ? linkedChapter(a.chapterId) : null,
+  };
 }
 
 // GET /articles ?type &tag &page (PUBLISHED only).
@@ -33,14 +56,18 @@ export async function listArticles({ type, tag, page = 1, limit = 12 } = {}) {
 }
 
 export async function getArticleBySlug(slug) {
-  const article = await Article.findOne({ slug, status: 'PUBLISHED' });
+  const article = await Article.findOne({ slug, status: 'PUBLISHED' })
+    .populate('eventId', 'title slug')
+    .populate('chapterId', 'name slug');
   if (!article) throw notFoundError('ARTICLE_NOT_FOUND', 'Article not found');
   return shapeFull(article);
 }
 
 // ---- Admin CRUD ----
 export async function adminListArticles() {
-  return (await Article.find({}).sort({ updatedAt: -1 })).map(shapeFull);
+  return (await Article.find({}).sort({ updatedAt: -1 })
+    .populate('eventId', 'title slug')
+    .populate('chapterId', 'name slug')).map(shapeFull);
 }
 export async function createArticle(adminId, body) {
   const slug = await uniqueSlug(Article, body.slug || body.title);

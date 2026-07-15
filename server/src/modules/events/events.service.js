@@ -1,6 +1,9 @@
 import { randomUUID } from 'crypto';
-import { Event, Category, Chapter, TicketType, Ticket, Speaker, Program, Article } from '../../models/index.js';
+import { Event, Category, Chapter, TicketType, Ticket, Speaker, Program, Article, Order, Payment, Refund } from '../../models/index.js';
 import { sponsorsForEvent } from '../sponsors/sponsors.service.js';
+import { approveRefund } from '../refunds/refunds.service.js';
+import { sendMail } from '../../utils/mailer.js';
+import { writeAudit } from '../../utils/audit.js';
 import { registrationsWorkbook } from '../../utils/xlsx.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { presignPut, objectUrl } from '../../utils/s3.js';
@@ -196,6 +199,85 @@ export async function submitEvent(organizerId, id) {
   return shapeEvent(event);
 }
 
+// ---------------------------------------------------------------------------
+// Cancellation (§ product basics). Cancelling a PUBLISHED event must close the
+// whole loop: stop sales, void tickets, refund paid orders, tell attendees.
+// Shared by the organizer route and admin.service.
+// ---------------------------------------------------------------------------
+export async function cancelEventCascade(event, { reason, actorId }) {
+  // Conditional flip gates single execution (double-click / two admins safe).
+  const flip = await Event.updateOne(
+    { _id: event._id, status: 'PUBLISHED' },
+    { $set: { status: 'CANCELLED', cancelReason: reason, cancelledAt: new Date() } }
+  );
+  if (flip.modifiedCount !== 1) {
+    throw conflict('EVENT_NOT_CANCELLABLE', `Only a published event can be cancelled (this one is ${event.status})`);
+  }
+
+  // Snapshot attendee emails BEFORE voiding tickets.
+  const tickets = await Ticket.find({ eventId: event._id, status: { $in: ['VALID', 'USED'] } }).select('attendeeEmail');
+  const attendeeEmails = [...new Set(tickets.map((t) => (t.attendeeEmail || '').trim().toLowerCase()).filter(Boolean))];
+  await Ticket.updateMany({ eventId: event._id, status: { $in: ['VALID', 'USED'] } }, { $set: { status: 'CANCELLED' } });
+
+  // Orders: pending holds die; free registrations cancel; paid orders get an
+  // auto-refund through the same admin-approve path used everywhere else. If
+  // the gateway call fails (e.g. Stripe unconfigured), the refund stays
+  // REQUESTED and lands in the admin Refunds queue instead of vanishing.
+  await Order.updateMany({ eventId: event._id, status: 'PENDING' }, { $set: { status: 'CANCELLED' } });
+  await Order.updateMany({ eventId: event._id, status: 'PAID', totalAmount: 0 }, { $set: { status: 'CANCELLED' } });
+
+  const paidOrders = await Order.find({ eventId: event._id, status: 'PAID', totalAmount: { $gt: 0 } });
+  let refundsAuto = 0;
+  let refundsQueued = 0;
+  for (const order of paidOrders) {
+    const existing = await Refund.findOne({ orderId: order._id, status: { $in: ['REQUESTED', 'APPROVED', 'PROCESSED'] } });
+    if (existing) continue;
+    const payment = await Payment.findOne({ orderId: order._id, status: 'CAPTURED' });
+    if (!payment) continue;
+    const refund = await Refund.create({
+      paymentId: payment._id,
+      orderId: order._id,
+      amount: order.totalAmount,
+      reason: `Event cancelled: ${reason}`,
+      requestedById: order.userId,
+      status: 'REQUESTED',
+    });
+    await Order.updateOne({ _id: order._id }, { $set: { status: 'REFUND_REQUESTED' } });
+    try {
+      await approveRefund(actorId, refund._id);
+      refundsAuto += 1;
+    } catch {
+      refundsQueued += 1; // stays REQUESTED in Admin → Refunds
+    }
+  }
+
+  // Tell every attendee. Transactional (not marketing), so no consent filter.
+  const when = event.startAt
+    ? new Date(event.startAt).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: event.timezone || 'Asia/Kolkata' })
+    : null;
+  const subject = `Cancelled: ${event.title}`;
+  const refundNote = paidOrders.length
+    ? 'If you paid for tickets, your refund is being processed to your original payment method automatically.'
+    : 'No payment was taken for your registration.';
+  const text = `${event.title}${when ? ` (${when})` : ''} has been cancelled.\n\nReason: ${reason}\n\n${refundNote}\n\nWe're sorry — browse other events at ${env.APP_URL}/events`;
+  let emailed = 0;
+  for (const to of attendeeEmails) {
+    try {
+      await sendMail({ to, subject, text, html: `<p>${event.title}${when ? ` (${when})` : ''} has been <strong>cancelled</strong>.</p><p>Reason: ${reason}</p><p>${refundNote}</p><p><a href="${env.APP_URL}/events">Browse other events</a></p>`, type: 'EVENT_CANCELLED', eventId: event._id });
+      emailed += 1;
+    } catch { /* logged FAILED by the mailer */ }
+  }
+
+  await writeAudit({ actorId, action: 'EVENT_CANCELLED', entityType: 'Event', entityId: event._id, meta: { title: event.title, reason, tickets: tickets.length, refundsAuto, refundsQueued, emailed } });
+  return { ok: true, ticketsVoided: tickets.length, refundsAuto, refundsQueued, emailed };
+}
+
+// POST /organizer/events/:id/cancel — an organizer cancels their own live event.
+export async function organizerCancelEvent(organizerId, id, { reason }) {
+  const event = await loadOwnedEvent(organizerId, id);
+  return cancelEventCascade(event, { reason, actorId: organizerId });
+}
+
 // Presigned S3 PUT for the event banner. The client uploads the file directly,
 // then persists `bannerUrl` via PATCH /organizer/events/:id.
 export async function presignBanner(organizerId, id, { contentType }) {
@@ -382,6 +464,8 @@ function publicEventFull(e) {
   const org = e.organizerId && e.organizerId._id ? e.organizerId : null;
   return {
     ...publicEventCard(e),
+    status: e.status, // CANCELLED renders an honest banner and blocks booking
+    cancelReason: e.status === 'CANCELLED' ? e.cancelReason || null : null,
     description: e.description || '',
     address: e.address || null,
     lat: e.lat ?? null,
@@ -397,7 +481,9 @@ function publicEventFull(e) {
   };
 }
 
-const VIEWABLE = ['PUBLISHED', 'COMPLETED'];
+// CANCELLED stays viewable so shared links land on an honest "cancelled"
+// banner instead of a 404; listings filter to PUBLISHED explicitly.
+const VIEWABLE = ['PUBLISHED', 'COMPLETED', 'CANCELLED'];
 
 // Public shape for a bookable ticket type (booking card). `onSale` folds active
 // + sale-window + availability into one flag for the UI.
@@ -415,6 +501,7 @@ function publicTicketType(t) {
     description: t.description || null,
     price: t.price, // paise
     quantityAvailable: available,
+    soldOut: available === 0, // stays visible on the card as "Sold out", never silently vanishes
     minPerOrder: t.minPerOrder,
     maxPerOrder: t.maxPerOrder,
     saleStartAt: t.saleStartAt || null,

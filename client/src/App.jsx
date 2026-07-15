@@ -34,6 +34,8 @@ import Webinars from './pages/Webinars';
 import Summits from './pages/Summits';
 import OrganizersDirectory from './pages/OrganizersDirectory';
 import ResetPassword from './pages/ResetPassword';
+import Unsubscribe from './pages/Unsubscribe';
+import VerifyEmail from './pages/VerifyEmail';
 import NotFound from './pages/NotFound';
 
 // New pages
@@ -42,6 +44,7 @@ import ProgramDay from './pages/public/ProgramDay';
 import SpeakersDirectory from './pages/public/SpeakersDirectory';
 import SpeakerProfile from './pages/public/SpeakerProfile';
 import SponsorsShowcase from './pages/public/SponsorsShowcase';
+import SponsorDetail from './pages/public/SponsorDetail';
 import BecomeSponsor from './pages/public/BecomeSponsor';
 import NewsListing from './pages/public/NewsListing';
 import NewsDetail from './pages/public/NewsDetail';
@@ -60,6 +63,9 @@ import OrganizerEvents from './pages/organizer/Events';
 import EventWizard from './pages/organizer/EventWizard';
 import OrganizerRegistrations from './pages/organizer/Registrations';
 import OrganizerCheckIn from './pages/organizer/CheckIn';
+import OrganizerEmails from './pages/organizer/Emails';
+import OrganizerProfilePage from './pages/organizer/Profile';
+import OrganizerPayouts from './pages/organizer/Payouts';
 import AdminLayout from './components/portal/AdminLayout';
 import AdminOrganizers from './pages/admin/Organizers';
 import AdminEvents from './pages/admin/Events';
@@ -77,6 +83,10 @@ import AdminSponsors from './pages/admin/Sponsors';
 import AdminPartnerLeads from './pages/admin/PartnerLeads';
 import AdminPrograms from './pages/admin/Programs';
 import AdminArticles from './pages/admin/Articles';
+import AdminPromos from './pages/admin/Promos';
+import AdminEmails from './pages/admin/Emails';
+import AdminCampaigns from './pages/admin/Campaigns';
+import AdminActivity from './pages/admin/Activity';
 import CmsPublicPage from './pages/CmsPublicPage';
 
 export default function App() {
@@ -106,6 +116,9 @@ export default function App() {
           <Route path="/organizer/events/:id/edit" element={<EventWizard />} />
           <Route path="/organizer/events/:id/registrations" element={<OrganizerRegistrations />} />
           <Route path="/organizer/events/:id/checkin" element={<OrganizerCheckIn />} />
+          <Route path="/organizer/emails" element={<OrganizerEmails />} />
+          <Route path="/organizer/profile" element={<OrganizerProfilePage />} />
+          <Route path="/organizer/payouts" element={<OrganizerPayouts />} />
         </Route>
 
         {/* Admin panel — standalone chrome (no public navbar/footer) */}
@@ -115,7 +128,11 @@ export default function App() {
           <Route path="/admin/organizers" element={<AdminOrganizers />} />
           <Route path="/admin/events" element={<AdminEvents />} />
           <Route path="/admin/refunds" element={<AdminRefunds />} />
+          <Route path="/admin/promos" element={<AdminPromos />} />
           <Route path="/admin/transactions" element={<AdminTransactions />} />
+          <Route path="/admin/emails" element={<AdminEmails />} />
+          <Route path="/admin/campaigns" element={<AdminCampaigns />} />
+          <Route path="/admin/activity" element={<AdminActivity />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/partner-leads" element={<AdminPartnerLeads />} />
           <Route path="/admin/categories" element={<AdminCategories />} />
@@ -159,6 +176,8 @@ export default function App() {
                   <Route path="/organizers/:slug" element={<Organizer />} />
                   <Route path="/search" element={<SearchResults />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/unsubscribe" element={<Unsubscribe />} />
+                  <Route path="/verify-email" element={<VerifyEmail />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/careers" element={<Careers />} />
                   {/* Admin-managed CMS pages (public render) */}
@@ -178,6 +197,7 @@ export default function App() {
                   <Route path="/speakers" element={<SpeakersDirectory />} />
                   <Route path="/speakers/:slug" element={<SpeakerProfile />} />
                   <Route path="/sponsors" element={<SponsorsShowcase />} />
+                  <Route path="/sponsors/:slug" element={<SponsorDetail />} />
                   <Route path="/become-a-sponsor" element={<BecomeSponsor />} />
                   <Route path="/news" element={<NewsListing />} />
                   <Route path="/news/:slug" element={<NewsDetail />} />

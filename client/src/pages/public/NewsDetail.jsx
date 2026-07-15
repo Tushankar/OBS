@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../lib/api';
 import EvImage from '../../components/common/EvImage';
+import ArticleCard from '../../components/cards/ArticleCard';
 import { useApp } from '../../context/AppContext';
+import { fmtDate } from '../../lib/format';
 
 export default function NewsDetail() {
   const { slug } = useParams();
@@ -10,6 +12,7 @@ export default function NewsDetail() {
   const { pushToast } = useApp();
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [more, setMore] = useState([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -18,6 +21,10 @@ export default function NewsDetail() {
       .then((data) => setArticle(data))
       .catch(() => setArticle(null))
       .finally(() => setLoading(false));
+    // "More from the newsroom" — latest few, current excluded below.
+    api.articles({ limit: 4 })
+      .then((rows) => setMore(Array.isArray(rows) ? rows : []))
+      .catch(() => setMore([]));
   }, [slug]);
 
   if (loading) {
@@ -40,11 +47,9 @@ export default function NewsDetail() {
     );
   }
 
-  const formattedDate = new Date(article.publishedAt).toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  });
+  const formattedDate = fmtDate(article.publishedAt);
+  const relatedMore = more.filter((a) => a.slug !== slug).slice(0, 3);
+  const hasSubject = article.event || article.chapter;
 
   const handleCopyLink = () => {
     try {
@@ -118,10 +123,48 @@ export default function NewsDetail() {
               By {article.authorName} · Published {formattedDate}
             </div>
 
+            {/* This story is about → linked subject entities (F33) */}
+            {hasSubject && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface px-4 py-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-mute">This story is about</span>
+                {article.event && (
+                  <Link
+                    to={`/event/${article.event.slug}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-brand bg-brand-soft px-3 py-1 text-xs font-semibold text-brand hover:underline"
+                  >
+                    🎫 {article.event.title}
+                  </Link>
+                )}
+                {article.chapter && (
+                  <Link
+                    to={`/chapters/${article.chapter.slug}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-brand bg-brand-soft px-3 py-1 text-xs font-semibold text-brand hover:underline"
+                  >
+                    📍 {article.chapter.name}
+                  </Link>
+                )}
+              </div>
+            )}
+
             {/* Content Body */}
             <div className="prose max-w-none text-ink-soft mt-2">
               {renderMarkdown(article.content)}
             </div>
+
+            {/* Tags (F38) */}
+            {article.tags?.length > 0 && (
+              <div className="mt-6 flex flex-wrap gap-2">
+                {article.tags.map((t) => (
+                  <Link
+                    key={t}
+                    to={`/news?tag=${encodeURIComponent(t)}`}
+                    className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink-soft transition hover:border-brand hover:text-brand"
+                  >
+                    #{t}
+                  </Link>
+                ))}
+              </div>
+            )}
 
             {/* Share Row */}
             <div className="border-t border-line mt-8 pt-4 flex items-center justify-between">
@@ -158,6 +201,18 @@ export default function NewsDetail() {
             </div>
           </div>
         </article>
+
+        {/* More from the newsroom (F36) */}
+        {relatedMore.length > 0 && (
+          <section className="mt-10">
+            <h2 className="mb-4 text-lg font-bold text-ink">More from the newsroom</h2>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {relatedMore.map((a) => (
+                <ArticleCard key={a.id} article={a} />
+              ))}
+            </div>
+          </section>
+        )}
 
       </div>
     </div>

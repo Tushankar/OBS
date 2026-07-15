@@ -2,6 +2,10 @@ import { Sponsor, PartnerApplication, Event } from '../../models/index.js';
 import { notFoundError } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { uniqueSlug } from '../../utils/slugify.js';
+import { publicEventCard, loadOwnedEvent } from '../events/events.service.js';
+
+const VIEWABLE = ['PUBLISHED', 'COMPLETED'];
+const pick = (obj, keys) => keys.reduce((o, k) => (obj[k] !== undefined ? ((o[k] = obj[k]), o) : o), {});
 
 export function shapeSponsor(s) {
   return {
@@ -15,6 +19,8 @@ export function shapeSponsor(s) {
     blurb: s.blurb || null,
     eventId: s.eventId ? String(s.eventId) : null,
     programId: s.programId ? String(s.programId) : null,
+    status: s.status || 'APPROVED',
+    organizerId: s.organizerId ? String(s.organizerId) : null,
     sortOrder: s.sortOrder || 0,
     isActive: s.isActive,
   };
@@ -23,15 +29,16 @@ export function shapeSponsor(s) {
 // GET /sponsors ?scope &tier — the public showcase (defaults to PLATFORM scope;
 // EVENT/PROGRAM sponsors render on their own pages). Client groups by tier.
 export async function listSponsors({ scope, tier } = {}) {
-  const filter = { isActive: true, scope: scope || 'PLATFORM' };
+  const filter = { isActive: true, status: 'APPROVED', scope: scope || 'PLATFORM' };
   if (tier) filter.tier = tier;
   const rows = await Sponsor.find(filter).sort({ sortOrder: 1, name: 1 });
   return rows.map(shapeSponsor);
 }
 
-// Event-scoped sponsors (also embedded in the event detail payload).
+// Event-scoped sponsors (also embedded in the event detail payload). Only
+// approved sponsors are public — a pending organizer submission stays hidden.
 export async function sponsorsForEvent(eventId) {
-  const rows = await Sponsor.find({ eventId, isActive: true }).sort({ sortOrder: 1, name: 1 });
+  const rows = await Sponsor.find({ eventId, isActive: true, status: 'APPROVED' }).sort({ sortOrder: 1, name: 1 });
   return rows.map(shapeSponsor);
 }
 
@@ -39,6 +46,24 @@ export async function sponsorsForEventSlug(slug) {
   const event = await Event.findOne({ slug }).select('_id');
   if (!event) throw notFoundError('EVENT_NOT_FOUND', 'Event not found');
   return sponsorsForEvent(event._id);
+}
+
+// GET /sponsors/:slug — on-platform sponsor profile + the events they support.
+// The event list follows the sponsor's scope: an EVENT sponsor supports its one
+// event, a PROGRAM sponsor supports that season's events, a PLATFORM sponsor
+// supports the whole network (no single event list — the profile says so).
+export async function getSponsorBySlug(slug) {
+  const sponsor = await Sponsor.findOne({ slug, isActive: true, status: 'APPROVED' });
+  if (!sponsor) throw notFoundError('SPONSOR_NOT_FOUND', 'Sponsor not found');
+
+  let events = [];
+  const populate = (q) => q.populate('categoryId', 'name slug').populate('chapterId', 'name slug flagEmoji');
+  if (sponsor.scope === 'EVENT' && sponsor.eventId) {
+    events = await populate(Event.find({ _id: sponsor.eventId, status: { $in: VIEWABLE } }));
+  } else if (sponsor.scope === 'PROGRAM' && sponsor.programId) {
+    events = await populate(Event.find({ programId: sponsor.programId, status: { $in: VIEWABLE } }).sort({ startAt: 1 }));
+  }
+  return { sponsor: shapeSponsor(sponsor), events: events.map(publicEventCard) };
 }
 
 // ---- Admin sponsor CRUD ----
@@ -55,7 +80,7 @@ export async function updateSponsor(adminId, id, body) {
   const sponsor = await Sponsor.findById(id);
   if (!sponsor) throw notFoundError('SPONSOR_NOT_FOUND', 'Sponsor not found');
   if (body.name && body.name !== sponsor.name) { sponsor.name = body.name; sponsor.slug = await uniqueSlug(Sponsor, body.name, { ignoreId: sponsor._id }); }
-  for (const f of ['logoUrl', 'website', 'tier', 'scope', 'eventId', 'programId', 'blurb', 'sortOrder', 'isActive']) {
+  for (const f of ['logoUrl', 'website', 'tier', 'scope', 'eventId', 'programId', 'blurb', 'sortOrder', 'isActive', 'status']) {
     if (body[f] !== undefined) sponsor[f] = body[f];
   }
   await sponsor.save();
@@ -68,6 +93,59 @@ export async function deleteSponsor(adminId, id) {
   await sponsor.deleteOne();
   await writeAudit({ actorId: adminId, action: 'SPONSOR_DELETED', entityType: 'Sponsor', entityId: id, meta: { name: sponsor.name } });
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Organizer-submitted EVENT sponsors. An organizer adds sponsors to their own
+// event; each is created scope=EVENT + status=PENDING and only appears publicly
+// once an admin approves it. Editing an approved sponsor sends it back to
+// PENDING (so a swapped logo/name is re-checked).
+// ---------------------------------------------------------------------------
+const ORG_SPONSOR_FIELDS = ['name', 'logoUrl', 'website', 'tier', 'blurb'];
+
+export async function listEventSponsors(organizerId, eventId) {
+  await loadOwnedEvent(organizerId, eventId);
+  const rows = await Sponsor.find({ eventId, scope: 'EVENT' }).sort({ sortOrder: 1, name: 1 });
+  return rows.map(shapeSponsor);
+}
+
+export async function createEventSponsor(organizerId, eventId, body) {
+  await loadOwnedEvent(organizerId, eventId);
+  const slug = await uniqueSlug(Sponsor, body.name);
+  const sponsor = await Sponsor.create({
+    ...pick(body, ORG_SPONSOR_FIELDS),
+    slug,
+    scope: 'EVENT',
+    eventId,
+    organizerId,
+    status: 'PENDING',
+    isActive: true,
+  });
+  await writeAudit({ actorId: organizerId, action: 'SPONSOR_SUBMITTED', entityType: 'Sponsor', entityId: sponsor._id, meta: { name: sponsor.name, eventId: String(eventId) } });
+  return shapeSponsor(sponsor);
+}
+
+async function loadOwnedEventSponsor(organizerId, eventId, id) {
+  await loadOwnedEvent(organizerId, eventId);
+  const sponsor = await Sponsor.findOne({ _id: id, eventId, organizerId });
+  if (!sponsor) throw notFoundError('SPONSOR_NOT_FOUND', 'Sponsor not found');
+  return sponsor;
+}
+
+export async function updateEventSponsor(organizerId, eventId, id, body) {
+  const sponsor = await loadOwnedEventSponsor(organizerId, eventId, id);
+  for (const f of ORG_SPONSOR_FIELDS) if (body[f] !== undefined) sponsor[f] = body[f];
+  if (body.name && body.name !== sponsor.name) sponsor.slug = await uniqueSlug(Sponsor, body.name, { ignoreId: sponsor._id });
+  // A change re-enters moderation so admins re-check what's shown.
+  if (sponsor.status === 'APPROVED') sponsor.status = 'PENDING';
+  await sponsor.save();
+  return shapeSponsor(sponsor);
+}
+
+export async function deleteEventSponsor(organizerId, eventId, id) {
+  const sponsor = await loadOwnedEventSponsor(organizerId, eventId, id);
+  await sponsor.deleteOne();
+  return { ok: true, id: String(sponsor._id) };
 }
 
 // ---- Partner applications ----

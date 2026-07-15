@@ -180,26 +180,28 @@ export default function Help() {
               <div className="relative">
                 <span className="grid h-12 w-12 place-items-center rounded-xl bg-white/10 text-brand-light"><Icon.Headphones width={24} height={24} /></span>
                 <h3 className="mt-5 text-[24px] font-extrabold leading-snug text-white">Still need a hand?</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/60">Our support team is available around the clock — real people, not bots. Average first response under 2 hours.</p>
-                <div className="mt-6 flex items-center gap-2 text-[13px] font-semibold text-brand-light">
-                  <span className="relative flex h-2 w-2"><span className="absolute h-full w-full animate-ping rounded-full bg-success opacity-75" /><span className="relative h-2 w-2 rounded-full bg-success" /></span>
-                  Support online · 24/7
-                </div>
+                <p className="mt-2 text-sm leading-relaxed text-white/60">Email our support team and we’ll get back to you, or browse the FAQs — most questions are answered there.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               {[
-                { icon: (p) => <Icon.Bell {...p} />, title: 'Live chat', sub: 'Fastest — chat with an agent in minutes.', cta: 'Start a chat' },
-                { icon: (p) => <Icon.Orders {...p} />, title: 'Email support', sub: 'Detailed issues, attachments & receipts.', cta: 'support@obs.events' },
-                { icon: (p) => <Icon.Film {...p} />, title: 'Browse FAQs', sub: 'Self-serve answers to common questions.', cta: 'Read FAQs' },
-              ].map((c) => (
-                <button key={c.title} onClick={() => navigate('/faqs')} className="group flex flex-col items-start bg-white p-7 text-left transition hover:bg-brand-soft/60">
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-brand-soft text-brand transition group-hover:bg-brand group-hover:text-white">{c.icon({ width: 18, height: 18 })}</span>
-                  <span className="mt-4 text-[15px] font-bold text-ink">{c.title}</span>
-                  <span className="mt-1.5 text-[13px] leading-relaxed text-ink-mute">{c.sub}</span>
-                  <span className="mt-auto inline-flex items-center gap-1 pt-4 text-[13px] font-semibold text-brand transition group-hover:gap-1.5">{c.cta} <Icon.ChevronRight width={12} height={12} /></span>
-                </button>
-              ))}
+                { icon: (p) => <Icon.Orders {...p} />, title: 'Email support', sub: 'Detailed issues, attachments & receipts.', cta: 'support@obs.events', href: 'mailto:support@obs.events' },
+                { icon: (p) => <Icon.Ticket {...p} />, title: 'Orders & refunds', sub: 'Manage a booking or request a refund.', cta: 'Go to my orders', to: '/account/orders' },
+                { icon: (p) => <Icon.Film {...p} />, title: 'Browse FAQs', sub: 'Self-serve answers to common questions.', cta: 'Read FAQs', to: '/faqs' },
+              ].map((c) => {
+                const cls = 'group flex flex-col items-start bg-white p-7 text-left transition hover:bg-brand-soft/60';
+                const inner = (
+                  <>
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-brand-soft text-brand transition group-hover:bg-brand group-hover:text-white">{c.icon({ width: 18, height: 18 })}</span>
+                    <span className="mt-4 text-[15px] font-bold text-ink">{c.title}</span>
+                    <span className="mt-1.5 text-[13px] leading-relaxed text-ink-mute">{c.sub}</span>
+                    <span className="mt-auto inline-flex items-center gap-1 pt-4 text-[13px] font-semibold text-brand transition group-hover:gap-1.5">{c.cta} <Icon.ChevronRight width={12} height={12} /></span>
+                  </>
+                );
+                return c.href
+                  ? <a key={c.title} href={c.href} className={cls}>{inner}</a>
+                  : <button key={c.title} onClick={() => navigate(c.to)} className={cls}>{inner}</button>;
+              })}
             </div>
           </div>
         </div>

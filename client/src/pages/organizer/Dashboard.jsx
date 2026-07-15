@@ -40,9 +40,12 @@ export default function Dashboard() {
               <span className="inline-flex items-center gap-1.5"><AdminIcon.Events size={13} /> {fmtDate(next.startAt)}</span>
               <span className="inline-flex items-center gap-1.5"><AdminIcon.Chapters size={13} /> {next.isOnline ? 'Online' : [next.venueName, next.city].filter(Boolean).join(', ') || 'TBA'}</span>
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${next.id}/registrations`)}>Registrations</Btn>
               <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${next.id}/checkin`)}>Check-in</Btn>
+              {next.slug && (
+                <Btn size="sm" variant="ghost" onClick={() => window.open(`/event/${next.slug}`, '_blank', 'noopener')}>View live page ↗</Btn>
+              )}
             </div>
           </>
         ) : (

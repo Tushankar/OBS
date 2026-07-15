@@ -31,7 +31,7 @@ export function Btn({ variant = 'primary', size = 'md', className = '', type = '
 // ---------- Card ----------
 export function Card({ className = '', children, ...rest }) {
   return (
-    <div className={`rounded-lg border border-[#E3E8EE] bg-white p-5 shadow-[0_1px_2px_rgba(26,31,54,.05)] ${className}`} {...rest}>
+    <div className={`rounded-xl border border-[#E7EBF0] bg-white p-5 shadow-[0_1px_2px_rgba(26,31,54,.04),0_1px_3px_rgba(26,31,54,.05)] ${className}`} {...rest}>
       {children}
     </div>
   );
@@ -89,11 +89,11 @@ export function statusTone(status) {
 // ---------- Table ----------
 export function Table({ columns, rows, renderCell, empty = 'Nothing to show yet.' }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-[#E3E8EE] bg-white shadow-[0_1px_2px_rgba(26,31,54,.05)]">
+    <div className="overflow-hidden rounded-xl border border-[#E7EBF0] bg-white shadow-[0_1px_2px_rgba(26,31,54,.04),0_1px_3px_rgba(26,31,54,.05)]">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[560px] text-left text-[13px]">
           <thead>
-            <tr className="border-b border-[#E3E8EE] bg-[#F7FAFC]">
+            <tr className="border-b border-[#E7EBF0] bg-[#F8FAFC]">
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -162,7 +162,7 @@ export function Loading({ label = 'Loading…' }) {
 // ---------- Empty state ----------
 export function EmptyState({ icon, title, subtitle, description, action }) {
   return (
-    <div className="rounded-lg border border-dashed border-[#D5DBE5] bg-white px-6 py-14 text-center">
+    <div className="rounded-xl border border-dashed border-[#D5DBE5] bg-white px-6 py-14 text-center">
       {icon && <div className="mx-auto mb-3 flex justify-center text-[#8792A2]">{icon}</div>}
       <h3 className="text-[14.5px] font-semibold text-[#1A1F36]">{title}</h3>
       {(subtitle || description) && <p className="mx-auto mt-1 max-w-sm text-[13px] text-[#697386]">{subtitle || description}</p>}
@@ -222,7 +222,7 @@ export function StatCard({ label, value, hint, icon }) {
         <span className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#697386]">{label}</span>
         {icon && <span className="text-[#8792A2]">{icon}</span>}
       </div>
-      <div className="mt-2 text-[24px] font-bold tracking-[-0.01em] text-[#1A1F36]">{value}</div>
+      <div className="mt-2 text-[24px] font-bold tracking-[-0.02em] text-[#1A1F36] [font-variant-numeric:tabular-nums]">{value}</div>
       {hint && <div className="mt-1 text-[12px] text-[#8792A2]">{hint}</div>}
     </Card>
   );

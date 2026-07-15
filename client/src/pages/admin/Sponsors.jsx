@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { PageHead, Card, Btn, Loading, EmptyState, Pill, Modal, ConfirmDialog, Field, inputCls, selectCls } from '../../components/portal/Kit';
+import { PageHead, Card, Btn, Loading, EmptyState, Pill, Modal, ConfirmDialog, Field, inputCls, selectCls, statusTone } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
@@ -10,6 +10,7 @@ const TIERS = Object.keys(SPONSOR_TIER_LABELS);
 // "Placement" = where the sponsor shows, orthogonal to tier (= benefit level).
 const PLACEMENT_LABELS = { PLATFORM: 'Platform-wide', PROGRAM: 'Program season', EVENT: 'Single event' };
 const SCOPES = Object.keys(PLACEMENT_LABELS);
+const STATUS_LABEL = { PENDING: 'Pending review', APPROVED: 'Live', REJECTED: 'Rejected' };
 
 // Searchable select: type to filter, pick an option, store the id behind a
 // human-readable label (no raw ObjectIds in the UI).
@@ -232,10 +233,21 @@ export default function Sponsors() {
   const [editor, setEditor] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const load = () => api.adminSponsors().then(setRows).catch((e) => { setRows([]); pushToast(apiError(e), false); });
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  const setStatus = async (s, status) => {
+    setBusyId(s.id);
+    try {
+      await api.updateSponsor(s.id, { status });
+      pushToast(status === 'APPROVED' ? `${s.name} approved — now live` : `${s.name} rejected`);
+      load();
+    } catch (e) { pushToast(apiError(e), false); }
+    finally { setBusyId(null); }
+  };
 
   const remove = async () => {
     if (!confirm) return;
@@ -254,11 +266,14 @@ export default function Sponsors() {
 
   if (!rows) return <Loading />;
 
+  const pending = rows.filter((s) => s.status === 'PENDING').length;
+  const sorted = [...rows].sort((a, b) => Number(b.status === 'PENDING') - Number(a.status === 'PENDING'));
+
   return (
     <div>
       <PageHead
         title="Sponsors"
-        subtitle={rows.length ? `${rows.length} sponsor${rows.length === 1 ? '' : 's'}` : 'Sponsor showcase'}
+        subtitle={rows.length ? `${rows.length} sponsor${rows.length === 1 ? '' : 's'}${pending ? ` · ${pending} awaiting review` : ''}` : 'Sponsor showcase'}
         actions={<Btn onClick={() => setEditor({})}><AdminIcon.Plus size={15} /> New sponsor</Btn>}
       />
 
@@ -266,13 +281,17 @@ export default function Sponsors() {
         <EmptyState icon={<AdminIcon.Sponsors size={30} />} title="No sponsors yet" subtitle="Add sponsors to build the public showcase." action={<Btn onClick={() => setEditor({})}><AdminIcon.Plus size={15} /> New sponsor</Btn>} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {rows.map((s) => (
-            <Card key={s.id} className="flex flex-col p-4">
+          {sorted.map((s) => (
+            <Card key={s.id} className={`flex flex-col p-4 ${s.status === 'PENDING' ? 'border-[#E8CFA3] bg-[#FEFBF3]' : ''}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="grid h-12 w-[72px] shrink-0 place-items-center overflow-hidden rounded-md border border-[#EDF0F4] bg-white">
                   {s.logoUrl ? <img src={s.logoUrl} alt={s.name} className="max-h-10 max-w-[64px] object-contain" /> : <span className="text-[10px] font-semibold text-[#C9D2DE]">No logo</span>}
                 </div>
-                {!s.isActive && <Pill tone="gray">Hidden</Pill>}
+                <div className="flex flex-col items-end gap-1">
+                  {s.status !== 'APPROVED' && <Pill tone={statusTone(s.status)}>{STATUS_LABEL[s.status] || s.status}</Pill>}
+                  {!s.isActive && <Pill tone="gray">Hidden</Pill>}
+                  {s.organizerId && <span className="text-[10px] font-medium text-[#8792A2]">Organizer-submitted</span>}
+                </div>
               </div>
               <div className="mt-3 truncate text-[14px] font-semibold text-[#1A1F36]">{s.name}</div>
               <div className="mt-1.5 flex flex-wrap gap-1">
@@ -280,7 +299,16 @@ export default function Sponsors() {
                 <Pill tone="gray">{PLACEMENT_LABELS[s.scope] || s.scope}</Pill>
               </div>
               {s.blurb && <div className="mt-2 line-clamp-2 text-[12px] text-[#697386]">{s.blurb}</div>}
-              <div className="mt-4 flex gap-1.5 border-t border-[#EDF0F4] pt-3">
+              <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-[#EDF0F4] pt-3">
+                {s.status === 'PENDING' && (
+                  <>
+                    <Btn size="sm" disabled={busyId === s.id} onClick={() => setStatus(s, 'APPROVED')}>Approve</Btn>
+                    <Btn size="sm" variant="ghost" disabled={busyId === s.id} onClick={() => setStatus(s, 'REJECTED')}>Reject</Btn>
+                  </>
+                )}
+                {s.status === 'REJECTED' && (
+                  <Btn size="sm" variant="ghost" disabled={busyId === s.id} onClick={() => setStatus(s, 'APPROVED')}>Approve</Btn>
+                )}
                 <Btn variant="ghost" size="sm" onClick={() => setEditor(s)}><AdminIcon.Edit size={13} /> Edit</Btn>
                 <Btn variant="ghost" size="sm" onClick={() => setConfirm(s)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
               </div>

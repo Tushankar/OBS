@@ -23,6 +23,7 @@ export default function Events() {
   const [data, setData] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [rejecting, setRejecting] = useState(null); // event pending rejection
+  const [cancelling, setCancelling] = useState(null); // published event pending cancellation
   const [editor, setEditor] = useState(null); // null | {} (new) | eventRow (edit)
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
@@ -59,6 +60,21 @@ export default function Events() {
       load();
     } catch (e) {
       pushToast(apiError(e, 'Action failed'), false);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function cancelEvent(reason) {
+    const ev = cancelling;
+    setBusyId(ev.id);
+    try {
+      const r = await api.adminCancelEvent(ev.id, reason);
+      pushToast(`Cancelled “${ev.title}” — ${r.ticketsVoided} tickets voided, ${r.emailed} attendees emailed`);
+      setCancelling(null);
+      load();
+    } catch (e) {
+      pushToast(apiError(e, 'Could not cancel'), false);
     } finally {
       setBusyId(null);
     }
@@ -144,6 +160,7 @@ export default function Events() {
                 <AdminIcon.Star size={13} /> {ev.isFeatured ? 'Unfeature' : 'Feature'}
               </Btn>
               {edit}
+              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setCancelling(ev)} className="!text-[#B3093C]">Cancel</Btn>
             </div>
           );
         }
@@ -173,6 +190,18 @@ export default function Events() {
       ) : (
         <Table columns={columns} rows={data.events} renderCell={renderCell} empty="No events here." />
       )}
+
+      <ReasonDialog
+        open={!!cancelling}
+        onClose={() => setCancelling(null)}
+        onSubmit={cancelEvent}
+        busy={busyId === cancelling?.id}
+        title={`Cancel “${cancelling?.title || ''}”?`}
+        subtitle="Final: tickets are voided, paid orders auto-refund, and every attendee is emailed the reason."
+        label="Reason (sent to attendees)"
+        placeholder="e.g. The venue became unavailable."
+        confirmLabel="Cancel event"
+      />
 
       <ReasonDialog
         open={!!rejecting}

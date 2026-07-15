@@ -13,6 +13,9 @@ import publicEventRoutes from './modules/events/events.public.routes.js';
 import organizerEventRoutes from './modules/events/events.organizer.routes.js';
 import ticketTypeRoutes from './modules/ticketTypes/ticketTypes.routes.js';
 import promoCodeRoutes from './modules/promoCodes/promoCodes.routes.js';
+import promoAdminRoutes from './modules/promoCodes/promoCodes.admin.routes.js';
+import campaignRoutes from './modules/campaigns/campaigns.routes.js';
+import marketingPublicRoutes from './modules/campaigns/marketing.public.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import refundAdminRoutes from './modules/refunds/refunds.admin.routes.js';
 import reportRoutes from './modules/reports/reports.routes.js';
@@ -28,6 +31,7 @@ import speakerRoutes from './modules/speakers/speakers.routes.js';
 import speakerAdminRoutes from './modules/speakers/speakers.admin.routes.js';
 import sponsorRoutes from './modules/sponsors/sponsors.routes.js';
 import sponsorAdminRoutes from './modules/sponsors/sponsors.admin.routes.js';
+import sponsorOrganizerRoutes from './modules/sponsors/sponsors.organizer.routes.js';
 import articleRoutes from './modules/articles/articles.routes.js';
 import articleAdminRoutes from './modules/articles/articles.admin.routes.js';
 import programRoutes from './modules/programs/programs.routes.js';
@@ -95,12 +99,14 @@ export function createApp() {
   app.use('/api/v1/launches', launchRoutes);
   app.use('/api/v1/hero-slides', heroPublicRoutes);
   app.use('/api/v1/geo', geoRoutes);
+  app.use('/api/v1/marketing', marketingPublicRoutes);
   app.use('/api/v1/stats', statsRoutes);
   app.use('/api/v1/events', publicEventRoutes);
   app.use('/api/v1/tickets', ticketValidateRoutes);
   app.use('/api/v1/organizers', publicOrganizerRoutes);
   app.use('/api/v1/organizer/events/:eventId/ticket-types', ticketTypeRoutes);
   app.use('/api/v1/organizer/events/:eventId/promo-codes', promoCodeRoutes);
+  app.use('/api/v1/organizer/events/:eventId/sponsors', sponsorOrganizerRoutes);
   app.use('/api/v1/organizer/events', organizerEventRoutes);
   app.use('/api/v1/organizer', organizerRoutes);
   app.use('/api/v1/organizer', checkinRoutes);
@@ -114,6 +120,8 @@ export function createApp() {
   app.use('/api/v1/admin', sponsorAdminRoutes); // /admin/sponsors, /admin/partner-applications
   app.use('/api/v1/admin/articles', articleAdminRoutes);
   app.use('/api/v1/admin/programs', programAdminRoutes);
+  app.use('/api/v1/admin/promos', promoAdminRoutes);
+  app.use('/api/v1/admin/campaigns', campaignRoutes);
   app.use('/api/v1/admin/hero-slides', heroAdminRoutes);
   app.use('/api/v1/admin', adminRoutes);
 

@@ -3,9 +3,12 @@ import { loadOwnedEvent } from '../events/events.service.js';
 import { badRequest, conflict, notFoundError } from '../../utils/errors.js';
 
 export function shapePromoCode(p) {
+  const ev = p.eventId && typeof p.eventId === 'object' && p.eventId.title ? p.eventId : null;
   return {
     id: String(p._id),
-    eventId: String(p.eventId),
+    scope: p.scope || 'EVENT',
+    eventId: p.eventId ? String(ev ? ev._id : p.eventId) : null,
+    eventTitle: ev ? ev.title : null,
     code: p.code,
     discountType: p.discountType,
     discountValue: p.discountValue, // percent value or flat paise
@@ -72,6 +75,52 @@ export async function updatePromoCode(organizerId, eventId, id, body) {
 
 export async function deletePromoCode(organizerId, eventId, id) {
   const pc = await loadOwnedPromo(organizerId, eventId, id);
+  if (pc.usedCount > 0) {
+    throw conflict('PROMO_CODE_USED', 'Cannot delete a promo code that has been used — deactivate it instead');
+  }
+  await pc.deleteOne();
+  return { ok: true, id: String(pc._id) };
+}
+
+// ---------------------------------------------------------------------------
+// Admin — platform-wide promo campaigns (scope PLATFORM, no event). Admins get
+// full oversight of every code; they create/manage the site-wide ones. Per-event
+// codes remain organizer-owned above.
+// ---------------------------------------------------------------------------
+
+// All codes (platform + every event's), newest first, with the event title
+// resolved for event-scoped rows so the admin table reads clearly.
+export async function adminListPromos() {
+  const rows = await PromoCode.find({}).sort({ createdAt: -1 }).populate('eventId', 'title');
+  return rows.map(shapePromoCode);
+}
+
+export async function adminCreatePromo(adminId, body) {
+  const pc = new PromoCode({ ...body, scope: 'PLATFORM', eventId: undefined, createdById: adminId });
+  assertValid(pc);
+  try {
+    await pc.save();
+  } catch (err) {
+    if (err.code === 11000) throw conflict('PROMO_CODE_EXISTS', 'A platform promo code with that code already exists');
+    throw err;
+  }
+  return shapePromoCode(pc);
+}
+
+export async function adminUpdatePromo(adminId, id, body) {
+  const pc = await PromoCode.findOne({ _id: id, scope: 'PLATFORM' });
+  if (!pc) throw notFoundError('PROMO_CODE_NOT_FOUND', 'Promo code not found');
+  // Code and scope are immutable after creation; everything else is editable.
+  const { code, scope, eventId, ...rest } = body;
+  Object.assign(pc, rest);
+  assertValid(pc);
+  await pc.save();
+  return shapePromoCode(pc);
+}
+
+export async function adminDeletePromo(id) {
+  const pc = await PromoCode.findOne({ _id: id, scope: 'PLATFORM' });
+  if (!pc) throw notFoundError('PROMO_CODE_NOT_FOUND', 'Promo code not found');
   if (pc.usedCount > 0) {
     throw conflict('PROMO_CODE_USED', 'Cannot delete a promo code that has been used — deactivate it instead');
   }

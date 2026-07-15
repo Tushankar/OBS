@@ -5,6 +5,7 @@ const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
 
 export const eventParam = z.object({ eventId: objectId });
 export const pcParams = z.object({ eventId: objectId, id: objectId });
+export const idParam = z.object({ id: objectId });
 
 // discountValue: PERCENT → 1..100; FLAT → paise. minOrderAmount is paise.
 const fields = {

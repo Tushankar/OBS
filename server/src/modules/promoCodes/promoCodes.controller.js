@@ -19,3 +19,17 @@ export async function remove(req, res) {
   const result = await svc.deletePromoCode(req.organizer._id, req.params.eventId, req.params.id);
   res.status(200).json(result);
 }
+
+// ---- Admin (platform-wide) ----
+export async function adminList(req, res) {
+  res.status(200).json({ promoCodes: await svc.adminListPromos() });
+}
+export async function adminCreate(req, res) {
+  res.status(201).json({ promoCode: await svc.adminCreatePromo(req.user.id, req.body) });
+}
+export async function adminUpdate(req, res) {
+  res.status(200).json({ promoCode: await svc.adminUpdatePromo(req.user.id, req.params.id, req.body) });
+}
+export async function adminRemove(req, res) {
+  res.status(200).json(await svc.adminDeletePromo(req.params.id));
+}

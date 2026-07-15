@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PageHead, Card, Pill, Table, SearchInput, Btn, Loading, ConfirmDialog } from '../../components/portal/Kit';
+import { PageHead, Card, Pill, statusTone, Table, Tabs, SearchInput, Btn, Loading, ConfirmDialog } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
@@ -16,6 +16,7 @@ const selectCls = 'h-9 rounded-md border border-line bg-white px-3 text-[13px] t
 const COLUMNS = [
   { key: 'chapter', label: 'Chapter' },
   { key: 'type', label: 'Type' },
+  { key: 'status', label: 'Status' },
   { key: 'tier', label: 'Tier' },
   { key: 'ecosystem', label: 'Ecosystem' },
   { key: 'flagship', label: 'Flagship' },
@@ -111,10 +112,13 @@ export default function Chapters() {
   const [chapters, setChapters] = useState(null);
   const [query, setQuery] = useState('');
   const [type, setType] = useState('All');
+  const [statusTab, setStatusTab] = useState('all');
   const [showAll, setShowAll] = useState(false);
   const [editor, setEditor] = useState(null); // null | {} | chapter
   const [confirm, setConfirm] = useState(null); // chapter pending delete
-  const [busy, setBusy] = useState(false);
+  const [suspendTarget, setSuspendTarget] = useState(null); // chapter pending suspend
+  const [busy, setBusy] = useState(false); // delete
+  const [busyId, setBusyId] = useState(null); // status change
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const load = () => api.adminChapters().then((d) => setChapters(Array.isArray(d) ? d : [])).catch((e) => { setChapters([]); pushToast(apiError(e), false); });
@@ -125,15 +129,40 @@ export default function Chapters() {
     return ['All', ...Array.from(set)];
   }, [chapters]);
 
+  const statusCounts = useMemo(() => {
+    const c = { PENDING: 0, APPROVED: 0, SUSPENDED: 0 };
+    for (const ch of chapters || []) if (c[ch.status] !== undefined) c[ch.status] += 1;
+    return c;
+  }, [chapters]);
+
   if (!chapters) return <Loading />;
 
   const q = query.trim().toLowerCase();
   const filtered = chapters.filter((c) => {
     const matchQ = !q || (c.name || '').toLowerCase().includes(q);
     const matchType = type === 'All' || c.type === type;
-    return matchQ && matchType;
+    const matchStatus = statusTab === 'all' || c.status === statusTab;
+    return matchQ && matchType && matchStatus;
   });
   const rows = showAll ? filtered : filtered.slice(0, CAP);
+
+  const statusTabs = [
+    ['all', 'All'],
+    ['PENDING', `Pending${statusCounts.PENDING ? ` (${statusCounts.PENDING})` : ''}`],
+    ['APPROVED', `Approved${statusCounts.APPROVED ? ` (${statusCounts.APPROVED})` : ''}`],
+    ['SUSPENDED', `Suspended${statusCounts.SUSPENDED ? ` (${statusCounts.SUSPENDED})` : ''}`],
+  ];
+
+  const changeStatus = async (c, status) => {
+    setBusyId(c.id);
+    try {
+      await api.setChapterStatus(c.id, status);
+      pushToast(status === 'APPROVED' ? `Approved ${c.name}` : `Suspended ${c.name}`);
+      setSuspendTarget(null);
+      load();
+    } catch (e) { pushToast(apiError(e, 'Could not update status'), false); }
+    finally { setBusyId(null); }
+  };
 
   const remove = async () => {
     if (!confirm) return;
@@ -152,12 +181,23 @@ export default function Chapters() {
       </div>
     );
     if (key === 'type') return <span className="text-ink-soft">{humanType(c.type)}</span>;
+    if (key === 'status') return <Pill tone={statusTone(c.status)}>{c.status}</Pill>;
     if (key === 'tier') return <span className="text-ink-soft">{c.tier || c.pillarGroup || '—'}</span>;
     if (key === 'ecosystem') return <span className="text-ink-soft">{c.ecosystemTier || '—'}</span>;
     if (key === 'flagship') return c.isFlagship ? <Pill tone="green">★</Pill> : <span className="text-ink-faint">—</span>;
     if (key === 'events') return <span className="font-medium text-ink">{c.eventCount ?? 0}</span>;
     if (key === 'actions') return (
       <div className="flex justify-end gap-1.5">
+        {c.status !== 'APPROVED' && (
+          <Btn size="sm" variant="ghost" disabled={busyId === c.id} className="!text-[#1B7A34]" onClick={() => changeStatus(c, 'APPROVED')}>
+            <AdminIcon.Check size={13} /> Approve
+          </Btn>
+        )}
+        {c.status === 'APPROVED' && (
+          <Btn size="sm" variant="ghost" disabled={busyId === c.id} className="!text-[#9A6B0F]" onClick={() => setSuspendTarget(c)}>
+            Suspend
+          </Btn>
+        )}
         <Btn size="sm" variant="ghost" onClick={() => setEditor(c)}><AdminIcon.Edit size={13} /> Edit</Btn>
         <Btn size="sm" variant="ghost" onClick={() => setConfirm(c)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
       </div>
@@ -176,6 +216,7 @@ export default function Chapters() {
           </select>
         </div>
       </Card>
+      <Tabs tabs={statusTabs} active={statusTab} onChange={setStatusTab} />
       <Table columns={COLUMNS} rows={rows} renderCell={renderCell} empty="No chapters match your filters." />
       {filtered.length > CAP && (
         <div className="mt-4 flex items-center justify-center gap-3">
@@ -193,6 +234,16 @@ export default function Chapters() {
         title="Delete chapter"
         body={`Delete “${confirm?.name}”? Events linked to it must be reassigned first — the API blocks the delete if it’s in use.`}
         confirmLabel="Delete chapter"
+      />
+      <ConfirmDialog
+        open={!!suspendTarget}
+        onClose={() => setSuspendTarget(null)}
+        onConfirm={() => changeStatus(suspendTarget, 'SUSPENDED')}
+        busy={busyId === suspendTarget?.id}
+        danger
+        title="Suspend chapter"
+        body={`Suspend “${suspendTarget?.name}”? It will be hidden from the public directory and its join page until you approve it again.`}
+        confirmLabel="Suspend chapter"
       />
     </div>
   );

@@ -5,9 +5,9 @@ import { PageHead, Table, Pill, statusTone, SearchInput, Card, Loading, formatPr
 
 const COLUMNS = [
   { key: 'orderNumber', label: 'Order' },
+  { key: 'buyer', label: 'Booked by' },
   { key: 'event', label: 'Event' },
   { key: 'gateway', label: 'Gateway' },
-  { key: 'method', label: 'Method' },
   { key: 'amount', label: 'Amount', align: 'right' },
   { key: 'status', label: 'Status' },
   { key: 'date', label: 'Date' },
@@ -38,9 +38,14 @@ export default function Transactions() {
 
   const renderCell = (row, key) => {
     if (key === 'orderNumber') return <span className="font-semibold text-ink">{row.orderNumber}</span>;
+    if (key === 'buyer') return (
+      <span className="block min-w-0">
+        <span className="block truncate font-medium text-ink">{row.buyer}</span>
+        {row.buyerEmail && <span className="block truncate text-[11.5px] text-ink-mute">{row.buyerEmail}</span>}
+      </span>
+    );
     if (key === 'event') return <span className="text-ink-soft">{row.event}</span>;
     if (key === 'gateway') return <span className="text-ink-mute">{row.gateway}</span>;
-    if (key === 'method') return <span className="uppercase text-ink-mute">{row.method}</span>;
     if (key === 'amount') return <span className="font-medium text-ink">{formatPrice(row.amount, row.currency)}</span>;
     if (key === 'status') return <Pill tone={statusTone(row.status)}>{row.status}</Pill>;
     if (key === 'date') return <span className="text-ink-mute">{fmtDate(row.date)}</span>;
@@ -52,7 +57,7 @@ export default function Transactions() {
       <PageHead title="Transactions" subtitle={data ? `${data.total} payments` : undefined} />
       <Card className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
-          <SearchInput value={query} onChange={setQuery} placeholder="Search order number…" className="max-w-xs" />
+          <SearchInput value={query} onChange={setQuery} placeholder="Search order, name or email…" className="max-w-xs" />
           <select value={gateway} onChange={(e) => setGateway(e.target.value)} className={selectCls} aria-label="Filter by gateway">
             {GATEWAYS.map((g) => <option key={g} value={g}>{g || 'All gateways'}</option>)}
           </select>

@@ -95,6 +95,13 @@ export default function EventDetail() {
             )}
           </div>
           <h1 className="mt-3 text-2xl font-bold leading-tight text-ink sm:text-[28px]">{event.title}</h1>
+          {event.status === 'CANCELLED' && (
+            <div className="mt-3 rounded-lg border border-[#E4B4AF] bg-[#FBEDEC] px-4 py-3 text-sm text-[#8E2A22]">
+              <span className="font-bold">This event has been cancelled.</span>
+              {event.cancelReason && <span> {event.cancelReason}</span>}
+              <span className="mt-1 block text-[12.5px]">Ticket holders have been emailed; paid orders are refunded to the original payment method.</span>
+            </div>
+          )}
           <div className="mt-3.5 flex flex-wrap gap-4 text-sm text-ink-soft">
             <span className="flex items-center gap-1.5"><Icon.Calendar /> {fmtRange(event.startAt, event.endAt, event.timezone) || 'Date to be announced'}</span>
             <span className="flex items-center gap-1.5"><Icon.Pin /> {loc}</span>
@@ -210,9 +217,18 @@ export default function EventDetail() {
           )}
         </div>
 
-        {/* Booking card (live) — sticky on desktop, stacks below on mobile */}
+        {/* Booking card (live) — sticky on desktop, stacks below on mobile.
+            A cancelled event doesn't sell; the banner above explains why. */}
         <div className="lg:sticky lg:top-[120px]">
-          <BookingCard event={event} />
+          {event.status === 'CANCELLED' ? (
+            <div className="rounded-xl border border-line p-5 shadow-panel">
+              <div className="mb-2 text-base font-bold text-ink">Bookings closed</div>
+              <p className="text-[13px] text-ink-mute">This event was cancelled — tickets are no longer on sale.</p>
+              <button onClick={() => navigate('/events')} className="mt-4 h-10 w-full rounded-md border border-line text-sm font-semibold text-ink-soft transition hover:border-brand hover:text-brand">Browse other events</button>
+            </div>
+          ) : (
+            <BookingCard event={event} />
+          )}
         </div>
       </div>
     </div>

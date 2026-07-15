@@ -35,6 +35,10 @@ const eventSchema = new Schema(
     endAt: { type: Date }, // required at submit
     status: { type: String, enum: EVENT_STATUS, default: 'DRAFT' },
     rejectionReason: String,
+    // Set when a PUBLISHED event is cancelled (organizer or admin): attendees
+    // are emailed, tickets voided and paid orders auto-refunded (§ cancellation).
+    cancelReason: String,
+    cancelledAt: Date,
     isFeatured: { type: Boolean, default: false },
     viewsCount: { type: Number, default: 0 },
     reminderSentAt: Date,

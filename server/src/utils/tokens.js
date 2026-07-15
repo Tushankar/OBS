@@ -49,4 +49,31 @@ export function resetFingerprint(user) {
     .slice(0, 16);
 }
 
+// Unsubscribe token: stateless, long-lived, bound to the recipient email.
+// Carried in every campaign email's footer link — one click opts the address
+// out of marketing (transactional mail is unaffected).
+export function signUnsubscribeToken(email) {
+  return jwt.sign({ purpose: 'unsub', email }, env.JWT_ACCESS_SECRET, { expiresIn: '365d' });
+}
+
+export function verifyUnsubscribeToken(token) {
+  const payload = jwt.verify(token, env.JWT_ACCESS_SECRET);
+  if (payload.purpose !== 'unsub' || !payload.email) throw new Error('Invalid unsubscribe token');
+  return payload;
+}
+
+// Email-verification token: stateless, bound to the address being verified.
+export function signEmailVerifyToken(user) {
+  return jwt.sign({ purpose: 'everify', email: user.email }, env.JWT_ACCESS_SECRET, {
+    subject: String(user._id),
+    expiresIn: '7d',
+  });
+}
+
+export function verifyEmailVerifyToken(token) {
+  const payload = jwt.verify(token, env.JWT_ACCESS_SECRET);
+  if (payload.purpose !== 'everify' || !payload.email) throw new Error('Invalid verification token');
+  return payload;
+}
+
 export const newJti = () => crypto.randomUUID();

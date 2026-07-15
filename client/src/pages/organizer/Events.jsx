@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
 import { PageHead, Table, Pill, statusTone, Btn, Loading, EmptyState, ConfirmDialog } from '../../components/portal/Kit';
+import ReasonDialog from '../../components/admin/ReasonDialog';
 import { AdminIcon } from '../../components/admin/AdminIcons';
 
 const fmtDate = (d) =>
@@ -16,6 +17,7 @@ export default function Events() {
   const [data, setData] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [confirm, setConfirm] = useState(null); // event pending delete
+  const [cancelling, setCancelling] = useState(null); // published event pending cancellation
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
@@ -38,6 +40,21 @@ export default function Events() {
       load();
     } catch (e) {
       pushToast(apiError(e, 'Could not delete'), false);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function cancelEvent(reason) {
+    const ev = cancelling;
+    setBusyId(ev.id);
+    try {
+      const r = await api.organizerCancelEvent(ev.id, reason);
+      pushToast(`Event cancelled — ${r.ticketsVoided} ticket${r.ticketsVoided === 1 ? '' : 's'} voided, ${r.emailed} attendee${r.emailed === 1 ? '' : 's'} emailed`);
+      setCancelling(null);
+      load();
+    } catch (e) {
+      pushToast(apiError(e, 'Could not cancel the event'), false);
     } finally {
       setBusyId(null);
     }
@@ -81,6 +98,9 @@ export default function Events() {
             <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/edit`)}>
               {EDITABLE.includes(ev.status) ? <><AdminIcon.Edit size={13} /> Edit</> : <><AdminIcon.Eye size={13} /> View</>}
             </Btn>
+            {ev.status === 'PUBLISHED' && (
+              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setCancelling(ev)} className="!text-[#B3093C]">Cancel event</Btn>
+            )}
             {EDITABLE.includes(ev.status) && (
               <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setConfirm(ev)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
             )}
@@ -118,6 +138,18 @@ export default function Events() {
         title="Delete draft"
         body={`Delete “${confirm?.title}”? This can’t be undone.`}
         confirmLabel="Delete draft"
+      />
+
+      <ReasonDialog
+        open={!!cancelling}
+        onClose={() => setCancelling(null)}
+        onSubmit={cancelEvent}
+        busy={busyId === cancelling?.id}
+        title={`Cancel “${cancelling?.title}”?`}
+        subtitle="This is final: tickets are voided, paid orders are refunded automatically, and every attendee is emailed your reason."
+        label="Reason (sent to attendees)"
+        placeholder="e.g. The venue became unavailable and we couldn't secure an alternative in time."
+        confirmLabel="Cancel event"
       />
     </div>
   );

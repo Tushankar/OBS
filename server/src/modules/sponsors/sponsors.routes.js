@@ -8,6 +8,7 @@ import { asyncHandler } from '../../utils/asyncHandler.js';
 const router = Router();
 
 router.get('/sponsors', validate({ query: schemas.listSponsorsQuery }), asyncHandler(c.list));
+router.get('/sponsors/:slug', validate({ params: schemas.slugParam }), asyncHandler(c.detail));
 router.get('/events/:slug/sponsors', validate({ params: schemas.slugParam }), asyncHandler(c.eventSponsors));
 router.post('/partner-applications', validate({ body: schemas.partnerApplicationSchema }), asyncHandler(c.apply));
 

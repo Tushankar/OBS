@@ -1,10 +1,12 @@
 import { z } from 'zod';
-import { SPONSOR_TIER, SPONSOR_SCOPE, PARTNER_STATUS } from '../../constants.js';
+import { SPONSOR_TIER, SPONSOR_SCOPE, SPONSOR_STATUS, PARTNER_STATUS } from '../../constants.js';
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
 
 export const idParam = z.object({ id: objectId });
 export const slugParam = z.object({ slug: z.string().trim().min(1).max(200) });
+export const eventParam = z.object({ eventId: objectId });
+export const esParams = z.object({ eventId: objectId, id: objectId });
 
 export const listSponsorsQuery = z.object({
   scope: z.enum(SPONSOR_SCOPE).optional(),
@@ -22,10 +24,24 @@ export const createSponsorSchema = z.object({
   blurb: z.string().trim().max(1000).optional(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.boolean().optional(),
+  status: z.enum(SPONSOR_STATUS).optional(), // admin approve/reject
 });
 // Update accepts null on the ref fields so changing placement clears a stale link.
 export const updateSponsorSchema = createSponsorSchema
   .extend({ eventId: objectId.nullable(), programId: objectId.nullable() })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });
+
+// Organizer-submitted event sponsors — a tighter field set (no scope/status/ids;
+// the service fixes those). Logo/website optional so a draft can be saved fast.
+export const createEventSponsorSchema = z.object({
+  name: z.string().trim().min(2).max(160),
+  logoUrl: z.string().trim().url().max(500).optional(),
+  website: z.string().trim().url().max(500).optional(),
+  tier: z.enum(SPONSOR_TIER),
+  blurb: z.string().trim().max(1000).optional(),
+});
+export const updateEventSponsorSchema = createEventSponsorSchema
   .partial()
   .refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });
 

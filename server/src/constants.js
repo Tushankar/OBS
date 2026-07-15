@@ -17,6 +17,8 @@ export const CHAPTER_TYPE = [
 ];
 export const EVENT_STATUS = ['DRAFT', 'PENDING_APPROVAL', 'PUBLISHED', 'REJECTED', 'CANCELLED', 'COMPLETED'];
 export const DISCOUNT_TYPE = ['PERCENT', 'FLAT'];
+// Promo scope: EVENT (organizer, one event) / PLATFORM (admin, all events).
+export const PROMO_SCOPE = ['EVENT', 'PLATFORM'];
 export const ORDER_STATUS = ['PENDING', 'PAID', 'FAILED', 'EXPIRED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
 // Payments are Stripe-only. RAZORPAY is retained as a legacy enum value so any
 // pre-existing orders/payments still validate; new orders only use STRIPE/FREE.
@@ -36,13 +38,22 @@ export const EMAIL_TYPE = [
   'REFUND_PROCESSED',
   'REFUND_REJECTED',
   'PASSWORD_RESET',
+  'CAMPAIGN', // admin-triggered announcement blast (see modules/campaigns)
+  'EVENT_CANCELLED', // attendee notification when a published event is cancelled
+  'EMAIL_VERIFICATION', // verify-your-address link sent on signup / on request
 ];
+// Admin email campaigns (announcements / new-event launches).
+export const CAMPAIGN_STATUS = ['DRAFT', 'SENDING', 'SENT'];
+export const CAMPAIGN_AUDIENCE = ['ALL_USERS', 'EVENT_ATTENDEES'];
 export const EMAIL_STATUS = ['QUEUED', 'SENT', 'FAILED'];
 export const PAGE_STATUS = ['DRAFT', 'PUBLISHED'];
 
 // ----- Community & content (§5.1) -----
 export const SPONSOR_TIER = ['TITLE', 'PRESENTING', 'EVENT', 'TECHNOLOGY', 'MEDIA', 'PARTNER'];
 export const SPONSOR_SCOPE = ['PLATFORM', 'PROGRAM', 'EVENT'];
+// Moderation state. Admin-created sponsors default APPROVED; organizer-submitted
+// EVENT sponsors start PENDING and only go public once an admin approves.
+export const SPONSOR_STATUS = ['PENDING', 'APPROVED', 'REJECTED'];
 export const PARTNER_STATUS = ['NEW', 'REVIEWING', 'APPROVED', 'DECLINED'];
 export const ARTICLE_TYPE = ['NEWS', 'ARTICLE', 'PRESS'];
 export const ARTICLE_STATUS = ['DRAFT', 'PUBLISHED'];

@@ -1,16 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../components/common/Icon';
 import PageHero, { StatStrip } from '../components/common/PageHero';
-import { useApp } from '../context/AppContext';
 import { LYE_STATS, LYE_BENEFITS, LYE_QUOTE } from '../data/events';
 
 const STEPS = [
-  ['Tell us about your event', 'Share the format, city and expected audience.'],
+  ['Apply to organize', 'Tell us about you and your community — approval is quick.'],
   ['Set up ticketing', 'We help you build ticket tiers, pricing and promo codes.'],
   ['Go live & get paid', 'Publish, sell, scan at the door, and get paid securely via Stripe.'],
 ];
-const TYPES = ['Summits', 'Webinars', 'Networking', 'Workshops', 'Gala Dinners', 'Other'];
 
 /* Benefit icons keyed by title — line icons instead of emoji. */
 const BENEFIT_ICONS = {
@@ -40,23 +38,7 @@ const BENEFIT_ICONS = {
 
 export default function ListYourEvent() {
   const navigate = useNavigate();
-  const { pushToast } = useApp();
-  const [form, setForm] = useState({ name: '', email: '', org: '', type: 'Summits', msg: '' });
-  const [errs, setErrs] = useState({});
-  const [sent, setSent] = useState(false);
   useEffect(() => { window.scrollTo(0, 0); document.title = 'List your event — OBS Events'; }, []);
-
-  const field = (key) => (e) => { setForm((f) => ({ ...f, [key]: e.target.value })); setErrs((x) => ({ ...x, [key]: '' })); };
-  const input = (key) => `h-11 w-full rounded-lg border px-3.5 text-sm text-ink outline-none transition focus:border-brand ${errs[key] ? 'border-brand' : 'border-line'}`;
-
-  const submit = () => {
-    const e = {};
-    if (form.name.trim().length < 2) e.name = 'Enter your name';
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) e.email = 'Enter a valid email';
-    if (form.org.trim().length < 2) e.org = 'Enter your organization';
-    if (Object.keys(e).length) { setErrs(e); return; }
-    setSent(true); pushToast('Thanks! Our team will be in touch.');
-  };
 
   return (
     <div className="pb-16">
@@ -158,55 +140,32 @@ export default function ListYourEvent() {
               </div>
             </div>
 
-            <div className="bg-white p-8 sm:p-10">
-              {sent ? (
-                <div className="flex h-full flex-col items-center justify-center py-10 text-center">
-                  <div className="grid h-16 w-16 animate-scaleIn place-items-center rounded-full bg-success text-white"><Icon.Check width={30} height={30} /></div>
-                  <div className="mt-5 text-xl font-bold text-ink">Application received</div>
-                  <div className="mt-1.5 max-w-[320px] text-sm leading-relaxed text-ink-mute">Thanks — our partnerships team will reach out within two business days.</div>
-                  <button onClick={() => navigate('/')} className="mt-6 rounded-full border border-line px-6 py-2.5 text-sm font-medium text-ink-soft transition hover:border-brand hover:text-brand">Back to home</button>
-                </div>
-              ) : (
-                <>
-                  <h3 className="text-xl font-bold text-ink">Tell us about your event</h3>
-                  <p className="mt-1.5 text-[13px] text-ink-mute">A few basics to get started — takes under a minute.</p>
-                  <div className="mt-6 flex flex-col gap-3">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label="Your name" err={errs.name}><input value={form.name} onChange={field('name')} placeholder="Bhavesh K" className={input('name')} /></Field>
-                      <Field label="Work email" err={errs.email}><input value={form.email} onChange={field('email')} placeholder="you@company.com" className={input('email')} /></Field>
-                    </div>
-                    <Field label="Organization" err={errs.org}><input value={form.org} onChange={field('org')} placeholder="Your company or community" className={input('org')} /></Field>
-                    <div>
-                      <div className="mb-2 text-[13px] font-medium text-ink-soft">Event type</div>
-                      <div className="flex flex-wrap gap-2">
-                        {TYPES.map((t) => (
-                          <button key={t} onClick={() => setForm((f) => ({ ...f, type: t }))} className={`rounded-full border px-4 py-2 text-[13px] transition ${form.type === t ? 'border-brand bg-brand-soft font-semibold text-brand' : 'border-line text-ink-soft hover:border-ink-faint'}`}>{t}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="mt-1">
-                      <div className="mb-1.5 text-[13px] font-medium text-ink-soft">Anything else? (optional)</div>
-                      <textarea value={form.msg} onChange={field('msg')} placeholder="Expected audience, dates, city…" className="min-h-[96px] w-full resize-y rounded-lg border border-line px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-brand" />
-                    </div>
-                    <button onClick={submit} className="mt-2 h-12 rounded-full bg-brand text-sm font-semibold text-white shadow-card transition hover:bg-brand-dark">Submit application</button>
-                    <div className="text-center text-xs text-ink-mute">No commitment — submitting doesn’t list your event yet.</div>
+            <div className="flex flex-col justify-center bg-white p-8 sm:p-10">
+              <h3 className="text-xl font-bold text-ink">Ready to get started?</h3>
+              <p className="mt-1.5 text-[13px] text-ink-mute">Apply to become an OBS organizer. Once approved, you can create events, set up ticketing, and go live — all from your organizer dashboard.</p>
+              <div className="mt-6 flex flex-col gap-3">
+                {[
+                  'Free to set up — you only pay when you sell',
+                  'Full control over tickets, pricing and promo codes',
+                  'Check in attendees at the door with QR scanning',
+                ].map((t) => (
+                  <div key={t} className="flex items-start gap-3 text-sm leading-relaxed text-ink-soft">
+                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-soft text-brand"><Icon.Check width={11} height={11} /></span>
+                    {t}
                   </div>
-                </>
-              )}
+                ))}
+              </div>
+              <button
+                onClick={() => navigate('/organizer/apply')}
+                className="mt-8 h-12 rounded-full bg-brand text-sm font-semibold text-white shadow-card transition hover:bg-brand-dark"
+              >
+                Apply to organize events
+              </button>
+              <div className="mt-3 text-center text-xs text-ink-mute">Takes a couple of minutes · Prefer email? partners@obs.events</div>
             </div>
           </div>
         </div>
       </section>
-    </div>
-  );
-}
-
-function Field({ label, err, children }) {
-  return (
-    <div>
-      <div className="mb-1.5 text-[13px] font-medium text-ink-soft">{label}</div>
-      {children}
-      <div className="mt-0.5 min-h-[15px] text-xs text-brand">{err}</div>
     </div>
   );
 }

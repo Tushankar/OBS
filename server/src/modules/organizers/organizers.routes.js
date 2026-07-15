@@ -12,7 +12,16 @@ const router = Router();
 router.post('/apply', requireAuth, validate({ body: schemas.applySchema }), asyncHandler(c.apply));
 router.get('/me', requireAuth, asyncHandler(c.me));
 
+// Approved organizers keep their public page current (logo, bio, website, name).
+router.patch('/me', requireAuth, requireApprovedOrganizer, validate({ body: schemas.updateMeSchema }), asyncHandler(c.updateMe));
+
 // Dashboard KPIs — approved organizers only.
 router.get('/dashboard', requireAuth, requireApprovedOrganizer, asyncHandler(c.dashboard));
+
+// Email delivery log for the organizer's own events (?eventId narrows).
+router.get('/emails', requireAuth, requireApprovedOrganizer, validate({ query: schemas.listEmailsQuery }), asyncHandler(c.emails));
+
+// Per-event settlement statement (ticket revenue, refunds, net).
+router.get('/payouts', requireAuth, requireApprovedOrganizer, asyncHandler(c.payouts));
 
 export default router;
