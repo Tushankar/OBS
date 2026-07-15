@@ -11,11 +11,12 @@ export function presetAuthMode(mode) { pendingMode = mode; }
 
 /** Sign in / sign up modal. Controlled by App via `open`/`onClose`. */
 export default function AuthModal({ open, onClose }) {
-  const { login, register, loginWithGoogle, pushToast } = useApp();
-  const [mode, setMode] = useState('in'); // 'in' | 'up' | 'forgot'
+  const { login, register, loginWithGoogle, signIn, pushToast } = useApp();
+  const [mode, setMode] = useState('in'); // 'in' | 'up' | 'forgot' | 'verify'
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
+  const [code, setCode] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false); // forgot-password request dispatched
@@ -27,6 +28,7 @@ export default function AuthModal({ open, onClose }) {
   if (!open) return null;
   const isSignup = mode === 'up';
   const isForgot = mode === 'forgot';
+  const isVerify = mode === 'verify';
 
   const done = (msg) => { pushToast(msg); reset(); onClose(); };
 
@@ -39,16 +41,40 @@ export default function AuthModal({ open, onClose }) {
     try {
       if (isSignup) {
         await register(name.trim(), email, pass);
-        done('Account created');
-      } else {
-        await login(email, pass);
-        done('Signed in');
+        // Signed in already; step into email verification (OTP just emailed).
+        setBusy(false);
+        setMode('verify');
+        pushToast('Account created — check your email for the code');
+        return;
       }
+      await login(email, pass);
+      done('Signed in');
     } catch (e) {
       setErr(apiError(e, 'Could not sign in'));
     } finally {
       setBusy(false);
     }
+  };
+
+  const submitOtp = async () => {
+    if (!/^\d{6}$/.test(code.trim())) return setErr('Enter the 6-digit code');
+    setErr('');
+    setBusy(true);
+    try {
+      const r = await api.verifyOtp(code.trim());
+      if (r.user) signIn(r.user);
+      done('Email verified ✓');
+    } catch (e) {
+      setErr(apiError(e, 'Could not verify the code'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    setErr('');
+    try { await api.resendVerification(); pushToast('A new code is on its way'); }
+    catch (e) { setErr(apiError(e, 'Could not resend')); }
   };
 
   const submitForgot = async () => {
@@ -77,7 +103,7 @@ export default function AuthModal({ open, onClose }) {
     }
   };
 
-  const reset = () => { setErr(''); setName(''); setEmail(''); setPass(''); setBusy(false); setSent(false); if (isForgot) setMode('in'); };
+  const reset = () => { setErr(''); setName(''); setEmail(''); setPass(''); setCode(''); setBusy(false); setSent(false); setMode('in'); };
 
   const tab = (active) => `pb-2.5 text-sm font-semibold cursor-pointer border-b-2 transition ${active ? 'border-brand text-brand' : 'border-transparent text-ink-soft'}`;
   const input = 'h-10 w-full rounded-md border border-line px-3.5 text-sm text-ink outline-none transition focus:border-brand';
@@ -87,7 +113,33 @@ export default function AuthModal({ open, onClose }) {
       <div className="absolute inset-0 bg-black/45" onClick={() => { reset(); onClose(); }} />
       <div className="relative w-[480px] max-w-full animate-fadeUp rounded-xl bg-white p-7 shadow-[0_20px_60px_rgba(0,0,0,.25)]">
         <button onClick={() => { reset(); onClose(); }} aria-label="Close" className="absolute right-3.5 top-3.5 text-ink-mute"><Icon.Close /></button>
-        {isForgot ? (
+        {isVerify ? (
+          <>
+            <div className="mb-5 border-b border-line">
+              <div className="pb-2.5 text-sm font-semibold text-ink">Verify your email</div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <p className="text-sm leading-relaxed text-ink-soft">We emailed a 6-digit code to <span className="font-semibold text-ink">{email}</span>. Enter it below to confirm your address. (Check spam if you don’t see it.)</p>
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={(e) => e.key === 'Enter' && !busy && submitOtp()}
+                inputMode="numeric"
+                placeholder="6-digit code"
+                className={`${input} text-center text-lg font-bold tracking-[0.5em]`}
+                autoFocus
+              />
+              <div className="min-h-[15px] text-xs text-brand">{err}</div>
+              <button onClick={submitOtp} disabled={busy} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60">
+                {busy ? 'Verifying…' : 'Verify email'}
+              </button>
+              <div className="flex items-center justify-between text-xs">
+                <button onClick={resendOtp} className="font-medium text-brand hover:underline">Resend code</button>
+                <button onClick={() => done('You can verify anytime from your profile')} className="font-medium text-ink-mute hover:underline">Skip for now</button>
+              </div>
+            </div>
+          </>
+        ) : isForgot ? (
           <>
             <div className="mb-5 border-b border-line">
               <div className="pb-2.5 text-sm font-semibold text-ink">Reset your password</div>

@@ -12,8 +12,11 @@ import publicOrganizerRoutes from './modules/organizers/organizers.public.routes
 import publicEventRoutes from './modules/events/events.public.routes.js';
 import organizerEventRoutes from './modules/events/events.organizer.routes.js';
 import ticketTypeRoutes from './modules/ticketTypes/ticketTypes.routes.js';
+import ticketTypeAdminRoutes from './modules/ticketTypes/ticketTypes.admin.routes.js';
 import promoCodeRoutes from './modules/promoCodes/promoCodes.routes.js';
 import promoAdminRoutes from './modules/promoCodes/promoCodes.admin.routes.js';
+import promoEventAdminRoutes from './modules/promoCodes/promoCodes.event.admin.routes.js';
+import adminEventTicketRoutes from './modules/adminEventTickets/adminEventTickets.routes.js';
 import campaignRoutes from './modules/campaigns/campaigns.routes.js';
 import marketingPublicRoutes from './modules/campaigns/marketing.public.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
@@ -114,6 +117,9 @@ export function createApp() {
   app.use('/api/v1/me/orders', myOrderRoutes);
   app.use('/api/v1/me/tickets', myTicketRoutes);
   app.use('/api/v1/payments', paymentRoutes);
+  app.use('/api/v1/admin/events/:eventId/ticket-types', ticketTypeAdminRoutes);
+  app.use('/api/v1/admin/events/:eventId/promo-codes', promoEventAdminRoutes);
+  app.use('/api/v1/admin/events/:eventId/tickets', adminEventTicketRoutes);
   app.use('/api/v1/admin/refunds', refundAdminRoutes);
   app.use('/api/v1/admin/reports', reportRoutes);
   app.use('/api/v1/admin/speakers', speakerAdminRoutes);

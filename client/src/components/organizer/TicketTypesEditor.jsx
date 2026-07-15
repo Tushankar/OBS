@@ -10,15 +10,21 @@ const fmt = (paise) => `₹${(Number(paise) / 100).toLocaleString('en-IN')}`;
 
 const BLANK = { name: '', priceRupees: '0', quantityTotal: '100', minPerOrder: '1', maxPerOrder: '10' };
 
-export default function TicketTypesEditor({ eventId }) {
+// `admin` switches to the /admin/events/:id/ticket-types endpoints — the admin
+// manages tickets on any event (OBS platform events have no organizer session).
+export default function TicketTypesEditor({ eventId, admin = false }) {
   const { pushToast } = useApp();
   const [items, setItems] = useState(null);
   const [form, setForm] = useState(null); // { id? , ...fields } when adding/editing
   const [busy, setBusy] = useState(false);
 
+  const ep = admin
+    ? { list: api.adminEventTicketTypes, create: api.adminCreateTicketType, update: api.adminUpdateTicketType, remove: api.adminDeleteTicketType }
+    : { list: api.eventTicketTypes, create: api.createTicketType, update: api.updateTicketType, remove: api.deleteTicketType };
+
   const load = useCallback(() => {
-    api.eventTicketTypes(eventId).then(setItems).catch((e) => { setItems([]); pushToast(apiError(e), false); });
-  }, [eventId, pushToast]);
+    ep.list(eventId).then(setItems).catch((e) => { setItems([]); pushToast(apiError(e), false); });
+  }, [eventId, pushToast]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -38,8 +44,8 @@ export default function TicketTypesEditor({ eventId }) {
     if (body.quantityTotal < 1) { pushToast('Quantity must be at least 1', false); return; }
     setBusy(true);
     try {
-      if (form.id) await api.updateTicketType(eventId, form.id, body);
-      else await api.createTicketType(eventId, body);
+      if (form.id) await ep.update(eventId, form.id, body);
+      else await ep.create(eventId, body);
       setForm(null);
       pushToast('Ticket type saved');
       load();
@@ -54,7 +60,7 @@ export default function TicketTypesEditor({ eventId }) {
     if (!window.confirm(`Delete ticket type “${t.name}”?`)) return;
     setBusy(true);
     try {
-      await api.deleteTicketType(eventId, t.id);
+      await ep.remove(eventId, t.id);
       pushToast('Ticket type deleted');
       load();
     } catch (e) {

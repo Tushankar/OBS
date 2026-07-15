@@ -26,7 +26,22 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-let refreshing = null; // shared promise so concurrent 401s trigger one refresh
+// Single-flight refresh. The server rotates the refresh token on every use and
+// treats a reused (already-rotated) token as theft — revoking the WHOLE family
+// and logging the user out. So two concurrent /auth/refresh calls with the same
+// cookie are catastrophic. EVERY refresh — the boot session-restore AND every
+// interceptor retry — must funnel through this one in-flight promise so only a
+// single rotation is ever in flight. Sets the new access token on success.
+let refreshing = null;
+export function refreshSession() {
+  if (!refreshing) {
+    refreshing = api
+      .post('/auth/refresh')
+      .then((res) => { setAccessToken(res.data.accessToken); return res.data; })
+      .finally(() => { refreshing = null; });
+  }
+  return refreshing;
+}
 
 api.interceptors.response.use(
   (res) => res,
@@ -38,15 +53,11 @@ api.interceptors.response.use(
     if (status === 401 && !skip) {
       original._retry = true;
       try {
-        refreshing = refreshing || api.post('/auth/refresh');
-        const { data } = await refreshing;
-        refreshing = null;
-        setAccessToken(data.accessToken);
+        const data = await refreshSession();
         original.headers = original.headers || {};
         original.headers.Authorization = `Bearer ${data.accessToken}`;
         return api(original);
       } catch (e) {
-        refreshing = null;
         setAccessToken(null);
         if (onLogout) onLogout();
         return Promise.reject(e);
@@ -109,6 +120,7 @@ api.updateMe = (body) => unwrap(api.patch('/auth/me', body)).then((d) => d.user)
 api.changePassword = (currentPassword, newPassword) => unwrap(api.post('/auth/change-password', { currentPassword, newPassword }));
 api.unsubscribeMarketing = (token) => unwrap(api.post('/marketing/unsubscribe', { token }));
 api.verifyEmail = (token) => unwrap(api.post('/auth/verify-email', { token }));
+api.verifyOtp = (code) => unwrap(api.post('/auth/verify-otp', { code })); // { ok, user }
 api.resendVerification = () => unwrap(api.post('/auth/resend-verification'));
 api.chapter = (slug) => unwrap(api.get(`/chapters/${slug}`));
 api.joinChapter = (id) => unwrap(api.post(`/chapters/${id}/join`));
@@ -175,6 +187,8 @@ api.myOrders = (params) => unwrap(api.get('/me/orders', { params }));
 api.myOrder = (id) => unwrap(api.get(`/me/orders/${id}`)).then((d) => d.order);
 api.invoiceUrl = (id) => unwrap(api.get(`/me/orders/${id}/invoice`)); // { url } — short-lived signed GET
 api.stripeIntent = (orderId) => unwrap(api.post('/payments/stripe/intent', { orderId }));
+// Confirm payment on return from Stripe — fulfils without waiting on a webhook.
+api.stripeVerify = (orderId) => unwrap(api.post('/payments/stripe/verify', { orderId }));
 api.myTickets = (scope) => unwrap(api.get('/me/tickets', { params: scope ? { scope } : {} })).then((d) => d.tickets);
 api.myTicket = (id) => unwrap(api.get(`/me/tickets/${id}`)).then((d) => d.ticket);
 api.ticketPdfBlob = (id) => api.get(`/me/tickets/${id}/pdf`, { responseType: 'blob' }).then((r) => r.data);
@@ -190,6 +204,20 @@ api.setEventOwnership = (id, ownership) => unwrap(api.patch(`/admin/events/${id}
 api.adminCreateEvent = (body) => unwrap(api.post('/admin/events', body)).then((d) => d.event);
 api.adminUpdateEvent = (id, body) => unwrap(api.patch(`/admin/events/${id}`, body)).then((d) => d.event);
 api.adminEvent = (id) => unwrap(api.get(`/admin/events/${id}`)).then((d) => d.event); // full detail for editing
+// Admin ticket-type CRUD — OBS platform events have no organizer session, so
+// their tickets are managed here.
+api.adminEventTicketTypes = (eventId) => unwrap(api.get(`/admin/events/${eventId}/ticket-types`)).then((d) => d.ticketTypes);
+api.adminCreateTicketType = (eventId, body) => unwrap(api.post(`/admin/events/${eventId}/ticket-types`, body)).then((d) => d.ticketType);
+api.adminUpdateTicketType = (eventId, id, body) => unwrap(api.patch(`/admin/events/${eventId}/ticket-types/${id}`, body)).then((d) => d.ticketType);
+api.adminDeleteTicketType = (eventId, id) => unwrap(api.delete(`/admin/events/${eventId}/ticket-types/${id}`));
+api.adminEventPromoCodes = (eventId) => unwrap(api.get(`/admin/events/${eventId}/promo-codes`)).then((d) => d.promoCodes);
+api.adminCreateEventPromo = (eventId, body) => unwrap(api.post(`/admin/events/${eventId}/promo-codes`, body)).then((d) => d.promoCode);
+api.adminUpdateEventPromo = (eventId, id, body) => unwrap(api.patch(`/admin/events/${eventId}/promo-codes/${id}`, body)).then((d) => d.promoCode);
+api.adminDeleteEventPromo = (eventId, id) => unwrap(api.delete(`/admin/events/${eventId}/promo-codes/${id}`));
+// Admin — per-event attendee register + one-to-one email push
+api.adminEventTickets = (eventId, params) => unwrap(api.get(`/admin/events/${eventId}/tickets`, { params }));
+api.adminEventEmailTemplates = (eventId) => unwrap(api.get(`/admin/events/${eventId}/tickets/email-templates`)).then((d) => d.templates);
+api.adminEmailAttendee = (eventId, ticketId, body) => unwrap(api.post(`/admin/events/${eventId}/tickets/${ticketId}/email`, body));
 api.launches = (scope) => unwrap(api.get('/launches', { params: scope ? { scope } : {} })).then((d) => d.events);
 
 // Admin — dashboard, users, transactions (Phase 3.5)

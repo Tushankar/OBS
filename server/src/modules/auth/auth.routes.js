@@ -26,5 +26,6 @@ router.post('/change-password', requireAuth, authLimiter, validate({ body: schem
 // signed-in users can request a fresh link (rate-limited).
 router.post('/verify-email', authLimiter, validate({ body: schemas.verifyEmailSchema }), asyncHandler(c.verifyEmail));
 router.post('/resend-verification', requireAuth, authLimiter, asyncHandler(c.resendVerification));
+router.post('/verify-otp', requireAuth, authLimiter, validate({ body: schemas.verifyOtpSchema }), asyncHandler(c.verifyOtp));
 
 export default router;

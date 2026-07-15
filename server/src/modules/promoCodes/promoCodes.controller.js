@@ -20,6 +20,20 @@ export async function remove(req, res) {
   res.status(200).json(result);
 }
 
+// ---- Admin (event-scoped, any event) ----
+export async function adminEventList(req, res) {
+  res.status(200).json({ promoCodes: await svc.adminListEventPromos(req.params.eventId) });
+}
+export async function adminEventCreate(req, res) {
+  res.status(201).json({ promoCode: await svc.adminCreateEventPromo(req.params.eventId, req.body) });
+}
+export async function adminEventUpdate(req, res) {
+  res.status(200).json({ promoCode: await svc.adminUpdateEventPromo(req.params.eventId, req.params.id, req.body) });
+}
+export async function adminEventRemove(req, res) {
+  res.status(200).json(await svc.adminDeleteEventPromo(req.params.eventId, req.params.id));
+}
+
 // ---- Admin (platform-wide) ----
 export async function adminList(req, res) {
   res.status(200).json({ promoCodes: await svc.adminListPromos() });

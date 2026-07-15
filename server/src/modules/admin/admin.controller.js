@@ -79,10 +79,9 @@ export async function listEmails(req, res) {
   res.status(200).json(result);
 }
 
-// --- Audit trail ---
+// --- Audit log ---
 export async function listAudit(req, res) {
-  const result = await adminService.listAudit(req.query);
-  res.status(200).json(result);
+  res.status(200).json(await adminService.listAudit(req.query));
 }
 
 // --- User drill-down ---

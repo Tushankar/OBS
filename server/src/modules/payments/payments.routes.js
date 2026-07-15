@@ -11,5 +11,6 @@ const router = Router();
 router.use(requireAuth);
 
 router.post('/stripe/intent', validate({ body: schemas.gatewayOrderSchema }), asyncHandler(c.stripeIntent));
+router.post('/stripe/verify', validate({ body: schemas.gatewayOrderSchema }), asyncHandler(c.stripeVerify));
 
 export default router;

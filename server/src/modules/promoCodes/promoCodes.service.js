@@ -1,4 +1,4 @@
-import { PromoCode } from '../../models/index.js';
+import { PromoCode, Event } from '../../models/index.js';
 import { loadOwnedEvent } from '../events/events.service.js';
 import { badRequest, conflict, notFoundError } from '../../utils/errors.js';
 
@@ -75,6 +75,62 @@ export async function updatePromoCode(organizerId, eventId, id, body) {
 
 export async function deletePromoCode(organizerId, eventId, id) {
   const pc = await loadOwnedPromo(organizerId, eventId, id);
+  if (pc.usedCount > 0) {
+    throw conflict('PROMO_CODE_USED', 'Cannot delete a promo code that has been used — deactivate it instead');
+  }
+  await pc.deleteOne();
+  return { ok: true, id: String(pc._id) };
+}
+
+// ---------------------------------------------------------------------------
+// Admin — EVENT-scoped codes on ANY event (OBS platform events have no
+// organizer session, so the organizer routes can't manage their promos).
+// Same rules; only the ownership gate differs.
+// ---------------------------------------------------------------------------
+async function loadEventAsAdmin(eventId) {
+  const event = await Event.findById(eventId);
+  if (!event) throw notFoundError('EVENT_NOT_FOUND', 'Event not found');
+  return event;
+}
+
+export async function adminListEventPromos(eventId) {
+  await loadEventAsAdmin(eventId);
+  const rows = await PromoCode.find({ eventId }).sort({ createdAt: 1 });
+  return rows.map(shapePromoCode);
+}
+
+export async function adminCreateEventPromo(eventId, body) {
+  await loadEventAsAdmin(eventId);
+  const pc = new PromoCode({ ...body, eventId, scope: 'EVENT' });
+  assertValid(pc);
+  try {
+    await pc.save();
+  } catch (err) {
+    if (err.code === 11000) throw conflict('PROMO_CODE_EXISTS', 'A promo code with that code already exists for this event');
+    throw err;
+  }
+  return shapePromoCode(pc);
+}
+
+export async function adminUpdateEventPromo(eventId, id, body) {
+  await loadEventAsAdmin(eventId);
+  const pc = await PromoCode.findOne({ _id: id, eventId });
+  if (!pc) throw notFoundError('PROMO_CODE_NOT_FOUND', 'Promo code not found');
+  Object.assign(pc, body);
+  assertValid(pc);
+  try {
+    await pc.save();
+  } catch (err) {
+    if (err.code === 11000) throw conflict('PROMO_CODE_EXISTS', 'A promo code with that code already exists for this event');
+    throw err;
+  }
+  return shapePromoCode(pc);
+}
+
+export async function adminDeleteEventPromo(eventId, id) {
+  await loadEventAsAdmin(eventId);
+  const pc = await PromoCode.findOne({ _id: id, eventId });
+  if (!pc) throw notFoundError('PROMO_CODE_NOT_FOUND', 'Promo code not found');
   if (pc.usedCount > 0) {
     throw conflict('PROMO_CODE_USED', 'Cannot delete a promo code that has been used — deactivate it instead');
   }

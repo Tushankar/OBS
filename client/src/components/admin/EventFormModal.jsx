@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
 import { Modal, Btn, Field, inputCls, selectCls } from '../portal/Kit';
+import TicketTypesEditor from '../organizer/TicketTypesEditor';
+import PromoCodesEditor from '../organizer/PromoCodesEditor';
+import EventAttendees from './EventAttendees';
 
 // Admin create / edit of an OBS-platform event (ownership OBS). Publishes
 // directly — no organizer submit→approve loop. `initial` (an admin event row)
@@ -44,11 +47,18 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Categories are required to publish — a silently-failed load left admins
+  // stuck with an empty dropdown, so failure is now visible and retryable.
+  const [catsFailed, setCatsFailed] = useState(false);
+  const loadCats = () => {
+    setCatsFailed(false);
+    api.categories().then(setCats).catch(() => setCatsFailed(true));
+  };
   useEffect(() => {
-    api.categories().then(setCats).catch(() => {});
+    loadCats();
     api.speakers().then(setSpeakers).catch(() => {});
     api.adminPrograms().then((rows) => setPrograms(Array.isArray(rows) ? rows : [])).catch(() => {});
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edit mode: fetch the full event (the list row omits description/venue/etc.)
   // and prefill — so admins can edit live events without wiping hidden fields.
@@ -157,6 +167,11 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
             <option value="">Select…</option>
             {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+          {catsFailed && (
+            <p className="mt-1 text-[12px] text-[#DF1B41]">
+              Couldn’t load categories. <button type="button" onClick={loadCats} className="font-semibold underline">Retry</button>
+            </p>
+          )}
         </Field>
         <Field label="Format">
           <select value={form.isOnline ? 'online' : 'venue'} onChange={(e) => set('isOnline', e.target.value === 'online')} className={`${selectCls} w-full`}>
@@ -274,6 +289,37 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
             </div>
           )}
         </div>
+
+        {/* Tickets — a live event without a ticket type reads "not on sale" publicly */}
+        <div className="sm:col-span-2 border-t border-[#EDF0F4] pt-3.5">
+          <div className="text-[13.5px] font-semibold text-[#1A1F36]">Tickets</div>
+          <p className="mb-3 mt-0.5 text-[12px] text-[#697386]">Without at least one active ticket type, the public page shows “Tickets aren’t on sale”.</p>
+          {editing ? (
+            <TicketTypesEditor eventId={initial.id} admin />
+          ) : (
+            <p className="rounded-md border border-dashed border-[#D5DBE5] px-3 py-2.5 text-[12.5px] text-[#697386]">
+              Save the event first — then reopen it with <span className="font-semibold">Edit</span> to add ticket types.
+            </p>
+          )}
+        </div>
+
+        {/* Promo codes — event-scoped discounts (platform-wide ones live under Admin → Promo codes) */}
+        {editing && (
+          <div className="sm:col-span-2 border-t border-[#EDF0F4] pt-3.5">
+            <div className="text-[13.5px] font-semibold text-[#1A1F36]">Promo codes</div>
+            <p className="mb-3 mt-0.5 text-[12px] text-[#697386]">Discount codes valid only for this event. Site-wide campaigns live under Admin → Promo codes.</p>
+            <PromoCodesEditor eventId={initial.id} admin />
+          </div>
+        )}
+
+        {/* Attendees — who bought, which ticket, checked-in status, and per-person email */}
+        {editing && (
+          <div className="sm:col-span-2 border-t border-[#EDF0F4] pt-3.5">
+            <div className="text-[13.5px] font-semibold text-[#1A1F36]">Attendees &amp; tickets</div>
+            <p className="mb-3 mt-0.5 text-[12px] text-[#697386]">Everyone holding a ticket to this event — buyer, ticket type, check-in status and revenue. Use <span className="font-semibold">Email</span> to send a templated message to a specific attendee.</p>
+            <EventAttendees eventId={initial.id} />
+          </div>
+        )}
       </div>
     </Modal>
   );

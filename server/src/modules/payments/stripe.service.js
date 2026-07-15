@@ -26,6 +26,35 @@ export async function createStripeIntent(userId, orderId) {
   return { clientSecret: intent.client_secret, publishableKey: env.STRIPE_PUBLISHABLE_KEY, amount: order.totalAmount, currency: order.currency };
 }
 
+// POST /payments/stripe/verify — client calls this on return from Stripe so
+// fulfilment works even when webhooks can't reach the server (local dev without
+// the Stripe CLI; webhook secret unset). Retrieves the PaymentIntent straight
+// from Stripe as the source of truth and fulfils idempotently — the exact same
+// markPaidAndFulfil the webhook uses, so there's no double-issue in prod.
+export async function verifyStripePayment(userId, orderId) {
+  const order = await Order.findOne({ _id: orderId, userId });
+  if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+  if (order.status === 'PAID') return { status: 'PAID' };
+  if (!isStripeConfigured()) throw new AppError(503, 'STRIPE_NOT_CONFIGURED', 'Stripe is not configured on the server');
+
+  const payment = await Payment.findOne({ orderId: order._id, gateway: 'STRIPE' }).sort({ createdAt: -1 });
+  if (!payment) return { status: order.status };
+
+  const intent = await getStripe().paymentIntents.retrieve(payment.gatewayOrderId);
+  if (intent.status === 'succeeded') {
+    if (intent.amount != null && intent.amount !== order.totalAmount) return { status: order.status, note: 'amount_mismatch' };
+    await Payment.updateOne(
+      { _id: payment._id },
+      { $set: { status: 'CAPTURED', gatewayPaymentId: intent.latest_charge || intent.id, method: intent.payment_method_types?.[0], currency: (intent.currency || order.currency).toUpperCase(), paidAt: new Date() } }
+    );
+    await markPaidAndFulfil(order._id, { gateway: 'STRIPE' }); // idempotent: no-op if webhook won the race
+    return { status: 'PAID' };
+  }
+  if (intent.status === 'processing') return { status: 'PROCESSING' };
+  if (['requires_payment_method', 'canceled'].includes(intent.status)) return { status: 'PENDING', failed: true };
+  return { status: 'PENDING' };
+}
+
 // POST /webhooks/stripe — single source of truth. constructEvent verifies the
 // signature on the raw body (no network). Idempotent + amount-checked.
 export async function handleStripeWebhook(rawBuffer, signature) {

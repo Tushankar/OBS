@@ -15,15 +15,35 @@ export default function TicketDetail() {
   const navigate = useNavigate();
   const { pushToast } = useApp();
   const [ticket, setTicket] = useState(undefined);
+  const [loadErr, setLoadErr] = useState(null); // transient (network / server) — offer retry
   const [downloading, setDownloading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
     window.scrollTo(0, 0);
-    api.myTicket(id).then((t) => { if (alive) setTicket(t); }).catch(() => { if (alive) setTicket(null); });
+    setTicket(undefined);
+    setLoadErr(null);
+    api.myTicket(id)
+      .then((t) => { if (alive) setTicket(t); })
+      .catch((e) => {
+        if (!alive) return;
+        // A genuine 404/403 means this ticket isn't the signed-in user's — show
+        // "not found". Anything else (network blip, 5xx) is transient: keep the
+        // ticket unknown and offer a retry instead of a misleading dead end.
+        const status = e?.response?.status;
+        if (status === 404 || status === 403) setTicket(null);
+        else setLoadErr(apiError(e, 'Could not load this ticket'));
+      });
     return () => { alive = false; };
-  }, [id]);
+  }, [id, reloadKey]);
 
+  if (loadErr) return (
+    <div className="mx-auto max-w-container px-6 py-20 text-center text-ink-mute">
+      <p>{loadErr}</p>
+      <button onClick={() => setReloadKey((k) => k + 1)} className="mt-3 rounded-md bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark">Try again</button>
+    </div>
+  );
   if (ticket === undefined) return <div className="mx-auto max-w-container px-6 py-24 text-center text-ink-mute">Loading…</div>;
   if (ticket === null) return <div className="mx-auto max-w-container px-6 py-20 text-center text-ink-mute">Ticket not found. <button onClick={() => navigate('/account/tickets')} className="text-brand underline">My tickets</button></div>;
 

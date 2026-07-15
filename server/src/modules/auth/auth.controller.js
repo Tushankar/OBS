@@ -75,3 +75,7 @@ export async function verifyEmail(req, res) {
 export async function resendVerification(req, res) {
   res.status(200).json(await authService.resendVerification(req.user.id));
 }
+
+export async function verifyOtp(req, res) {
+  res.status(200).json(await authService.verifyOtp(req.user.id, req.body.code));
+}

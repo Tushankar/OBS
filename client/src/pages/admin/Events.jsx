@@ -8,6 +8,7 @@ import { AdminIcon } from '../../components/admin/AdminIcons';
 
 const TABS = [
   ['PENDING_APPROVAL', 'Pending'],
+  ['DRAFT', 'Drafts'],
   ['PUBLISHED', 'Published'],
   ['REJECTED', 'Rejected'],
   ['', 'All'],

@@ -8,15 +8,21 @@ const toRupees = (paise) => (Number(paise) / 100).toString();
 
 const BLANK = { code: '', discountType: 'PERCENT', discountValue: '10', minOrderRupees: '', maxUses: '' };
 
-export default function PromoCodesEditor({ eventId }) {
+// `admin` switches to the /admin/events/:id/promo-codes endpoints (admins
+// manage codes on any event — OBS platform events have no organizer session).
+export default function PromoCodesEditor({ eventId, admin = false }) {
   const { pushToast } = useApp();
   const [items, setItems] = useState(null);
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const ep = admin
+    ? { list: api.adminEventPromoCodes, create: api.adminCreateEventPromo, update: api.adminUpdateEventPromo, remove: api.adminDeleteEventPromo }
+    : { list: api.eventPromoCodes, create: api.createPromoCode, update: api.updatePromoCode, remove: api.deletePromoCode };
+
   const load = useCallback(() => {
-    api.eventPromoCodes(eventId).then(setItems).catch((e) => { setItems([]); pushToast(apiError(e), false); });
-  }, [eventId, pushToast]);
+    ep.list(eventId).then(setItems).catch((e) => { setItems([]); pushToast(apiError(e), false); });
+  }, [eventId, pushToast]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -43,8 +49,8 @@ export default function PromoCodesEditor({ eventId }) {
     if (form.maxUses !== '') body.maxUses = parseInt(form.maxUses, 10);
     setBusy(true);
     try {
-      if (form.id) await api.updatePromoCode(eventId, form.id, body);
-      else await api.createPromoCode(eventId, body);
+      if (form.id) await ep.update(eventId, form.id, body);
+      else await ep.create(eventId, body);
       setForm(null);
       pushToast('Promo code saved');
       load();
@@ -59,7 +65,7 @@ export default function PromoCodesEditor({ eventId }) {
     if (!window.confirm(`Delete promo code “${p.code}”?`)) return;
     setBusy(true);
     try {
-      await api.deletePromoCode(eventId, p.id);
+      await ep.remove(eventId, p.id);
       pushToast('Promo code deleted');
       load();
     } catch (e) {

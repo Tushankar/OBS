@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 import { User, Session } from '../../models/index.js';
@@ -77,15 +78,26 @@ async function issueTokens(user, meta = {}) {
   };
 }
 
-// Fire-and-forget verification mail — a mailer hiccup must never block signup.
+const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_MAX_ATTEMPTS = 6;
+
+// Generate a 6-digit code, store only its hash + expiry on the user, and email
+// the code. Also includes the verify link so either path works. Fire-and-forget
+// — a mailer hiccup must never block signup.
 async function sendVerificationEmail(user) {
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  user.emailOtpHash = await bcrypt.hash(code, BCRYPT_COST);
+  user.emailOtpExpiresAt = new Date(Date.now() + OTP_TTL_MS);
+  user.emailOtpAttempts = 0;
+  await user.save();
+
   const url = `${env.APP_URL}/verify-email?token=${encodeURIComponent(signEmailVerifyToken(user))}`;
   try {
     await sendMail({
       to: user.email,
-      subject: 'Verify your email — OBS Events',
-      text: `Hi ${user.name},\n\nConfirm this is your address to finish setting up your OBS Events account:\n${url}\n\nThe link is valid for 7 days. If you didn't sign up, you can ignore this email.`,
-      html: `<p>Hi ${user.name},</p><p>Confirm this is your address to finish setting up your OBS Events account:</p><p><a href="${url}">Verify my email</a></p><p style="color:#999;font-size:12px;">The link is valid for 7 days. If you didn’t sign up, ignore this email.</p>`,
+      subject: `${code} is your OBS Events verification code`,
+      text: `Hi ${user.name},\n\nYour verification code is ${code}\nIt expires in 10 minutes.\n\nOr verify from any device with this link:\n${url}\n\nIf you didn't sign up, ignore this email.`,
+      html: `<p>Hi ${user.name},</p><p>Your verification code is:</p><p style="font-size:30px;font-weight:800;letter-spacing:6px;margin:8px 0;">${code}</p><p style="color:#666;">It expires in 10 minutes.</p><p>Or <a href="${url}">verify with this link</a> instead.</p><p style="color:#999;font-size:12px;">If you didn’t sign up, ignore this email.</p>`,
       type: 'EMAIL_VERIFICATION',
       userId: user._id,
     });
@@ -99,8 +111,33 @@ export async function register({ name, email, password }, meta) {
   if (existing) throw conflict('EMAIL_TAKEN', 'An account with this email already exists');
   const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
   const user = await User.create({ name, email, passwordHash, role: 'USER', status: 'ACTIVE' });
-  sendVerificationEmail(user); // deliberately not awaited
+  await sendVerificationEmail(user); // awaited so the OTP hash is persisted before the client asks to verify
   return { user: publicUser(user), ...(await issueTokens(user, meta)) };
+}
+
+// POST /auth/verify-otp — the signed-in user enters the 6-digit code.
+export async function verifyOtp(userId, code) {
+  const user = await User.findById(userId);
+  if (!user) throw notFoundError('USER_NOT_FOUND', 'User not found');
+  if (user.emailVerifiedAt) return { ok: true, alreadyVerified: true, user: publicUser(user) };
+  if (!user.emailOtpHash || !user.emailOtpExpiresAt || user.emailOtpExpiresAt < new Date()) {
+    throw badRequest('OTP_EXPIRED', 'That code has expired — request a new one');
+  }
+  if (user.emailOtpAttempts >= OTP_MAX_ATTEMPTS) {
+    throw badRequest('OTP_LOCKED', 'Too many attempts — request a new code');
+  }
+  const ok = await bcrypt.compare(String(code), user.emailOtpHash);
+  if (!ok) {
+    user.emailOtpAttempts += 1;
+    await user.save();
+    throw badRequest('OTP_INVALID', 'That code is incorrect');
+  }
+  user.emailVerifiedAt = new Date();
+  user.emailOtpHash = undefined;
+  user.emailOtpExpiresAt = undefined;
+  user.emailOtpAttempts = 0;
+  await user.save();
+  return { ok: true, user: publicUser(user) };
 }
 
 // POST /auth/verify-email — the emailed link lands here. Idempotent.

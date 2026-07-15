@@ -38,3 +38,7 @@ export const changePasswordSchema = z.object({
 export const verifyEmailSchema = z.object({
   token: z.string().min(10, 'token is required'),
 });
+
+export const verifyOtpSchema = z.object({
+  code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code'),
+});

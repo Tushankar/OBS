@@ -14,7 +14,10 @@ export default function Success() {
   const navigate = useNavigate();
   const { pushToast } = useApp();
   const [order, setOrder] = useState(undefined);
+  const [notFound, setNotFound] = useState(false); // genuine 404/403 — this order isn't the user's
+  const [err, setErr] = useState(null);            // transient (network / server) — offer retry
   const [waited, setWaited] = useState(0);
+  const [retryKey, setRetryKey] = useState(0);
   const timer = useRef(null);
 
   // Invoice objects are private in S3; fetch a short-lived signed URL on demand.
@@ -29,28 +32,61 @@ export default function Success() {
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  // Fulfilment is webhook-driven, so a just-paid order may still be PENDING for a
-  // moment — poll until it flips to PAID (or a few tries elapse).
+  // Fulfilment is webhook-driven in production, but webhooks may not reach a
+  // dev server — so on each poll we also ask the server to verify the payment
+  // straight from Stripe (idempotent) before checking the order status.
   useEffect(() => {
     let alive = true;
     const poll = async () => {
       try {
+        // Nudge server-side verification first (no-op once PAID). Never let a
+        // verify hiccup block the status read.
+        await api.stripeVerify(orderId).catch(() => {});
         const o = await api.myOrder(orderId);
         if (!alive) return;
+        setErr(null);
         setOrder(o);
-        if (o.status === 'PENDING' && waited < 10) {
-          timer.current = setTimeout(() => setWaited((w) => w + 1), 3000);
+        // Keep polling while the payment is still settling (webhook / verify).
+        if (o.status === 'PENDING' && waited < 12) {
+          timer.current = setTimeout(() => setWaited((w) => w + 1), 2500);
         }
-      } catch {
-        if (alive) setOrder(null);
+      } catch (e) {
+        if (!alive) return;
+        const status = e?.response?.status;
+        // A real 404/403 means the order isn't the signed-in user's. Anything
+        // else is transient — retry a few times before surfacing an error.
+        if (status === 404 || status === 403) { setNotFound(true); return; }
+        if (waited < 12) timer.current = setTimeout(() => setWaited((w) => w + 1), 2500);
+        else setErr(apiError(e, 'We could not confirm your order just yet'));
       }
     };
     poll();
     return () => { alive = false; clearTimeout(timer.current); };
-  }, [orderId, waited]);
+  }, [orderId, waited, retryKey]);
 
-  if (order === undefined) return <div className="mx-auto max-w-container px-6 py-24 text-center text-ink-mute">Loading…</div>;
-  if (order === null) return <div className="mx-auto max-w-container px-6 py-20 text-center text-ink-mute">Order not found. <button onClick={() => navigate('/')} className="text-brand underline">Home</button></div>;
+  const retry = () => { setErr(null); setNotFound(false); setOrder(undefined); setWaited(0); setRetryKey((k) => k + 1); };
+
+  if (notFound) return (
+    <div className="mx-auto max-w-container px-6 py-20 text-center text-ink-mute">
+      Order not found. <button onClick={() => navigate('/account/orders')} className="text-brand underline">My orders</button>
+    </div>
+  );
+  if (err) return (
+    <div className="mx-auto max-w-container px-6 py-20 text-center text-ink-mute">
+      <p>{err}</p>
+      <p className="mt-1 text-xs">If you were charged, your tickets will still arrive by email — nothing is lost.</p>
+      <div className="mt-4 flex justify-center gap-3">
+        <button onClick={retry} className="rounded-md bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark">Check again</button>
+        <button onClick={() => navigate('/account/orders')} className="rounded-md border border-line px-5 py-2 text-sm font-medium text-ink-soft transition hover:border-brand">My orders</button>
+      </div>
+    </div>
+  );
+  if (order === undefined) return (
+    <div className="mx-auto max-w-container px-6 py-24 text-center">
+      <div className="mx-auto h-[56px] w-[56px] animate-spin rounded-full border-4 border-line border-t-brand" />
+      <p className="mt-5 text-sm text-ink-mute">Confirming your payment…</p>
+    </div>
+  );
 
   const ev = order.event || {};
   const paid = order.status === 'PAID';

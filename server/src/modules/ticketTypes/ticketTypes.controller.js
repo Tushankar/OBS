@@ -19,3 +19,17 @@ export async function remove(req, res) {
   const result = await svc.deleteTicketType(req.organizer._id, req.params.eventId, req.params.id);
   res.status(200).json(result);
 }
+
+// ---- Admin (any event) ----
+export async function adminList(req, res) {
+  res.status(200).json({ ticketTypes: await svc.adminListTicketTypes(req.params.eventId) });
+}
+export async function adminCreate(req, res) {
+  res.status(201).json({ ticketType: await svc.adminCreateTicketType(req.params.eventId, req.body) });
+}
+export async function adminUpdate(req, res) {
+  res.status(200).json({ ticketType: await svc.adminUpdateTicketType(req.params.eventId, req.params.id, req.body) });
+}
+export async function adminRemove(req, res) {
+  res.status(200).json(await svc.adminDeleteTicketType(req.params.eventId, req.params.id));
+}

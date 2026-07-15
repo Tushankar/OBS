@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import api, { setAccessToken, setOnLogout } from '../lib/api';
+import api, { setAccessToken, setOnLogout, refreshSession } from '../lib/api';
 import { detectDefaultCurrency } from '../lib/currency';
 
 const AppContext = createContext(null);
@@ -77,8 +77,10 @@ export function AppProvider({ children }) {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await api.post('/auth/refresh');
-        if (!cancelled) { setAccessToken(data.accessToken); setUser(data.user); }
+        // Shared single-flight refresh — never races an interceptor retry (which
+        // would trip the server's token-reuse defence and force a logout).
+        const data = await refreshSession();
+        if (!cancelled) setUser(data.user); // access token already set inside refreshSession
       } catch {
         /* not signed in */
       } finally {

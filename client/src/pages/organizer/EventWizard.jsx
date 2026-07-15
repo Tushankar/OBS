@@ -84,13 +84,19 @@ export default function EventWizard() {
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  // Reference data for the dropdowns + speaker/program pickers.
+  // Reference data for the dropdowns + speaker/program pickers. Categories are
+  // required at submit, so a failed load is surfaced with a retry (not silent).
+  const [catsFailed, setCatsFailed] = useState(false);
+  const loadCats = () => {
+    setCatsFailed(false);
+    api.categories().then(setCats).catch(() => setCatsFailed(true));
+  };
   useEffect(() => {
-    api.categories().then(setCats).catch(() => {});
+    loadCats();
     api.chapters().then(setChapters).catch(() => {});
     api.speakers().then(setSpeakers).catch(() => {});
     api.currentProgram().then((p) => setProgram(p || null)).catch(() => setProgram(null));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edit mode: load the draft.
   useEffect(() => {
@@ -385,6 +391,11 @@ export default function EventWizard() {
                   <option value="">Select a category…</option>
                   {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
+                {catsFailed && (
+                  <p className="mt-1 text-[12px] text-[#B3093C]">
+                    Couldn’t load categories. <button type="button" onClick={loadCats} className="font-semibold underline">Retry</button>
+                  </p>
+                )}
               </Field>
               <Field label="Chapter (optional)">
                 <select className={inputCls} value={form.chapterId} disabled={readOnly} onChange={(e) => set('chapterId', e.target.value)}>

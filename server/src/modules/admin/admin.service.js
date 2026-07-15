@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
 import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, CmsPage, Speaker, Program, EmailLog, AuditLog, Ticket } from '../../models/index.js';
+
+// User-supplied search terms go into $regex — escape metacharacters so a
+// search for "(" is a literal match, not a Mongo regex error (500).
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 import { cancelEventCascade } from '../events/events.service.js';
 import { notFoundError, conflict } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
@@ -247,7 +251,7 @@ export async function updateEventAdmin(adminId, id, body) {
 export async function listEvents({ status, q, page, limit } = {}) {
   const filter = {};
   if (status) filter.status = status;
-  if (q) filter.title = { $regex: q, $options: 'i' };
+  if (q) filter.title = { $regex: escapeRegex(q), $options: 'i' };
   const [rows, total] = await Promise.all([
     Event.find(filter)
       .populate('organizerId', 'orgName')
@@ -360,7 +364,7 @@ export async function listUsers({ search, role, status, page = 1, limit = 20 } =
   const filter = {};
   if (role) filter.role = role;
   if (status) filter.status = status;
-  if (search) filter.$or = [{ name: { $regex: search, $options: 'i' } }, { email: { $regex: search, $options: 'i' } }];
+  if (search) filter.$or = [{ name: { $regex: escapeRegex(search), $options: 'i' } }, { email: { $regex: escapeRegex(search), $options: 'i' } }];
   const [rows, total] = await Promise.all([
     User.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
     User.countDocuments(filter),
@@ -457,7 +461,7 @@ export async function listTransactions({ gateway, status, search, page = 1, limi
   if (search) {
     // Match by order number OR the buyer's name/email — "who booked what" is a
     // person-first question as often as an order-first one.
-    const rx = { $regex: search, $options: 'i' };
+    const rx = { $regex: escapeRegex(search), $options: 'i' };
     const users = await User.find({ $or: [{ email: rx }, { name: rx }] }).select('_id');
     const orders = await Order.find({ $or: [{ orderNumber: rx }, { userId: { $in: users.map((u) => u._id) } }] }).select('_id');
     filter.orderId = { $in: orders.map((o) => o._id) };
@@ -497,7 +501,7 @@ export async function listTransactions({ gateway, status, search, page = 1, limi
 export async function listAudit({ entityType, search, page = 1, limit = 50 } = {}) {
   const filter = {};
   if (entityType) filter.entityType = entityType;
-  if (search) filter.action = { $regex: search, $options: 'i' };
+  if (search) filter.action = { $regex: escapeRegex(search), $options: 'i' };
   const [rows, total] = await Promise.all([
     AuditLog.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
       .populate('actorId', 'name email'),
@@ -554,7 +558,7 @@ export async function listEmails({ type, status, search, page = 1, limit = 50 } 
   if (type) filter.type = type;
   if (status) filter.status = status;
   if (search) {
-    const rx = { $regex: search, $options: 'i' };
+    const rx = { $regex: escapeRegex(search), $options: 'i' };
     filter.$or = [{ toEmail: rx }, { subject: rx }];
   }
   const [rows, total] = await Promise.all([
