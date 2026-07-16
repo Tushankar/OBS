@@ -24,6 +24,7 @@ export { default as Sponsor } from './Sponsor.js';
 export { default as PartnerApplication } from './PartnerApplication.js';
 export { default as SupportTicket } from './SupportTicket.js';
 export { default as Notification } from './Notification.js';
+export { default as PromoGrant } from './PromoGrant.js';
 export { default as Article } from './Article.js';
 export { default as Program } from './Program.js';
 export { default as ProgramDay } from './ProgramDay.js';

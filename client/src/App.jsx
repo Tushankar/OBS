@@ -52,6 +52,7 @@ import NewsDetail from './pages/public/NewsDetail';
 import Launches from './pages/public/Launches';
 import CreateChapter from './pages/public/CreateChapter';
 import MyChapters from './pages/account/MyChapters';
+import MyPromos from './pages/account/MyPromos';
 
 import { useApp } from './context/AppContext';
 import { RequireAuth, RequireRole } from './components/guards/RequireAuth';
@@ -172,6 +173,7 @@ export default function App() {
 
                   {/* Account chapters route */}
                   <Route path="/account/chapters" element={<RequireAuth><MyChapters /></RequireAuth>} />
+                  <Route path="/account/promos" element={<RequireAuth><MyPromos /></RequireAuth>} />
 
                   {/* Organizer self-service application (public chrome; the gated
                       organizer workspace has its own standalone shell above) */}

@@ -42,6 +42,7 @@ export const EMAIL_TYPE = [
   'EVENT_CANCELLED', // attendee notification when a published event is cancelled
   'EMAIL_VERIFICATION', // verify-your-address link sent on signup / on request
   'ATTENDEE_MESSAGE', // admin-triggered one-to-one message to a specific ticket holder
+  'PROMO_CODE', // loyalty promo code granted to a frequent booker
 ];
 // Admin email campaigns (announcements / new-event launches).
 export const CAMPAIGN_STATUS = ['DRAFT', 'SENDING', 'SENT'];

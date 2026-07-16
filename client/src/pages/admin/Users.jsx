@@ -1,8 +1,172 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { PageHead, Card, Pill, statusTone, Table, SearchInput, Btn, Loading, ConfirmDialog, Modal, selectCls, formatPrice } from '../../components/portal/Kit';
+import { PageHead, Card, Pill, statusTone, Table, SearchInput, Btn, Loading, ConfirmDialog, Modal, Field, Tabs, Avatar, selectCls, inputCls, formatPrice } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
+import { AdminIcon } from '../../components/admin/AdminIcons';
+
+const discountLabel = (p) => (p.discountType === 'PERCENT' ? `${p.discountValue}% off` : `${formatPrice(p.discountValue)} off`);
+
+// ── Top bookers — the platform's regulars, with promo-code outreach ──────
+function SendPromoModal({ userIds, onClose, onSent }) {
+  const { pushToast } = useApp();
+  const [promos, setPromos] = useState(null);
+  const [promoCodeId, setPromoCodeId] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.adminPromos()
+      .then((rows) => {
+        const live = (rows || []).filter((p) => p.isActive !== false);
+        setPromos(live);
+        if (live[0]) setPromoCodeId(live[0].id);
+      })
+      .catch((e) => { setPromos([]); pushToast(apiError(e), false); });
+  }, [pushToast]);
+
+  const selected = (promos || []).find((p) => p.id === promoCodeId);
+
+  const send = async () => {
+    if (!promoCodeId) { pushToast('Pick a promo code first', false); return; }
+    setBusy(true);
+    try {
+      const r = await api.adminSendPromo({ userIds, promoCodeId, note: note.trim() || undefined });
+      pushToast(`Promo granted to ${r.granted} ${r.granted === 1 ? 'user' : 'users'} · ${r.sent} emailed`);
+      onSent();
+    } catch (e) {
+      pushToast(apiError(e, 'Could not send the promo'), false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={busy ? undefined : onClose}
+      title={`Send a promo code to ${userIds.length} ${userIds.length === 1 ? 'user' : 'users'}`}
+      subtitle="Each user gets a personal email; the code also appears under “My promo codes” in their account, one tap away at booking."
+      width="max-w-lg"
+      footer={
+        <>
+          <Btn variant="ghost" onClick={onClose} disabled={busy}>Cancel</Btn>
+          <Btn onClick={send} disabled={busy || !promoCodeId}>{busy ? 'Sending…' : 'Grant & email'}</Btn>
+        </>
+      }
+    >
+      {promos === null ? (
+        <Loading />
+      ) : promos.length === 0 ? (
+        <p className="text-sm text-gray-600">
+          No platform promo codes yet — create one under <Link to="/admin/promos" className="font-medium text-[#E5B700]">Promo codes</Link> first.
+        </p>
+      ) : (
+        <div className="grid gap-4">
+          <Field label="Promo code">
+            <select value={promoCodeId} onChange={(e) => setPromoCodeId(e.target.value)} className={`${selectCls} h-auto w-full py-2`}>
+              {promos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} — {discountLabel(p)}{p.validUntil ? ` · until ${new Date(p.validUntil).toLocaleDateString('en-IN')}` : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {selected && (
+            <div className="rounded-lg border-2 border-[#E5B700] bg-[#FFFAEF] px-4 py-3 text-sm text-gray-700">
+              They&rsquo;ll receive <span className="font-semibold">{discountLabel(selected)}</span> with code{' '}
+              <span className="font-mono font-bold tracking-wider text-gray-900">{selected.code}</span>
+              {selected.minOrderAmount ? <> on orders above {formatPrice(selected.minOrderAmount)}</> : null}.
+            </div>
+          )}
+          <Field label="Personal note" hint="Optional — added to the email.">
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} placeholder="e.g. Thanks for being a regular at OBS events!" className={`${inputCls} resize-y`} />
+          </Field>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function TopBookers() {
+  const { pushToast } = useApp();
+  const [rows, setRows] = useState(null);
+  const [picked, setPicked] = useState(() => new Set());
+  const [sending, setSending] = useState(false);
+
+  const load = useCallback(() => {
+    api.adminTopBookers({ limit: 30 })
+      .then((d) => { setRows(d || []); setPicked(new Set()); })
+      .catch((e) => { setRows([]); pushToast(apiError(e), false); });
+  }, [pushToast]);
+  useEffect(() => { load(); }, [load]);
+
+  const toggle = (id) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const allPicked = rows?.length > 0 && picked.size === rows.length;
+  const toggleAll = () => setPicked(allPicked ? new Set() : new Set(rows.map((r) => r.userId)));
+
+  if (!rows) return <Loading />;
+
+  const columns = [
+    { key: 'pick', label: '' },
+    { key: 'rank', label: '#' },
+    { key: 'user', label: 'User' },
+    { key: 'tickets', label: 'Tickets', align: 'right' },
+    { key: 'orders', label: 'Orders', align: 'right' },
+    { key: 'spend', label: 'Spend', align: 'right' },
+    { key: 'last', label: 'Last booking' },
+    { key: 'grants', label: 'Promos sent', align: 'right' },
+  ];
+
+  const renderCell = (r, key) => {
+    if (key === 'pick') return (
+      <input type="checkbox" checked={picked.has(r.userId)} onChange={() => toggle(r.userId)} className="h-4 w-4 accent-[#E5B700]" aria-label={`Select ${r.name}`} />
+    );
+    if (key === 'rank') return <span className="font-semibold text-gray-500">{rows.indexOf(r) + 1}</span>;
+    if (key === 'user') return (
+      <span className="flex min-w-0 items-center gap-2.5">
+        <Avatar name={r.name} size={30} />
+        <span className="min-w-0">
+          <span className="block truncate font-medium text-gray-900">{r.name}</span>
+          <span className="block truncate text-xs text-gray-500">{r.email}</span>
+        </span>
+      </span>
+    );
+    if (key === 'tickets') return <span className="font-semibold text-gray-900 [font-variant-numeric:tabular-nums]">{r.tickets}</span>;
+    if (key === 'orders') return <span className="[font-variant-numeric:tabular-nums]">{r.orders}</span>;
+    if (key === 'spend') return <span className="font-medium [font-variant-numeric:tabular-nums]">{formatPrice(r.spend)}</span>;
+    if (key === 'last') return <span className="text-gray-500">{r.lastBookingAt ? fmtDate(r.lastBookingAt) : '—'}</span>;
+    if (key === 'grants') return r.grants > 0 ? <Pill tone="brand">{r.grants}</Pill> : <span className="text-gray-300">—</span>;
+    return null;
+  };
+
+  return (
+    <div>
+      <Card className="mb-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={allPicked} onChange={toggleAll} className="h-4 w-4 accent-[#E5B700]" /> Select all
+            </label>
+            <span className="text-sm text-gray-500">{picked.size} selected</span>
+          </div>
+          <Btn disabled={picked.size === 0} onClick={() => setSending(true)}>
+            <AdminIcon.Percent size={14} /> Send promo code{picked.size > 0 ? ` (${picked.size})` : ''}
+          </Btn>
+        </div>
+      </Card>
+      <p className="mb-3 text-xs text-gray-500">Ranked by tickets booked (paid + free), with paid spend and last booking — reward your regulars with a personal promo code.</p>
+      <Table columns={columns} rows={rows.map((r) => ({ ...r, id: r.userId }))} renderCell={renderCell} empty="No bookings yet — this fills up as tickets are booked." />
+      {sending && (
+        <SendPromoModal
+          userIds={[...picked]}
+          onClose={() => setSending(false)}
+          onSent={() => { setSending(false); load(); }}
+        />
+      )}
+    </div>
+  );
+}
 
 const ROLE_OPTIONS = ['', 'USER', 'ORGANIZER', 'ADMIN'];
 const STATUS_OPTIONS = ['', 'ACTIVE', 'SUSPENDED'];
@@ -102,6 +266,7 @@ export default function Users() {
   const [busyId, setBusyId] = useState(null);
   const [confirm, setConfirm] = useState(null); // { user, nextStatus }
   const [detailId, setDetailId] = useState(null); // user drill-down drawer
+  const [view, setView] = useState('dir'); // 'dir' | 'top' (Top bookers)
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => { const t = setTimeout(() => setDebounced(query.trim()), 300); return () => clearTimeout(t); }, [query]);
@@ -156,19 +321,27 @@ export default function Users() {
   return (
     <div>
       <PageHead title="Users" subtitle={data ? `${data.total} registered` : undefined} />
-      <Card className="mb-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <SearchInput value={query} onChange={setQuery} placeholder="Search name or email…" className="max-w-xs" />
-          <select value={role} onChange={(e) => setRole(e.target.value)} className={selectCls} aria-label="Filter by role">
-            {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r || 'All roles'}</option>)}
-          </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls} aria-label="Filter by status">
-            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || 'All statuses'}</option>)}
-          </select>
-        </div>
-      </Card>
-      <p className="mb-3 text-[12px] text-[#6B7280]">Promoting to Organizer approves their organizer profile; demoting to User suspends it.</p>
-      {!data ? <Loading /> : <Table columns={COLUMNS} rows={data.users} renderCell={renderCell} empty="No users match your filters." />}
+      <Tabs tabs={[['dir', 'Directory'], ['top', 'Top bookers']]} active={view} onChange={setView} />
+
+      {view === 'top' ? (
+        <TopBookers />
+      ) : (
+        <>
+          <Card className="mb-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <SearchInput value={query} onChange={setQuery} placeholder="Search name or email…" className="max-w-xs" />
+              <select value={role} onChange={(e) => setRole(e.target.value)} className={selectCls} aria-label="Filter by role">
+                {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r || 'All roles'}</option>)}
+              </select>
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls} aria-label="Filter by status">
+                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || 'All statuses'}</option>)}
+              </select>
+            </div>
+          </Card>
+          <p className="mb-3 text-[12px] text-[#6B7280]">Promoting to Organizer approves their organizer profile; demoting to User suspends it.</p>
+          {!data ? <Loading /> : <Table columns={COLUMNS} rows={data.users} renderCell={renderCell} empty="No users match your filters." />}
+        </>
+      )}
 
       {detailId && <UserDrawer userId={detailId} onClose={() => setDetailId(null)} />}
 

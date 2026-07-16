@@ -314,6 +314,11 @@ api.submitSupportTicket = (body) => unwrap(api.post('/support-tickets', body)).t
 api.adminSupportTickets = (params) => unwrap(api.get('/admin/support-tickets', { params })); // { tickets, total }
 api.updateSupportTicket = (id, body) => unwrap(api.patch(`/admin/support-tickets/${id}`, body)).then((d) => d.ticket);
 
+// Loyalty — top bookers + promo grants (admin) and the user's own codes
+api.adminTopBookers = (params) => unwrap(api.get('/admin/loyalty/top-bookers', { params })).then((d) => d.bookers);
+api.adminSendPromo = (body) => unwrap(api.post('/admin/loyalty/send-promo', body)); // { granted, sent }
+api.myPromoCodes = () => unwrap(api.get('/me/promo-codes')).then((d) => d.promos);
+
 // Admin notifications — header bell (polled)
 api.adminNotifications = (params) => unwrap(api.get('/admin/notifications', { params })); // { notifications, unread }
 api.readNotification = (id) => unwrap(api.post(`/admin/notifications/${id}/read`));

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
@@ -30,6 +30,16 @@ export default function BookingCard({ event }) {
   const [promo, setPromo] = useState('');
   const [dayFilter, setDayFilter] = useState(0); // 0 = all days
   const [submitting, setSubmitting] = useState(false);
+  const [myPromos, setMyPromos] = useState([]); // codes granted to this user (loyalty)
+
+  // Granted codes → one-tap chips under the promo input. Signed-out users have
+  // none; a failed fetch just hides the chips.
+  useEffect(() => {
+    if (!user) { setMyPromos([]); return; }
+    api.myPromoCodes()
+      .then((rows) => setMyPromos((rows || []).filter((p) => p.live && (!p.eventId || p.eventId === event.id))))
+      .catch(() => {});
+  }, [user, event.id]);
 
   const totalDays = spanDays(event.startAt, event.endAt);
   const multiDay = totalDays > 1;
@@ -156,6 +166,28 @@ export default function BookingCard({ event }) {
             placeholder="Promo code (optional)"
             className="mt-3 h-10 w-full rounded-md border border-line px-3 text-sm font-mono uppercase text-ink outline-none focus:border-brand"
           />
+          {myPromos.length > 0 && (
+            <div className="mt-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-mute">Your codes</div>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {myPromos.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPromo(promo === p.code ? '' : p.code)}
+                    title={`${p.discount}${p.validUntil ? ` · until ${new Date(p.validUntil).toLocaleDateString('en-IN')}` : ''}`}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-bold tracking-wider transition ${
+                      promo === p.code
+                        ? 'border-brand bg-brand text-white'
+                        : 'border-brand/40 bg-brand-soft text-brand-dark hover:border-brand'
+                    }`}
+                  >
+                    {p.code} · {p.discount}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {count > 0 && (
             <div className="mt-4 border-t border-line pt-3 text-[13px]">

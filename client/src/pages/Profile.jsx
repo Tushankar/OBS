@@ -80,6 +80,7 @@ export default function Profile() {
     { icon: 'Ticket', label: 'My tickets', desc: 'Upcoming & past tickets', to: '/account/tickets' },
     { icon: 'CreditCard', label: 'Order history', desc: 'Bookings, invoices & refunds', to: '/account/orders' },
     { icon: 'Pin', label: 'My chapters', desc: 'Chapters you created or joined', to: '/account/chapters' },
+    { icon: 'Gift', label: 'My promo codes', desc: 'Discount codes granted to you', to: '/account/promos' },
     { icon: 'Headphones', label: 'Help & support', desc: 'Get help with your bookings', to: '/help' },
   ];
 
