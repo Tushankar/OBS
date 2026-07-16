@@ -4,6 +4,8 @@ import ApiEventCard from '../components/common/ApiEventCard';
 import ArticleCard from '../components/cards/ArticleCard';
 import SponsorLogo from '../components/cards/SponsorLogo';
 import ChapterHighlightBand from '../components/home/ChapterHighlightBand';
+import ChapterMark from '../components/common/ChapterMark';
+import { chapterTypeLabel } from '../lib/labels';
 import HeroCarousel from '../components/home/HeroCarousel';
 import { SkeletonGrid } from '../components/common/Skeleton';
 import Seo from '../components/common/Seo';
@@ -77,14 +79,6 @@ export default function Home() {
     .filter((c) => c.type === 'GEO_COUNTRY' && !flagshipChapters.some((f) => f.slug === c.slug))
     .slice(0, 8);
   const spotlight = [...flagshipChapters, ...countryChapters];
-  const CHAPTER_TYPE_LABEL = {
-    GEO_COUNTRY: 'Country chapter',
-    GEO_CITY: 'City chapter',
-    LEADERSHIP_COMMUNITY: 'Leadership',
-    INDUSTRY_PROFESSIONAL: 'Industry',
-    STRATEGIC_EXPANSION: 'Strategic',
-    BUSINESS_CAPITAL: 'Capital',
-  };
 
   return (
     <div className="bg-[#F5F5F5] pb-10">
@@ -222,13 +216,11 @@ export default function Home() {
               onClick={() => navigate(`/chapters/${c.slug}`)}
               className="group flex h-[104px] w-[210px] shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-4 text-left shadow-card transition hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-cardHover"
             >
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-soft text-[26px] leading-none transition-transform group-hover:scale-105">
-                {c.flagEmoji || '🌍'}
-              </span>
+              <ChapterMark chapter={c} size="lg" className="transition-transform group-hover:scale-105" />
               <div className="min-w-0">
                 <div className="truncate text-sm font-bold text-ink">{c.name}</div>
                 <div className="mt-1 inline-block rounded-full bg-surface px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-ink-mute">
-                  {c.tier || c.pillarGroup || CHAPTER_TYPE_LABEL[c.type] || 'Chapter'}
+                  {c.tier || c.pillarGroup || chapterTypeLabel(c.type) || 'Chapter'}
                 </div>
               </div>
             </button>

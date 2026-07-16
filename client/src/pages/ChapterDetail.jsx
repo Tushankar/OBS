@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ApiEventCard from '../components/common/ApiEventCard';
+import ChapterMark from '../components/common/ChapterMark';
 import Seo from '../components/common/Seo';
 import { useApp } from '../context/AppContext';
 import { CHAPTER_TYPE_LABELS } from '../lib/labels';
@@ -111,9 +112,7 @@ export default function ChapterDetail() {
       )}
 
       <div className="flex flex-wrap items-center gap-[18px]">
-        <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-4xl">
-          {chapter.flagEmoji ? chapter.flagEmoji : <span className="text-[28px] font-extrabold text-brand">{chapter.name[0]}</span>}
-        </div>
+        <ChapterMark chapter={chapter} size="xl" />
         <div className="min-w-[200px] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold text-ink sm:text-[26px]">{chapter.name}</h1>

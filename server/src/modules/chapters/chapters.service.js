@@ -54,7 +54,7 @@ export async function getChapterBySlug(slug, viewer) {
     ChapterMember.countDocuments({ chapterId: chapter._id }),
     Event.find({ chapterId: chapter._id, status: 'PUBLISHED', endAt: { $gte: new Date() } })
       .populate('categoryId', 'name slug')
-      .populate('chapterId', 'name slug flagEmoji')
+      .populate('chapterId', 'name slug flagEmoji countryCode')
       .sort({ startAt: 1 })
       .limit(24),
     viewer ? ChapterMember.exists({ chapterId: chapter._id, userId: viewer.id }) : Promise.resolve(null),

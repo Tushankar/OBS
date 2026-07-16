@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ChapterMark from '../../components/common/ChapterMark';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 
@@ -192,11 +193,7 @@ export default function MyChapters() {
                   <div>
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 min-w-0">
-                        {c.flagEmoji ? (
-                          <span className="text-3xl leading-none">{c.flagEmoji}</span>
-                        ) : (
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-soft text-sm font-bold text-brand uppercase">{c.name[0]}</span>
-                        )}
+                        <ChapterMark chapter={c} size="md" />
                         <div className="min-w-0">
                           <button onClick={() => navigate(`/chapters/${c.slug}`)} className="block truncate text-base font-bold text-ink leading-tight hover:text-brand">{c.name}</button>
                           <span className="text-[10px] text-ink-mute font-semibold uppercase">{c.tier || 'Community'} · {c.memberCount} member{c.memberCount === 1 ? '' : 's'}</span>
@@ -240,11 +237,7 @@ export default function MyChapters() {
             {data.joined.map((c) => (
               <div key={c.id} className="rounded-xl border border-line bg-white p-5 shadow-sm">
                 <div className="flex items-center gap-3 min-w-0">
-                  {c.flagEmoji ? (
-                    <span className="text-3xl leading-none">{c.flagEmoji}</span>
-                  ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-soft text-sm font-bold text-brand uppercase">{c.name[0]}</span>
-                  )}
+                  <ChapterMark chapter={c} size="md" />
                   <div className="min-w-0">
                     <button onClick={() => navigate(`/chapters/${c.slug}`)} className="block truncate text-base font-bold text-ink leading-tight hover:text-brand">{c.name}</button>
                     <span className="text-[10px] text-ink-mute font-semibold uppercase">{c.tier || 'Community'} · {c.memberCount} member{c.memberCount === 1 ? '' : 's'}</span>

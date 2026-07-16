@@ -58,7 +58,7 @@ export async function getSponsorBySlug(slug) {
   if (!sponsor) throw notFoundError('SPONSOR_NOT_FOUND', 'Sponsor not found');
 
   let events = [];
-  const populate = (q) => q.populate('categoryId', 'name slug').populate('chapterId', 'name slug flagEmoji');
+  const populate = (q) => q.populate('categoryId', 'name slug').populate('chapterId', 'name slug flagEmoji countryCode');
   if (sponsor.scope === 'EVENT' && sponsor.eventId) {
     events = await populate(Event.find({ _id: sponsor.eventId, status: { $in: VIEWABLE } }));
   } else if (sponsor.scope === 'PROGRAM' && sponsor.programId) {

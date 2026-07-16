@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EvImage from './EvImage';
+import { ChapterFlag } from './ChapterMark';
 import { useApp } from '../../context/AppContext';
 import { displayMoney } from '../../lib/currency';
 import { fmtDate } from '../../lib/format';
@@ -63,7 +64,6 @@ export default function ApiEventCard({ event }) {
   const { currency } = useApp();
   const go = () => navigate(`/event/${event.slug}`);
   const loc = event.isOnline ? 'Online' : event.venueName || event.city || 'Venue TBA';
-  const corner = event.isOnline ? 'ONLINE' : event.chapter?.flagEmoji || '';
   // §10 price hint, converted to the visitor's selected display currency.
   const price = event.fromPrice == null ? null : event.fromPrice === 0 ? 'Free' : `from ${displayMoney(event.fromPrice, event.currency || 'INR', currency)}`;
 
@@ -88,7 +88,11 @@ export default function ApiEventCard({ event }) {
         )}
         <div className="absolute inset-x-0 bottom-0 z-[2] flex h-8 items-center gap-1.5 bg-black/85 px-2.5 text-xs text-white">
           <span className="truncate text-[11px] font-semibold text-white/95">{event.category?.name || 'Event'}</span>
-          {corner && <span className="ml-auto text-[10px] font-semibold text-white/60">{corner}</span>}
+          {event.isOnline ? (
+            <span className="ml-auto text-[10px] font-semibold text-white/60">ONLINE</span>
+          ) : event.chapter?.countryCode ? (
+            <ChapterFlag code={event.chapter.countryCode} className="ml-auto h-3 w-4 rounded-[2px] ring-white/20" />
+          ) : null}
         </div>
       </div>
       <div className="mt-2.5 flex flex-col gap-0.5">

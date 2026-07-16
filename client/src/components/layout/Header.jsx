@@ -154,7 +154,7 @@ export default function Header({ onOpenAuth }) {
               {sug.chapters.length > 0 && <Group label="CHAPTERS" />}
               {sug.chapters.map((c, i) => (
                 <Row key={c.slug} active={hl === sug.events.length + i} onDown={() => navigate(`/chapters/${c.slug}`)}
-                  thumb={<Thumb seed={c.slug} glyph={c.flagEmoji || c.name[0]} />} title={c.name}
+                  thumb={<ChapterMark chapter={c} size="sm" />} title={c.name}
                   meta={c.tier || c.pillarGroup || 'Chapter'} />
               ))}
               {flat.length === 0 && (

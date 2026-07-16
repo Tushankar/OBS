@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EvImage from '../components/common/EvImage';
+import ChapterMark from '../components/common/ChapterMark';
 import Seo from '../components/common/Seo';
 import api from '../lib/api';
 
@@ -56,7 +57,7 @@ function sectionize(chapters) {
 function ChapterCard({ c, navigate }) {
   return (
     <button onClick={() => navigate(`/chapters/${c.slug}`)} className="flex items-center gap-3 rounded-[10px] border border-line bg-white p-3.5 text-left transition hover:-translate-y-0.5 hover:border-brand hover:shadow-panel">
-      {c.flagEmoji ? <span className="shrink-0 text-3xl leading-none">{c.flagEmoji}</span> : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-soft text-sm font-bold text-brand">{c.name[0]}</span>}
+      <ChapterMark chapter={c} size="md" />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold text-ink">{c.name}</div>
         <div className="mt-1 flex items-center gap-1.5 text-xs text-ink-mute">

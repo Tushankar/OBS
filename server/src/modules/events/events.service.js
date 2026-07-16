@@ -381,7 +381,7 @@ export function publicEventCard(e) {
     isLaunch: !!e.isLaunch,
     launchAt: e.launchAt || null,
     category: cat ? { name: cat.name, slug: cat.slug } : null,
-    chapter: chap ? { name: chap.name, slug: chap.slug, flagEmoji: chap.flagEmoji || null } : null,
+    chapter: chap ? { name: chap.name, slug: chap.slug, flagEmoji: chap.flagEmoji || null, countryCode: chap.countryCode || null } : null,
   };
 }
 
@@ -456,7 +456,7 @@ export async function listPublicEvents(q) {
   const [rows, total] = await Promise.all([
     Event.find(filter)
       .populate('categoryId', 'name slug')
-      .populate('chapterId', 'name slug flagEmoji')
+      .populate('chapterId', 'name slug flagEmoji countryCode')
       .sort(sortSpec)
       .skip((page - 1) * limit)
       .limit(limit),
@@ -525,7 +525,7 @@ function publicTicketType(t) {
 export async function getPublicEventBySlug(slug) {
   const event = await Event.findOne({ slug, status: { $in: VIEWABLE } })
     .populate('categoryId', 'name slug')
-    .populate('chapterId', 'name slug flagEmoji type tier')
+    .populate('chapterId', 'name slug flagEmoji countryCode type tier')
     .populate('organizerId', 'orgName slug logoUrl bio website')
     .populate('speakerIds', 'name slug photoUrl title company') // §5.2 Speakers block
     .populate('programId', 'name slug'); // §5.5 "Part of <Program> · Day N" chip
@@ -559,7 +559,7 @@ export async function similarEvents(slug) {
   if (!or.length) return [];
   const rows = await Event.find({ status: 'PUBLISHED', endAt: { $gte: new Date() }, slug: { $ne: slug }, $or: or })
     .populate('categoryId', 'name slug')
-    .populate('chapterId', 'name slug flagEmoji')
+    .populate('chapterId', 'name slug flagEmoji countryCode')
     .sort({ startAt: 1 })
     .limit(4);
   return rows.map(publicEventCard);
@@ -580,7 +580,7 @@ export async function listLaunches({ scope = 'upcoming' } = {}) {
   }
   const rows = await Event.find(filter)
     .populate('categoryId', 'name slug')
-    .populate('chapterId', 'name slug flagEmoji');
+    .populate('chapterId', 'name slug flagEmoji countryCode');
   // Sort on the effective time in JS (Mongo can't sort on a coalesced field
   // without an aggregation): upcoming soonest-first (undated TBA last), recent
   // newest-first.

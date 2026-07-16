@@ -83,7 +83,7 @@ export async function getProgramBySlug(slug, now = new Date()) {
     ProgramDay.find({ programId: program._id }).sort({ dayNumber: 1 }),
     Event.find({ programId: program._id, status: 'PUBLISHED' })
       .populate('categoryId', 'name slug')
-      .populate('chapterId', 'name slug flagEmoji')
+      .populate('chapterId', 'name slug flagEmoji countryCode')
       .sort({ startAt: 1 }),
     Sponsor.find({ scope: 'PROGRAM', programId: program._id, isActive: true, status: 'APPROVED' }).sort({ sortOrder: 1, name: 1 }),
   ]);
@@ -119,7 +119,7 @@ export async function getProgramDay(slug, n, { country } = {}, now = new Date())
   if (country) filter.country = { $regex: `^${escapeRegex(country)}$`, $options: 'i' };
   const events = await Event.find(filter)
     .populate('categoryId', 'name slug')
-    .populate('chapterId', 'name slug flagEmoji')
+    .populate('chapterId', 'name slug flagEmoji countryCode')
     .sort({ startAt: 1 });
   return {
     program: shapeProgram(program, now),

@@ -219,7 +219,7 @@ export async function getPublicProfile(slug) {
   if (!profile) throw notFoundError('ORGANIZER_NOT_FOUND', 'Organizer not found');
   const events = await Event.find({ organizerId: profile._id, status: 'PUBLISHED', endAt: { $gte: new Date() } })
     .populate('categoryId', 'name slug')
-    .populate('chapterId', 'name slug flagEmoji')
+    .populate('chapterId', 'name slug flagEmoji countryCode')
     .sort({ startAt: 1 })
     .limit(24);
   return {

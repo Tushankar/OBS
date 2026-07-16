@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ApiEventCard from '../components/common/ApiEventCard';
+import ChapterMark from '../components/common/ChapterMark';
 import Seo from '../components/common/Seo';
 import { Icon } from '../components/common/Icon';
 import api from '../lib/api';
@@ -46,7 +47,7 @@ export default function SearchResults() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {chapters.map((c) => (
               <button key={c.slug} onClick={() => navigate(`/chapters/${c.slug}`)} className="flex items-center gap-3 rounded-[10px] border border-line bg-white p-3.5 text-left transition hover:border-brand">
-                <span className="text-3xl">{c.flagEmoji || c.name[0]}</span>
+                <ChapterMark chapter={c} size="md" />
                 <div><div className="text-sm font-semibold text-ink">{c.name}</div><div className="mt-0.5 text-xs text-ink-mute">{c.tier || c.pillarGroup || 'Chapter'}</div></div>
               </button>
             ))}

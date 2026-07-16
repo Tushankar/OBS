@@ -47,12 +47,12 @@ export async function getSpeakerBySlug(slug) {
   const [upcoming, past] = await Promise.all([
     Event.find({ speakerIds: speaker._id, status: 'PUBLISHED', endAt: { $gte: now } })
       .populate('categoryId', 'name slug')
-      .populate('chapterId', 'name slug flagEmoji')
+      .populate('chapterId', 'name slug flagEmoji countryCode')
       .sort({ startAt: 1 })
       .limit(24),
     Event.find({ speakerIds: speaker._id, status: { $in: ['PUBLISHED', 'COMPLETED'] }, endAt: { $lt: now } })
       .populate('categoryId', 'name slug')
-      .populate('chapterId', 'name slug flagEmoji')
+      .populate('chapterId', 'name slug flagEmoji countryCode')
       .sort({ startAt: -1 })
       .limit(24),
   ]);

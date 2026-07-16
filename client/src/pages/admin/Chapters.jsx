@@ -175,7 +175,7 @@ export default function Chapters() {
   const renderCell = (c, key) => {
     if (key === 'chapter') return (
       <div className="flex items-center gap-2">
-        <span className="text-base">{c.flagEmoji || '🏛️'}</span>
+        <ChapterMark chapter={c} size="sm" />
         <span className="font-semibold text-[#111827]">{c.name}</span>
         {!c.isActive && <Pill tone="gray">Hidden</Pill>}
       </div>

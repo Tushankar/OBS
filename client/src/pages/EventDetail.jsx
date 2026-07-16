@@ -108,7 +108,7 @@ export default function EventDetail() {
             <span className="flex items-center gap-1.5"><Icon.Pin /> {loc}</span>
             {event.chapter && (
               <button onClick={() => navigate(`/chapters/${event.chapter.slug}`)} className="flex items-center gap-1.5 font-medium text-brand transition hover:text-brand-dark">
-                {event.chapter.flagEmoji} {event.chapter.name}
+                <ChapterFlag code={event.chapter.countryCode} className="h-3.5 w-[18px] rounded-[2px]" /> {event.chapter.name}
               </button>
             )}
           </div>

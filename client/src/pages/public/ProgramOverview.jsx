@@ -136,7 +136,7 @@ export default function ProgramOverview() {
                       <div className="flex flex-wrap gap-2">
                         {evs.map((e) => (
                           <button key={e.id} onClick={() => navigate(`/event/${e.slug}`)} className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:border-brand hover:text-brand">
-                            {e.chapter?.flagEmoji && <span>{e.chapter.flagEmoji}</span>}
+                            <ChapterFlag code={e.chapter?.countryCode} className="h-3 w-4 rounded-[2px]" />
                             <span className="max-w-[220px] truncate">{e.title}</span>
                             {e.city && <span className="text-ink-mute">· {e.city}</span>}
                           </button>
