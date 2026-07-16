@@ -11,10 +11,21 @@ const optionalWebsite = z
   .transform((v) => (v ? v : undefined))
   .refine((v) => v === undefined || WEBSITE_RE.test(v), 'Enter a valid website URL');
 
+export const ORG_TYPES = ['COMPANY', 'NONPROFIT', 'COMMUNITY', 'EDUCATION', 'INDIVIDUAL'];
+export const ORG_EXPERIENCE = ['FIRST_TIME', 'UPTO_5', 'UPTO_20', 'OVER_20'];
+
+// Professional application — enough detail for a real review decision.
 export const applySchema = z.object({
   orgName: z.string().trim().min(2, 'Organization name is required').max(120),
-  bio: z.string().trim().max(2000).optional().transform((v) => (v ? v : undefined)),
+  contactName: z.string().trim().min(2, 'Contact person is required').max(100),
+  phone: z.string().trim().regex(/^[+\d][\d\s()-]{6,19}$/, 'Enter a valid phone number'),
+  orgType: z.enum(ORG_TYPES),
+  city: z.string().trim().min(2, 'City is required').max(80),
+  experience: z.enum(ORG_EXPERIENCE),
+  bio: z.string().trim().min(30, 'Tell us a bit more (at least 30 characters)').max(2000),
   website: optionalWebsite,
+  socialUrl: optionalWebsite,
+  registrationNo: z.string().trim().max(60).optional().transform((v) => (v ? v : undefined)),
 });
 
 // PATCH /organizer/me — keep the public organizer page current.
