@@ -10,8 +10,8 @@ const TYPE_LABEL = {
   BUSINESS_CAPITAL: 'Business', INDUSTRY_PROFESSIONAL: 'Industry', STRATEGIC_EXPANSION: 'Strategic',
 };
 const humanType = (t) => TYPE_LABEL[t] || t || '—';
-const inputCls = 'h-10 w-full rounded-md border border-line bg-white px-3 text-sm outline-none focus:border-brand';
-const selectCls = 'h-9 rounded-md border border-line bg-white px-3 text-[13px] text-ink outline-none transition focus:border-brand';
+const inputCls = 'h-10 w-full rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-sm text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
+const selectCls = 'h-9 rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
 
 const COLUMNS = [
   { key: 'chapter', label: 'Chapter' },
@@ -54,47 +54,47 @@ function Editor({ initial, onClose, onSaved, pushToast }) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4" onClick={onClose}>
       <Card className="mt-10 w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-bold text-ink">{editing ? 'Edit chapter' : 'New chapter'}</h2>
+        <h2 className="text-lg font-bold text-[#111827]">{editing ? 'Edit chapter' : 'New chapter'}</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="col-span-2 block">
-            <span className="mb-1 block text-[12px] font-semibold text-ink-soft">Name</span>
+            <span className="mb-1 block text-[12px] font-semibold text-[#4B5563]">Name</span>
             <input value={form.name} onChange={(e) => set('name', e.target.value)} className={inputCls} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[12px] font-semibold text-ink-soft">Type</span>
+            <span className="mb-1 block text-[12px] font-semibold text-[#4B5563]">Type</span>
             <select value={form.type} onChange={(e) => set('type', e.target.value)} className={`${inputCls}`}>
               {CHAPTER_TYPES.map((t) => <option key={t} value={t}>{humanType(t)}</option>)}
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-[12px] font-semibold text-ink-soft">Tier</span>
+            <span className="mb-1 block text-[12px] font-semibold text-[#4B5563]">Tier</span>
             <input value={form.tier} onChange={(e) => set('tier', e.target.value)} placeholder="T1 / Growth" className={inputCls} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[12px] font-semibold text-ink-soft">Ecosystem tier</span>
+            <span className="mb-1 block text-[12px] font-semibold text-[#4B5563]">Ecosystem tier</span>
             <input value={form.ecosystemTier} onChange={(e) => set('ecosystemTier', e.target.value)} placeholder="A–E" maxLength={2} className={inputCls} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[12px] font-semibold text-ink-soft">Country code</span>
+            <span className="mb-1 block text-[12px] font-semibold text-[#4B5563]">Country code</span>
             <input value={form.countryCode} onChange={(e) => set('countryCode', e.target.value)} placeholder="IN" maxLength={3} className={inputCls} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[12px] font-semibold text-ink-soft">Flag / emoji</span>
+            <span className="mb-1 block text-[12px] font-semibold text-[#4B5563]">Flag / emoji</span>
             <input value={form.flagEmoji} onChange={(e) => set('flagEmoji', e.target.value)} placeholder="🇮🇳" maxLength={4} className={inputCls} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[12px] font-semibold text-ink-soft">Sort order</span>
+            <span className="mb-1 block text-[12px] font-semibold text-[#4B5563]">Sort order</span>
             <input type="number" value={form.sortOrder} onChange={(e) => set('sortOrder', e.target.value)} className={inputCls} />
           </label>
           <label className="col-span-2 block">
-            <span className="mb-1 block text-[12px] font-semibold text-ink-soft">Description</span>
+            <span className="mb-1 block text-[12px] font-semibold text-[#4B5563]">Description</span>
             <textarea value={form.description} onChange={(e) => set('description', e.target.value)} rows={2}
-              className="w-full resize-y rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand" />
+              className="w-full resize-y rounded-[10px] border border-[#DCE3EC] bg-white px-3.5 py-2.5 text-sm text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10" />
           </label>
-          <label className="flex items-center gap-2 text-sm text-ink-soft">
+          <label className="flex items-center gap-2 text-sm text-[#4B5563]">
             <input type="checkbox" checked={form.isFlagship} onChange={(e) => set('isFlagship', e.target.checked)} /> Flagship
           </label>
-          <label className="flex items-center gap-2 text-sm text-ink-soft">
+          <label className="flex items-center gap-2 text-sm text-[#4B5563]">
             <input type="checkbox" checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} /> Active
           </label>
         </div>
@@ -176,30 +176,30 @@ export default function Chapters() {
     if (key === 'chapter') return (
       <div className="flex items-center gap-2">
         <span className="text-base">{c.flagEmoji || '🏛️'}</span>
-        <span className="font-semibold text-ink">{c.name}</span>
+        <span className="font-semibold text-[#111827]">{c.name}</span>
         {!c.isActive && <Pill tone="gray">Hidden</Pill>}
       </div>
     );
-    if (key === 'type') return <span className="text-ink-soft">{humanType(c.type)}</span>;
+    if (key === 'type') return <span className="text-[#4B5563]">{humanType(c.type)}</span>;
     if (key === 'status') return <Pill tone={statusTone(c.status)}>{c.status}</Pill>;
-    if (key === 'tier') return <span className="text-ink-soft">{c.tier || c.pillarGroup || '—'}</span>;
-    if (key === 'ecosystem') return <span className="text-ink-soft">{c.ecosystemTier || '—'}</span>;
+    if (key === 'tier') return <span className="text-[#4B5563]">{c.tier || c.pillarGroup || '—'}</span>;
+    if (key === 'ecosystem') return <span className="text-[#4B5563]">{c.ecosystemTier || '—'}</span>;
     if (key === 'flagship') return c.isFlagship ? <Pill tone="green">★</Pill> : <span className="text-ink-faint">—</span>;
-    if (key === 'events') return <span className="font-medium text-ink">{c.eventCount ?? 0}</span>;
+    if (key === 'events') return <span className="font-medium text-[#111827]">{c.eventCount ?? 0}</span>;
     if (key === 'actions') return (
       <div className="flex justify-end gap-1.5">
         {c.status !== 'APPROVED' && (
-          <Btn size="sm" variant="ghost" disabled={busyId === c.id} className="!text-[#1B7A34]" onClick={() => changeStatus(c, 'APPROVED')}>
+          <Btn size="sm" variant="ghost" disabled={busyId === c.id} className="!text-[#047857]" onClick={() => changeStatus(c, 'APPROVED')}>
             <AdminIcon.Check size={13} /> Approve
           </Btn>
         )}
         {c.status === 'APPROVED' && (
-          <Btn size="sm" variant="ghost" disabled={busyId === c.id} className="!text-[#9A6B0F]" onClick={() => setSuspendTarget(c)}>
+          <Btn size="sm" variant="ghost" disabled={busyId === c.id} className="!text-[#B45309]" onClick={() => setSuspendTarget(c)}>
             Suspend
           </Btn>
         )}
         <Btn size="sm" variant="ghost" onClick={() => setEditor(c)}><AdminIcon.Edit size={13} /> Edit</Btn>
-        <Btn size="sm" variant="ghost" onClick={() => setConfirm(c)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
+        <Btn size="sm" variant="ghost" onClick={() => setConfirm(c)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /></Btn>
       </div>
     );
     return null;
@@ -220,7 +220,7 @@ export default function Chapters() {
       <Table columns={COLUMNS} rows={rows} renderCell={renderCell} empty="No chapters match your filters." />
       {filtered.length > CAP && (
         <div className="mt-4 flex items-center justify-center gap-3">
-          <span className="text-[13px] text-ink-mute">Showing {rows.length} of {filtered.length}</span>
+          <span className="text-[13px] text-[#6B7280]">Showing {rows.length} of {filtered.length}</span>
           <Btn size="sm" variant="ghost" onClick={() => setShowAll((v) => !v)}>{showAll ? 'Show less' : `Show all ${filtered.length}`}</Btn>
         </div>
       )}

@@ -40,36 +40,36 @@ function UserDrawer({ userId, onClose }) {
             )}
           </div>
 
-          <dl className="grid grid-cols-3 overflow-hidden rounded-lg border border-[#EDF0F4]">
+          <dl className="grid grid-cols-3 overflow-hidden rounded-lg border border-[#EEF2F6]">
             {[
               ['Orders', data.stats.orders],
               ['Tickets held', data.stats.tickets],
               ['Total spend', formatPrice(data.stats.spend)],
             ].map(([label, value], i) => (
-              <div key={label} className={`px-4 py-3 ${i > 0 ? 'border-l border-[#EDF0F4]' : ''}`}>
-                <dt className="text-[11px] font-medium text-[#697386]">{label}</dt>
-                <dd className="mt-0.5 text-[17px] font-bold text-[#1A1F36] [font-variant-numeric:tabular-nums]">{value}</dd>
+              <div key={label} className={`px-4 py-3 ${i > 0 ? 'border-l border-[#EEF2F6]' : ''}`}>
+                <dt className="text-[11px] font-medium text-[#6B7280]">{label}</dt>
+                <dd className="mt-0.5 text-[17px] font-bold text-[#111827] [font-variant-numeric:tabular-nums]">{value}</dd>
               </div>
             ))}
           </dl>
 
           <div>
             <div className="mb-2 flex items-baseline justify-between">
-              <h3 className="text-[12.5px] font-semibold text-[#3C4257]">Bookings{data.stats.orders > data.orders.length ? ` (latest ${data.orders.length})` : ''}</h3>
-              <Link to="/admin/transactions" className="text-[12px] font-semibold text-brand-dark hover:underline">All transactions →</Link>
+              <h3 className="text-[12.5px] font-semibold text-[#374151]">Bookings{data.stats.orders > data.orders.length ? ` (latest ${data.orders.length})` : ''}</h3>
+              <Link to="/admin/transactions" className="text-[12px] font-semibold text-[#8E6B1D] hover:underline">All transactions →</Link>
             </div>
             {data.orders.length === 0 ? (
-              <p className="rounded-md border border-dashed border-[#D5DBE5] px-4 py-6 text-center text-[13px] text-[#8792A2]">No bookings yet.</p>
+              <p className="rounded-md border border-dashed border-[#DCE3EC] px-4 py-6 text-center text-[13px] text-[#6B7280]">No bookings yet.</p>
             ) : (
-              <div className="max-h-64 overflow-y-auto rounded-lg border border-[#EDF0F4]">
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-[#EEF2F6]">
                 {data.orders.map((o, i) => (
-                  <div key={o.id} className={`flex items-center justify-between gap-3 px-3.5 py-2.5 ${i > 0 ? 'border-t border-[#EDF0F4]' : ''}`}>
+                  <div key={o.id} className={`flex items-center justify-between gap-3 px-3.5 py-2.5 ${i > 0 ? 'border-t border-[#EEF2F6]' : ''}`}>
                     <div className="min-w-0">
-                      <div className="truncate text-[13px] font-medium text-[#1A1F36]">{o.event}</div>
-                      <div className="text-[11.5px] text-[#8792A2]">{o.orderNumber} · {fmtDate(o.createdAt)}</div>
+                      <div className="truncate text-[13px] font-medium text-[#111827]">{o.event}</div>
+                      <div className="text-[11.5px] text-[#6B7280]">{o.orderNumber} · {fmtDate(o.createdAt)}</div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-[13px] font-semibold text-[#1A1F36] [font-variant-numeric:tabular-nums]">{o.totalAmount === 0 ? 'Free' : formatPrice(o.totalAmount, o.currency)}</span>
+                      <span className="text-[13px] font-semibold text-[#111827] [font-variant-numeric:tabular-nums]">{o.totalAmount === 0 ? 'Free' : formatPrice(o.totalAmount, o.currency)}</span>
                       <Pill tone={statusTone(o.status)}>{o.status.replace('_', ' ')}</Pill>
                     </div>
                   </div>
@@ -123,8 +123,8 @@ export default function Users() {
   const renderCell = (u, key) => {
     if (key === 'name') return (
       <button onClick={() => setDetailId(u.id)} className="text-left">
-        <div className="font-semibold text-ink transition hover:text-brand-dark">{u.name}</div>
-        <div className="text-[12px] text-ink-mute">{u.email}</div>
+        <div className="font-semibold text-[#111827] transition hover:text-[#B58C1F]">{u.name}</div>
+        <div className="text-[12px] text-[#6B7280]">{u.email}</div>
       </button>
     );
     if (key === 'role') return (
@@ -138,13 +138,13 @@ export default function Users() {
       </select>
     );
     if (key === 'status') return <Pill tone={statusTone(u.status)}>{u.status}</Pill>;
-    if (key === 'joined') return <span className="text-ink-soft">{fmtDate(u.joined)}</span>;
-    if (key === 'orders') return <span className="font-medium text-ink">{u.orders}</span>;
+    if (key === 'joined') return <span className="text-[#4B5563]">{fmtDate(u.joined)}</span>;
+    if (key === 'orders') return <span className="font-medium text-[#111827]">{u.orders}</span>;
     if (key === 'action') {
       const suspended = u.status === 'SUSPENDED';
       return (
         <Btn size="sm" variant="ghost" disabled={busyId === u.id}
-          className={suspended ? '' : '!text-[#B3093C]'}
+          className={suspended ? '' : '!text-[#B91C1C]'}
           onClick={() => setConfirm({ user: u, nextStatus: suspended ? 'ACTIVE' : 'SUSPENDED' })}>
           {suspended ? 'Activate' : 'Suspend'}
         </Btn>
@@ -167,7 +167,7 @@ export default function Users() {
           </select>
         </div>
       </Card>
-      <p className="mb-3 text-[12px] text-ink-mute">Promoting to Organizer approves their organizer profile; demoting to User suspends it.</p>
+      <p className="mb-3 text-[12px] text-[#6B7280]">Promoting to Organizer approves their organizer profile; demoting to User suspends it.</p>
       {!data ? <Loading /> : <Table columns={COLUMNS} rows={data.users} renderCell={renderCell} empty="No users match your filters." />}
 
       {detailId && <UserDrawer userId={detailId} onClose={() => setDetailId(null)} />}

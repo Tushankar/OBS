@@ -18,6 +18,7 @@ function shapeTicket(t) {
     attendeeEmail: t.attendeeEmail || null,
     checkedInAt: t.checkedInAt || null,
     ticketType: tt ? tt.name : null,
+    validDays: tt?.validDays || [], // 1-based event days this admits; [] = all days
     orderId: String(t.orderId),
     meetingLink,
     event: ev
@@ -27,7 +28,7 @@ function shapeTicket(t) {
 }
 
 const populate = (q) =>
-  q.populate('eventId', 'title slug startAt endAt isOnline meetingLink venueName city country bannerUrl timezone').populate('ticketTypeId', 'name');
+  q.populate('eventId', 'title slug startAt endAt isOnline meetingLink venueName city country bannerUrl timezone').populate('ticketTypeId', 'name validDays');
 
 // scope: upcoming = event ends in the future; past = already ended.
 export async function listMyTickets(userId, scope) {

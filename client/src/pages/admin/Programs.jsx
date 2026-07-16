@@ -159,17 +159,17 @@ function DayEditor({ program, onClose }) {
       {!days ? (
         <Loading label="Loading days…" />
       ) : days.length === 0 ? (
-        <p className="py-8 text-center text-[13px] text-[#8792A2]">No days found for this program.</p>
+        <p className="py-8 text-center text-[13px] text-[#6B7280]">No days found for this program.</p>
       ) : (
         <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
           {days.map((d) => {
             const dirty = d.title.trim() !== d._title || d.theme.trim() !== d._theme;
             const saving = savingN === d.dayNumber;
             return (
-              <div key={d.dayNumber} className="grid grid-cols-[64px_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[#EDF0F4] bg-white px-2.5 py-2">
+              <div key={d.dayNumber} className="grid grid-cols-[64px_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[#EEF2F6] bg-white px-2.5 py-2">
                 <div className="min-w-0">
-                  <div className="text-[12px] font-semibold text-[#1A1F36]">Day {d.dayNumber}</div>
-                  <div className="truncate text-[10.5px] text-[#8792A2]" title={fmtDate(d.date)}>{fmtDate(d.date)}</div>
+                  <div className="text-[12px] font-semibold text-[#111827]">Day {d.dayNumber}</div>
+                  <div className="truncate text-[10.5px] text-[#6B7280]" title={fmtDate(d.date)}>{fmtDate(d.date)}</div>
                 </div>
                 <input value={d.title} onChange={(e) => setField(d.dayNumber, 'title', e.target.value)} placeholder="Title" className={inputCls} />
                 <input value={d.theme} onChange={(e) => setField(d.dayNumber, 'theme', e.target.value)} placeholder="Theme" className={inputCls} />
@@ -230,18 +230,18 @@ export default function Programs() {
             <Card key={p.id} className="flex flex-col p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate text-[14px] font-semibold text-[#1A1F36]">{p.name}</div>
-                  <div className="text-[12px] text-[#697386]">{p.year}</div>
+                  <div className="truncate text-[14px] font-semibold text-[#111827]">{p.name}</div>
+                  <div className="text-[12px] text-[#6B7280]">{p.year}</div>
                 </div>
                 <Pill tone={statusTone(p.status)}>{STATUS_LABELS[p.status] || p.status}</Pill>
               </div>
-              <div className="mt-2 text-[12px] text-[#697386]">{fmtDate(p.startAt)} – {p.endAt ? fmtDate(p.endAt) : '—'}</div>
+              <div className="mt-2 text-[12px] text-[#6B7280]">{fmtDate(p.startAt)} – {p.endAt ? fmtDate(p.endAt) : '—'}</div>
               {seasonLine(p.season) && <div className="mt-1 text-[12px] font-semibold text-[#8E6B1D]">{seasonLine(p.season)}</div>}
-              {p.theme && <div className="mt-2 line-clamp-2 text-[12px] text-[#697386]">{p.theme}</div>}
-              <div className="mt-4 flex flex-wrap gap-1.5 border-t border-[#EDF0F4] pt-3">
+              {p.theme && <div className="mt-2 line-clamp-2 text-[12px] text-[#6B7280]">{p.theme}</div>}
+              <div className="mt-4 flex flex-wrap gap-1.5 border-t border-[#EEF2F6] pt-3">
                 <Btn variant="ghost" size="sm" onClick={() => setDayEditor(p)}><AdminIcon.Events size={13} /> Edit days</Btn>
                 <Btn variant="ghost" size="sm" onClick={() => setEditor(p)}><AdminIcon.Edit size={13} /> Edit</Btn>
-                <Btn variant="ghost" size="sm" onClick={() => setConfirm(p)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
+                <Btn variant="ghost" size="sm" onClick={() => setConfirm(p)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /></Btn>
               </div>
             </Card>
           ))}

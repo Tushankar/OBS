@@ -68,15 +68,15 @@ export default function Refunds() {
   const renderCell = (row, key) => {
     switch (key) {
       case 'orderNumber':
-        return <span className="font-semibold text-ink">{row.orderNumber || '—'}</span>;
+        return <span className="font-semibold text-[#111827]">{row.orderNumber || '—'}</span>;
       case 'event':
-        return <span className="text-ink-soft">{row.event?.title || '—'}</span>;
+        return <span className="text-[#4B5563]">{row.event?.title || '—'}</span>;
       case 'amount':
-        return <span className="font-medium text-ink">{formatPrice(row.amount || 0)}</span>;
+        return <span className="font-medium text-[#111827]">{formatPrice(row.amount || 0)}</span>;
       case 'reason':
-        return <span className="text-ink-mute" title={row.reason}>{row.reason || '—'}</span>;
+        return <span className="text-[#6B7280]" title={row.reason}>{row.reason || '—'}</span>;
       case 'requestedBy':
-        return <span className="text-ink-soft">{row.requestedBy?.name || row.requestedBy?.email || '—'}</span>;
+        return <span className="text-[#4B5563]">{row.requestedBy?.name || row.requestedBy?.email || '—'}</span>;
       case 'status':
         return <Pill tone={statusTone(row.status)}>{row.status}</Pill>;
       case 'actions':
@@ -86,7 +86,7 @@ export default function Refunds() {
         return (
           <div className="flex gap-2">
             <Btn size="sm" variant="primary" disabled={busyId === row.id} onClick={() => approve(row)}>Approve</Btn>
-            <Btn size="sm" variant="ghost" disabled={busyId === row.id} onClick={() => setRejecting(row)} className="!text-[#B3093C]">Reject</Btn>
+            <Btn size="sm" variant="ghost" disabled={busyId === row.id} onClick={() => setRejecting(row)} className="!text-[#B91C1C]">Reject</Btn>
           </div>
         );
       default:

@@ -14,12 +14,12 @@ import api from '../../lib/api';
 function BareTop() {
   const navigate = useNavigate();
   return (
-    <div className="sticky top-0 z-30 flex h-14 items-center border-b border-[#E3E8EE] bg-white px-4 sm:px-6">
+    <div className="sticky top-0 z-30 flex h-14 items-center border-b border-[#E8ECF2] bg-white px-4 sm:px-6">
       <button onClick={() => navigate('/')} className="flex items-center gap-2.5">
         <span className="font-serif text-[24px] font-bold leading-none text-brand" style={{ fontFamily: 'Georgia, serif' }}>OBS</span>
-        <span className="rounded border border-[#E3E8EE] bg-[#F7FAFC] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#697386]">Organizer</span>
+        <span className="rounded border border-[#E8ECF2] bg-[#F8FAFC] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">Organizer</span>
       </button>
-      <a href="/" className="ml-auto flex items-center gap-1.5 text-[13px] font-medium text-[#4F566B] hover:text-[#1A1F36]">
+      <a href="/" className="ml-auto flex items-center gap-1.5 text-[13px] font-medium text-[#4B5563] hover:text-[#111827]">
         <AdminIcon.Home size={15} /> Back to site
       </a>
     </div>
@@ -39,7 +39,7 @@ export default function OrganizerLayout() {
 
   if (profile === undefined) {
     return (
-      <div className="min-h-screen bg-[#F6F8FA]">
+      <div className="min-h-screen bg-[#FAFBFC]">
         <BareTop />
         <Loading />
       </div>
@@ -49,17 +49,17 @@ export default function OrganizerLayout() {
   if (!profile || profile.status !== 'APPROVED') {
     const pending = profile?.status === 'PENDING';
     return (
-      <div className="min-h-screen bg-[#F6F8FA]">
+      <div className="min-h-screen bg-[#FAFBFC]">
         <BareTop />
         <div className="mx-auto max-w-[560px] px-4 pb-16 pt-12 sm:px-6">
           <Card className="text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-soft text-brand-dark">
               {pending ? <AdminIcon.Refunds size={26} /> : <AdminIcon.Events size={26} />}
             </div>
-            <h1 className="mt-4 text-xl font-bold text-[#1A1F36]">
+            <h1 className="mt-4 text-xl font-bold text-[#111827]">
               {pending ? 'Your application is under review' : 'Become an organizer'}
             </h1>
-            <p className="mt-2 text-[14px] text-[#697386]">
+            <p className="mt-2 text-[14px] text-[#6B7280]">
               {pending
                 ? 'We’ll email you as soon as it’s approved — then you can create events here.'
                 : 'You need an approved organizer account to create and manage events.'}

@@ -44,21 +44,21 @@ export default function ResetPassword() {
     }
   };
 
-  const input = 'h-10 w-full rounded-md border border-line px-3.5 text-sm text-ink outline-none transition focus:border-brand';
-  const primaryBtn = 'h-[42px] w-full rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60';
+  const input = 'h-11 w-full rounded-[10px] border border-[#DCE3EC] bg-white px-3.5 text-sm text-[#111827] outline-none transition-all duration-150 placeholder:text-[#9CA3AF] hover:border-[#C6D0DE] focus:border-brand focus:ring-4 focus:ring-brand/10';
+  const primaryBtn = 'h-11 w-full rounded-full bg-gold-gradient text-sm font-semibold text-white transition-all duration-150 active:scale-[.99] disabled:opacity-60';
 
   const shell = (children) => (
-    <div className="flex min-h-[70vh] items-center justify-center bg-[#F5F5F5] px-4 py-12">
+    <div className="flex min-h-[70vh] items-center justify-center bg-[#FAFBFC] px-4 py-12">
       <Seo title="Reset password" description="Choose a new password for your OBS Events account." />
-      <div className="w-full max-w-md rounded-xl border border-line bg-white p-8 shadow-sm">{children}</div>
+      <div className="w-full max-w-md rounded-[20px] border border-[#E8ECF2] bg-white p-8 shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_30px_rgba(16,24,40,.05)]">{children}</div>
     </div>
   );
 
   if (!token) {
     return shell(
       <div className="text-center">
-        <h1 className="text-xl font-bold text-ink">Invalid reset link</h1>
-        <p className="mt-2 text-sm leading-relaxed text-ink-mute">
+        <h1 className="text-xl font-bold text-[#111827]">Invalid reset link</h1>
+        <p className="mt-2 text-sm leading-relaxed text-[#6B7280]">
           This page only works from the password-reset link we email you, and this one is missing its token. Request a new link and use it from your inbox.
         </p>
         <button onClick={requestNewLink} className={`mt-6 ${primaryBtn}`}>Request a new link</button>
@@ -70,8 +70,8 @@ export default function ResetPassword() {
   if (phase === 'dead-link') {
     return shell(
       <div className="text-center">
-        <h1 className="text-xl font-bold text-ink">This reset link no longer works</h1>
-        <p className="mt-2 text-sm leading-relaxed text-ink-mute">
+        <h1 className="text-xl font-bold text-[#111827]">This reset link no longer works</h1>
+        <p className="mt-2 text-sm leading-relaxed text-[#6B7280]">
           Reset links expire after 30 minutes and can only be used once. Request a fresh link and we&rsquo;ll email it to you.
         </p>
         <button onClick={requestNewLink} className={`mt-6 ${primaryBtn}`}>Request a new link</button>
@@ -83,8 +83,8 @@ export default function ResetPassword() {
   if (phase === 'success') {
     return shell(
       <div className="text-center">
-        <h1 className="text-xl font-bold text-ink">Password updated</h1>
-        <p className="mt-2 text-sm leading-relaxed text-ink-mute">
+        <h1 className="text-xl font-bold text-[#111827]">Password updated</h1>
+        <p className="mt-2 text-sm leading-relaxed text-[#6B7280]">
           Your password has been changed and you&rsquo;ve been signed out everywhere. Sign in with your new password to continue.
         </p>
         <button onClick={() => setAuthOpen(true)} className={`mt-6 ${primaryBtn}`}>Sign in</button>
@@ -94,18 +94,18 @@ export default function ResetPassword() {
 
   return shell(
     <>
-      <h1 className="text-xl font-bold text-ink">Choose a new password</h1>
-      <p className="mt-1 text-sm text-ink-mute">Set a new password for your OBS Events account.</p>
+      <h1 className="text-xl font-bold text-[#111827]">Choose a new password</h1>
+      <p className="mt-1 text-sm text-[#6B7280]">Set a new password for your OBS Events account.</p>
       <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
         <div>
-          <label htmlFor="new-password" className="mb-1.5 block text-xs font-semibold text-ink">New password</label>
+          <label htmlFor="new-password" className="mb-1.5 block text-xs font-semibold text-[#111827]">New password</label>
           <input id="new-password" type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" className={input} />
         </div>
         <div>
-          <label htmlFor="confirm-password" className="mb-1.5 block text-xs font-semibold text-ink">Confirm new password</label>
+          <label htmlFor="confirm-password" className="mb-1.5 block text-xs font-semibold text-[#111827]">Confirm new password</label>
           <input id="confirm-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Repeat the new password" autoComplete="new-password" className={input} />
         </div>
-        <div className="min-h-[15px] text-xs text-brand">{err}</div>
+        <div className="min-h-[15px] text-xs font-medium text-[#DC2626]">{err}</div>
         <button type="submit" disabled={busy} className={primaryBtn}>
           {busy ? 'Please wait…' : 'Reset password'}
         </button>

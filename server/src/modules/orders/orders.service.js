@@ -76,7 +76,13 @@ function shapeOrder(order, event, lastRefund = null) {
 export async function createOrder(userId, { eventId, items, promoCode }) {
   const event = await Event.findById(eventId);
   if (!event || event.status !== 'PUBLISHED') throw badRequest('EVENT_NOT_BOOKABLE', 'This event is not open for booking');
-  if (event.startAt && event.startAt <= new Date()) throw badRequest('EVENT_STARTED', 'This event has already started');
+  // Sales stay open until the event ENDS, not when it starts — a 3-day festival
+  // must keep selling Day 2/3 passes while Day 1 is underway. Single-day events
+  // (endAt missing) keep the classic started = closed rule.
+  const saleCutoff = event.endAt || event.startAt;
+  if (saleCutoff && saleCutoff <= new Date()) {
+    throw badRequest('EVENT_ENDED', 'This event has already ended');
+  }
 
   const ids = items.map((i) => i.ticketTypeId);
   if (new Set(ids).size !== ids.length) throw badRequest('DUPLICATE_ITEMS', 'Each ticket type may appear once per order');

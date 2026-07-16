@@ -57,20 +57,20 @@ export default function SponsorsEditor({ eventId }) {
 
   return (
     <div className="grid gap-4">
-      <p className="text-[13px] text-ink-mute">
+      <p className="text-[13px] text-[#6B7280]">
         Add the sponsors backing this event. Each is reviewed by the OBS team and appears on your public event page once approved.
       </p>
 
       {items.map((s) => (
-        <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3.5">
+        <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#E8ECF2] p-3.5">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-ink">{s.name}</span>
+              <span className="font-semibold text-[#111827]">{s.name}</span>
               <Pill tone="gray">{sponsorTierLabel(s.tier)}</Pill>
               <Pill tone={statusTone(s.status)}>{statusLabel[s.status] || s.status}</Pill>
             </div>
-            {s.status === 'REJECTED' && <div className="mt-1 text-[12px] text-[#B3093C]">Not approved — edit and resubmit, or remove it.</div>}
-            {s.website && <div className="mt-0.5 truncate text-[12px] text-ink-mute">{s.website}</div>}
+            {s.status === 'REJECTED' && <div className="mt-1 text-[12px] text-[#B91C1C]">Not approved — edit and resubmit, or remove it.</div>}
+            {s.website && <div className="mt-0.5 truncate text-[12px] text-[#6B7280]">{s.website}</div>}
           </div>
           <div className="flex gap-2">
             <Btn size="sm" variant="ghost" onClick={() => startEdit(s)}>Edit</Btn>
@@ -80,7 +80,7 @@ export default function SponsorsEditor({ eventId }) {
       ))}
 
       {form ? (
-        <div className="rounded-md border border-brand/40 bg-brand-soft/30 p-4">
+        <div className="rounded-md border border-[#C99E25]/30 bg-[#FBF6E9] p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Sponsor name"><input className={inputCls} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Acme Corp" /></Field>
             <Field label="Tier">

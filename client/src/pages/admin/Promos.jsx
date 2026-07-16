@@ -113,7 +113,7 @@ function PromoEditor({ initial, onClose, onSaved }) {
         <Field label="Valid until" hint="Blank = no expiry.">
           <input type="datetime-local" value={form.validUntil} onChange={(e) => set('validUntil', e.target.value)} className={inputCls} />
         </Field>
-        <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#3C4257] sm:col-span-2">
+        <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#374151] sm:col-span-2">
           <input type="checkbox" checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} className="h-4 w-4 accent-[#C99E25]" /> Active (accepted at checkout)
         </label>
       </div>
@@ -161,10 +161,10 @@ export default function Promos() {
   ];
 
   const renderCell = (row, key) => {
-    if (key === 'code') return <span className="font-mono text-[12.5px] font-bold tracking-wide text-[#1A1F36]">{row.code}</span>;
-    if (key === 'discount') return <span className="font-semibold text-[#1A1F36] [font-variant-numeric:tabular-nums]">{row.discountType === 'PERCENT' ? `${row.discountValue}% off` : `${formatPrice(row.discountValue)} off`}</span>;
-    if (key === 'usage') return <span className="text-[#4F566B] [font-variant-numeric:tabular-nums]">{row.usedCount}{row.maxUses != null ? ` / ${row.maxUses}` : ' / ∞'}</span>;
-    if (key === 'window') return <span className="text-[#697386]">{fmtWindow(row.validFrom, row.validUntil)}</span>;
+    if (key === 'code') return <span className="font-mono text-[12.5px] font-bold tracking-wide text-[#111827]">{row.code}</span>;
+    if (key === 'discount') return <span className="font-semibold text-[#111827] [font-variant-numeric:tabular-nums]">{row.discountType === 'PERCENT' ? `${row.discountValue}% off` : `${formatPrice(row.discountValue)} off`}</span>;
+    if (key === 'usage') return <span className="text-[#4B5563] [font-variant-numeric:tabular-nums]">{row.usedCount}{row.maxUses != null ? ` / ${row.maxUses}` : ' / ∞'}</span>;
+    if (key === 'window') return <span className="text-[#6B7280]">{fmtWindow(row.validFrom, row.validUntil)}</span>;
     if (key === 'status') return <Pill tone={row.isActive ? 'green' : 'gray'}>{row.isActive ? 'Active' : 'Inactive'}</Pill>;
     if (key === 'actions') return (
       <div className="flex items-center justify-end gap-1">
@@ -173,7 +173,7 @@ export default function Promos() {
           onClick={() => setConfirm(row)}
           disabled={row.usedCount > 0}
           title={row.usedCount > 0 ? 'Used codes can’t be deleted — deactivate instead' : 'Delete'}
-          className="rounded-md p-1.5 text-[#8792A2] transition hover:bg-[#FCE9ED] hover:text-[#DF1B41] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#8792A2]"
+          className="rounded-md p-1.5 text-[#6B7280] transition hover:bg-[#FEF2F2] hover:text-[#EF4444] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#6B7280]"
         >
           <AdminIcon.Trash size={15} />
         </button>
@@ -194,14 +194,14 @@ export default function Promos() {
 
       {eventScoped.length > 0 && (
         <div className="mt-8">
-          <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8792A2]">Event-scoped codes · read-only</h2>
-          <p className="mb-3 max-w-2xl text-[12.5px] text-[#697386]">These belong to individual events and are managed by their organizers. Listed here for oversight.</p>
+          <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7280]">Event-scoped codes · read-only</h2>
+          <p className="mb-3 max-w-2xl text-[12.5px] text-[#6B7280]">These belong to individual events and are managed by their organizers. Listed here for oversight.</p>
           <Table
             columns={[{ key: 'code', label: 'Code' }, { key: 'event', label: 'Event' }, { key: 'discount', label: 'Discount' }, { key: 'usage', label: 'Usage' }, { key: 'status', label: 'Status' }]}
             rows={eventScoped}
             empty=""
             renderCell={(row, key) => key === 'event'
-              ? <span className="text-[#4F566B]">{row.eventTitle || '—'}</span>
+              ? <span className="text-[#4B5563]">{row.eventTitle || '—'}</span>
               : renderCell(row, key)}
           />
         </div>

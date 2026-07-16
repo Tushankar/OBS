@@ -95,9 +95,17 @@ api.rejectOrganizer = (id, reason) =>
   unwrap(api.post(`/admin/organizers/${id}/reject`, { reason })).then((d) => d.organizer);
 
 // Public catalog reference data (Phase 1.3 — used by the wizard + browse)
+// Multi-image upload (JPG/PNG/WEBP/GIF ≤5MB, max 8) → { urls: [absoluteUrl] }
+api.uploadImages = (files) => {
+  const fd = new FormData();
+  for (const f of files) fd.append('images', f);
+  return unwrap(api.post('/uploads/images', fd)).then((d) => d.urls); // axios sets the multipart boundary itself
+};
+
 api.categories = () => unwrap(api.get('/categories')).then((d) => d.categories);
 api.chapters = (params) => unwrap(api.get('/chapters', { params })).then((d) => d.chapters);
 api.geocode = (address) => unwrap(api.post('/geo/geocode', { address }));
+api.reverseGeocode = (lat, lng) => unwrap(api.post('/geo/reverse-geocode', { lat, lng })); // pin → address
 
 // Public event catalog (Phase 1.5) → { events, total, page, limit, pages }
 api.listEvents = (params) => unwrap(api.get('/events', { params }));
@@ -221,7 +229,7 @@ api.adminEmailAttendee = (eventId, ticketId, body) => unwrap(api.post(`/admin/ev
 api.launches = (scope) => unwrap(api.get('/launches', { params: scope ? { scope } : {} })).then((d) => d.events);
 
 // Admin — dashboard, users, transactions (Phase 3.5)
-api.adminDashboard = () => unwrap(api.get('/admin/dashboard'));
+api.adminDashboard = (params) => unwrap(api.get('/admin/dashboard', { params }));
 api.adminUsers = (params) => unwrap(api.get('/admin/users', { params }));
 api.updateUser = (id, body) => unwrap(api.patch(`/admin/users/${id}`, body)).then((d) => d.user);
 api.adminTransactions = (params) => unwrap(api.get('/admin/transactions', { params }));
@@ -289,6 +297,11 @@ api.updateSponsor = (id, body) => unwrap(api.patch(`/admin/sponsors/${id}`, body
 api.deleteSponsor = (id) => unwrap(api.delete(`/admin/sponsors/${id}`));
 api.adminPartnerApplications = (params) => unwrap(api.get('/admin/partner-applications', { params })).then((d) => d.applications);
 api.updatePartnerApplication = (id, body) => unwrap(api.patch(`/admin/partner-applications/${id}`, body)).then((d) => d.application);
+
+// Support tickets — public report-an-issue form + admin inbox
+api.submitSupportTicket = (body) => unwrap(api.post('/support-tickets', body)).then((d) => d.ticket);
+api.adminSupportTickets = (params) => unwrap(api.get('/admin/support-tickets', { params })); // { tickets, total }
+api.updateSupportTicket = (id, body) => unwrap(api.patch(`/admin/support-tickets/${id}`, body)).then((d) => d.ticket);
 
 // Articles / media (Phase 5.4)
 api.articles = (params) => unwrap(api.get('/articles', { params })).then((d) => d.articles);

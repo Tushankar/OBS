@@ -17,6 +17,7 @@ import promoCodeRoutes from './modules/promoCodes/promoCodes.routes.js';
 import promoAdminRoutes from './modules/promoCodes/promoCodes.admin.routes.js';
 import promoEventAdminRoutes from './modules/promoCodes/promoCodes.event.admin.routes.js';
 import adminEventTicketRoutes from './modules/adminEventTickets/adminEventTickets.routes.js';
+import uploadRoutes, { UPLOADS_DIR } from './modules/uploads/uploads.routes.js';
 import campaignRoutes from './modules/campaigns/campaigns.routes.js';
 import marketingPublicRoutes from './modules/campaigns/marketing.public.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
@@ -46,6 +47,9 @@ import statsRoutes from './modules/stats/stats.routes.js';
 import paymentRoutes from './modules/payments/payments.routes.js';
 import webhookRoutes from './modules/payments/webhooks.routes.js';
 import seoRoutes from './modules/seo/seo.routes.js';
+import supportRoutes from './modules/support/support.routes.js';
+import supportAdminRoutes from './modules/support/support.admin.routes.js';
+import notificationAdminRoutes from './modules/notifications/notifications.admin.routes.js';
 
 // Builds and configures the Express app. Domain modules mount under /api/v1;
 // auth is live from Phase 0.3, the rest arrive in later phases.
@@ -77,6 +81,10 @@ export function createApp() {
   // BEFORE express.json() (§8.2) and before the global limiter (gateways retry).
   app.use('/api/v1/webhooks', express.raw({ type: '*/*' }), webhookRoutes);
 
+  // Uploaded event images — served statically with long-lived caching (files
+  // are content-addressed by random UUID, so they never change in place).
+  app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '30d', immutable: true }));
+
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(globalLimiter); // 100 req / 15 min per IP (env-overridable)
@@ -102,6 +110,7 @@ export function createApp() {
   app.use('/api/v1/launches', launchRoutes);
   app.use('/api/v1/hero-slides', heroPublicRoutes);
   app.use('/api/v1/geo', geoRoutes);
+  app.use('/api/v1/uploads', uploadRoutes);
   app.use('/api/v1/marketing', marketingPublicRoutes);
   app.use('/api/v1/stats', statsRoutes);
   app.use('/api/v1/events', publicEventRoutes);
@@ -121,6 +130,9 @@ export function createApp() {
   app.use('/api/v1/admin/events/:eventId/promo-codes', promoEventAdminRoutes);
   app.use('/api/v1/admin/events/:eventId/tickets', adminEventTicketRoutes);
   app.use('/api/v1/admin/refunds', refundAdminRoutes);
+  app.use('/api/v1', supportRoutes); // /support-tickets (public report-an-issue form)
+  app.use('/api/v1/admin/support-tickets', supportAdminRoutes);
+  app.use('/api/v1/admin/notifications', notificationAdminRoutes);
   app.use('/api/v1/admin/reports', reportRoutes);
   app.use('/api/v1/admin/speakers', speakerAdminRoutes);
   app.use('/api/v1/admin', sponsorAdminRoutes); // /admin/sponsors, /admin/partner-applications

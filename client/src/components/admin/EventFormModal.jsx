@@ -5,6 +5,8 @@ import { Modal, Btn, Field, inputCls, selectCls } from '../portal/Kit';
 import TicketTypesEditor from '../organizer/TicketTypesEditor';
 import PromoCodesEditor from '../organizer/PromoCodesEditor';
 import EventAttendees from './EventAttendees';
+import ImagesUploader from '../common/ImagesUploader';
+import MapPicker from '../common/MapPicker';
 
 // Admin create / edit of an OBS-platform event (ownership OBS). Publishes
 // directly — no organizer submit→approve loop. `initial` (an admin event row)
@@ -37,6 +39,9 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     startAt: toLocal(initial?.startAt),
     endAt: toLocal(initial?.endAt),
     bannerUrl: initial?.bannerUrl || '',
+    images: initial?.images || [],
+    lat: initial?.lat ?? null,
+    lng: initial?.lng ?? null,
     isFeatured: initial?.isFeatured ?? false,
     publish: initial ? initial.status === 'PUBLISHED' : true,
     speakerIds: (initial?.speakerIds || []).map(String),
@@ -78,6 +83,9 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
       startAt: toLocal(e.startAt),
       endAt: toLocal(e.endAt),
       bannerUrl: e.bannerUrl || '',
+      images: e.images || [],
+      lat: e.lat ?? null,
+      lng: e.lng ?? null,
       isFeatured: !!e.isFeatured,
       publish: e.status === 'PUBLISHED',
       speakerIds: (e.speakerIds || []).map(String),
@@ -117,12 +125,16 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     if (form.description.trim()) body.description = form.description.trim();
     if (form.startAt) body.startAt = new Date(form.startAt).toISOString();
     if (form.endAt) body.endAt = new Date(form.endAt).toISOString();
-    if (form.bannerUrl.trim()) body.bannerUrl = form.bannerUrl.trim();
+    body.images = form.images;
+    if (form.images[0]) body.bannerUrl = form.images[0];
+    else if (form.bannerUrl.trim()) body.bannerUrl = form.bannerUrl.trim();
     if (form.isOnline) { if (form.meetingLink.trim()) body.meetingLink = form.meetingLink.trim(); }
     else {
       if (form.venueName.trim()) body.venueName = form.venueName.trim();
       if (form.address.trim()) body.address = form.address.trim();
       if (form.city.trim()) body.city = form.city.trim();
+      body.lat = form.lat ?? null;
+      body.lng = form.lng ?? null;
     }
     // Speakers / 100 Days / launch — nullable so admins can unlink.
     body.speakerIds = form.speakerIds;
@@ -168,7 +180,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
             {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           {catsFailed && (
-            <p className="mt-1 text-[12px] text-[#DF1B41]">
+            <p className="mt-1 text-[12px] text-[#EF4444]">
               Couldn’t load categories. <button type="button" onClick={loadCats} className="font-semibold underline">Retry</button>
             </p>
           )}
@@ -180,7 +192,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
           </select>
         </Field>
         <div className="sm:col-span-2">
-          <Field label="Description"><textarea value={form.description} onChange={(e) => set('description', e.target.value)} rows={3} placeholder="What's the event about?" className="w-full resize-y rounded-md border border-[#D5DBE5] bg-white px-3 py-2 text-[13.5px] text-[#1A1F36] outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" /></Field>
+          <Field label="Description"><textarea value={form.description} onChange={(e) => set('description', e.target.value)} rows={3} placeholder="What's the event about?" className="w-full resize-y rounded-md border border-[#DCE3EC] bg-white px-3 py-2 text-[13.5px] text-[#111827] outline-none focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10" /></Field>
         </div>
 
         {form.isOnline ? (
@@ -194,6 +206,21 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
             <div className="sm:col-span-2">
               <Field label="Address"><input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Street, area" className={inputCls} /></Field>
             </div>
+            <div className="sm:col-span-2">
+              <Field label="Pin the venue on the map" hint="Search or click to drop the pin — attendees get this exact spot with directions.">
+                <MapPicker
+                  lat={form.lat}
+                  lng={form.lng}
+                  onPick={({ lat, lng, address, city }) => setForm((f) => ({
+                    ...f,
+                    lat,
+                    lng,
+                    address: f.address || address || f.address,
+                    city: f.city || city || f.city,
+                  }))}
+                />
+              </Field>
+            </div>
           </>
         )}
 
@@ -201,44 +228,46 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
         <Field label="Ends"><input type="datetime-local" value={form.endAt} onChange={(e) => set('endAt', e.target.value)} className={inputCls} /></Field>
 
         <div className="sm:col-span-2">
-          <Field label="Banner image URL" hint="Optional — site-relative or absolute."><input value={form.bannerUrl} onChange={(e) => set('bannerUrl', e.target.value)} placeholder="/hero-summit.png" className={inputCls} /></Field>
+          <Field label="Event images" hint="First image is the banner; the rest appear as a gallery on the public page.">
+            <ImagesUploader value={form.images} onChange={(images) => setForm((f) => ({ ...f, images, bannerUrl: images[0] || f.bannerUrl }))} />
+          </Field>
         </div>
 
-        <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#3C4257]">
+        <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#374151]">
           <input type="checkbox" checked={form.publish} onChange={(e) => set('publish', e.target.checked)} className="h-4 w-4 accent-[#C99E25]" /> Publish now (go live)
         </label>
-        <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#3C4257]">
+        <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#374151]">
           <input type="checkbox" checked={form.isFeatured} onChange={(e) => set('isFeatured', e.target.checked)} className="h-4 w-4 accent-[#C99E25]" /> Feature on home
         </label>
 
         {/* Speakers */}
-        <div className="sm:col-span-2 border-t border-line pt-3.5">
-          <div className="text-[13.5px] font-semibold text-[#1A1F36]">Speakers</div>
-          <p className="mb-2 mt-0.5 text-[12px] text-ink-mute">Attach speakers from the directory — they appear on the event page and this event shows on their profiles.</p>
+        <div className="sm:col-span-2 border-t border-[#E8ECF2] pt-3.5">
+          <div className="text-[13.5px] font-semibold text-[#111827]">Speakers</div>
+          <p className="mb-2 mt-0.5 text-[12px] text-[#6B7280]">Attach speakers from the directory — they appear on the event page and this event shows on their profiles.</p>
           {selectedSpeakers.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-2">
               {selectedSpeakers.map((s) => (
-                <span key={s.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-[12px] text-ink">
+                <span key={s.id} className="inline-flex items-center gap-1.5 rounded-full border border-[#E8ECF2] bg-[#F3F5F9] px-2.5 py-1 text-[12px] text-[#111827]">
                   {s.name}
-                  <button type="button" aria-label={`Remove ${s.name}`} onClick={() => toggleSpeaker(s.id)} className="text-ink-mute transition hover:text-ink">✕</button>
+                  <button type="button" aria-label={`Remove ${s.name}`} onClick={() => toggleSpeaker(s.id)} className="text-[#6B7280] transition hover:text-[#111827]">✕</button>
                 </span>
               ))}
             </div>
           )}
           {speakers.length === 0 ? (
-            <p className="rounded-md border border-dashed border-line px-3 py-2 text-[12px] text-ink-mute">The speaker directory is empty. Add speakers under Admin → Speakers first.</p>
+            <p className="rounded-md border border-dashed border-[#E8ECF2] px-3 py-2 text-[12px] text-[#6B7280]">The speaker directory is empty. Add speakers under Admin → Speakers first.</p>
           ) : (
             <div className="relative">
               <input value={speakerQ} onChange={(e) => setSpeakerQ(e.target.value)} placeholder="Search speakers by name or company…" className={inputCls} />
               {sq && (
-                <div className="mt-1 max-h-52 overflow-auto rounded-md border border-line bg-white shadow-sm">
+                <div className="mt-1 max-h-52 overflow-auto rounded-xl border border-[#E8ECF2] bg-white shadow-[0_4px_10px_rgba(16,24,40,.06),0_16px_48px_rgba(16,24,40,.14)]">
                   {speakerMatches.length === 0 ? (
-                    <p className="px-3 py-2 text-[12px] text-ink-mute">No speakers match “{speakerQ.trim()}”.</p>
+                    <p className="px-3 py-2 text-[12px] text-[#6B7280]">No speakers match “{speakerQ.trim()}”.</p>
                   ) : (
                     speakerMatches.map((s) => (
-                      <button key={s.id} type="button" onClick={() => { toggleSpeaker(s.id); setSpeakerQ(''); }} className="flex w-full items-center gap-2 border-b border-line px-3 py-2 text-left text-[13px] transition last:border-0 hover:bg-surface">
-                        <span className="font-medium text-ink">{s.name}</span>
-                        {s.company && <span className="text-ink-mute">· {s.company}</span>}
+                      <button key={s.id} type="button" onClick={() => { toggleSpeaker(s.id); setSpeakerQ(''); }} className="flex w-full items-center gap-2 border-b border-[#E8ECF2] px-3 py-2 text-left text-[13px] transition last:border-0 hover:bg-[#F3F5F9]">
+                        <span className="font-medium text-[#111827]">{s.name}</span>
+                        {s.company && <span className="text-[#6B7280]">· {s.company}</span>}
                       </button>
                     ))
                   )}
@@ -250,7 +279,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
 
         {/* 100 Days program */}
         <div className="sm:col-span-2">
-          <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#3C4257]">
+          <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#374151]">
             <input
               type="checkbox"
               checked={!!form.programId}
@@ -262,7 +291,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
               className="h-4 w-4 accent-[#C99E25]"
             />
             Part of a 100 Days program
-            {programs.length === 0 && <span className="text-[12px] text-ink-mute">(create a program first)</span>}
+            {programs.length === 0 && <span className="text-[12px] text-[#6B7280]">(create a program first)</span>}
           </label>
           {form.programId && (
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -280,7 +309,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
 
         {/* Launch */}
         <div className="sm:col-span-2">
-          <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#3C4257]">
+          <label className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#374151]">
             <input type="checkbox" checked={form.isLaunch} onChange={(e) => set('isLaunch', e.target.checked)} className="h-4 w-4 accent-[#C99E25]" /> This is a launch (shows on the Launchpad)
           </label>
           {form.isLaunch && (
@@ -291,13 +320,13 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
         </div>
 
         {/* Tickets — a live event without a ticket type reads "not on sale" publicly */}
-        <div className="sm:col-span-2 border-t border-[#EDF0F4] pt-3.5">
-          <div className="text-[13.5px] font-semibold text-[#1A1F36]">Tickets</div>
-          <p className="mb-3 mt-0.5 text-[12px] text-[#697386]">Without at least one active ticket type, the public page shows “Tickets aren’t on sale”.</p>
+        <div className="sm:col-span-2 border-t border-[#EEF2F6] pt-3.5">
+          <div className="text-[13.5px] font-semibold text-[#111827]">Tickets</div>
+          <p className="mb-3 mt-0.5 text-[12px] text-[#6B7280]">Without at least one active ticket type, the public page shows “Tickets aren’t on sale”.</p>
           {editing ? (
-            <TicketTypesEditor eventId={initial.id} admin />
+            <TicketTypesEditor eventId={initial.id} admin startAt={form.startAt} endAt={form.endAt} />
           ) : (
-            <p className="rounded-md border border-dashed border-[#D5DBE5] px-3 py-2.5 text-[12.5px] text-[#697386]">
+            <p className="rounded-md border border-dashed border-[#DCE3EC] px-3 py-2.5 text-[12.5px] text-[#6B7280]">
               Save the event first — then reopen it with <span className="font-semibold">Edit</span> to add ticket types.
             </p>
           )}
@@ -305,18 +334,18 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
 
         {/* Promo codes — event-scoped discounts (platform-wide ones live under Admin → Promo codes) */}
         {editing && (
-          <div className="sm:col-span-2 border-t border-[#EDF0F4] pt-3.5">
-            <div className="text-[13.5px] font-semibold text-[#1A1F36]">Promo codes</div>
-            <p className="mb-3 mt-0.5 text-[12px] text-[#697386]">Discount codes valid only for this event. Site-wide campaigns live under Admin → Promo codes.</p>
+          <div className="sm:col-span-2 border-t border-[#EEF2F6] pt-3.5">
+            <div className="text-[13.5px] font-semibold text-[#111827]">Promo codes</div>
+            <p className="mb-3 mt-0.5 text-[12px] text-[#6B7280]">Discount codes valid only for this event. Site-wide campaigns live under Admin → Promo codes.</p>
             <PromoCodesEditor eventId={initial.id} admin />
           </div>
         )}
 
         {/* Attendees — who bought, which ticket, checked-in status, and per-person email */}
         {editing && (
-          <div className="sm:col-span-2 border-t border-[#EDF0F4] pt-3.5">
-            <div className="text-[13.5px] font-semibold text-[#1A1F36]">Attendees &amp; tickets</div>
-            <p className="mb-3 mt-0.5 text-[12px] text-[#697386]">Everyone holding a ticket to this event — buyer, ticket type, check-in status and revenue. Use <span className="font-semibold">Email</span> to send a templated message to a specific attendee.</p>
+          <div className="sm:col-span-2 border-t border-[#EEF2F6] pt-3.5">
+            <div className="text-[13.5px] font-semibold text-[#111827]">Attendees &amp; tickets</div>
+            <p className="mb-3 mt-0.5 text-[12px] text-[#6B7280]">Everyone holding a ticket to this event — buyer, ticket type, check-in status and revenue. Use <span className="font-semibold">Email</span> to send a templated message to a specific attendee.</p>
             <EventAttendees eventId={initial.id} />
           </div>
         )}

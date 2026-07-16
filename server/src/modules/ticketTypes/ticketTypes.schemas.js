@@ -15,6 +15,12 @@ const fields = {
   maxPerOrder: z.number().int().min(1).max(100),
   saleStartAt: z.coerce.date().optional(),
   saleEndAt: z.coerce.date().optional(),
+  // 1-based event-day numbers this ticket admits; [] / omitted = all days.
+  validDays: z
+    .array(z.number().int().min(1).max(365))
+    .max(60)
+    .optional()
+    .transform((v) => (v ? [...new Set(v)].sort((a, b) => a - b) : v)),
   isActive: z.boolean().optional(),
 };
 

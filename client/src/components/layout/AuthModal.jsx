@@ -105,21 +105,36 @@ export default function AuthModal({ open, onClose }) {
 
   const reset = () => { setErr(''); setName(''); setEmail(''); setPass(''); setCode(''); setBusy(false); setSent(false); setMode('in'); };
 
-  const tab = (active) => `pb-2.5 text-sm font-semibold cursor-pointer border-b-2 transition ${active ? 'border-brand text-brand' : 'border-transparent text-ink-soft'}`;
-  const input = 'h-10 w-full rounded-md border border-line px-3.5 text-sm text-ink outline-none transition focus:border-brand';
+  const tab = (active) =>
+    `flex-1 rounded-full px-4 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 ${
+      active ? 'bg-white text-[#111827] shadow-[0_1px_2px_rgba(16,24,40,.08),0_2px_6px_rgba(16,24,40,.06)]' : 'text-[#6B7280] hover:text-[#111827]'
+    }`;
+  const input =
+    'h-11 w-full rounded-[10px] border border-[#DCE3EC] bg-white px-3.5 text-sm text-[#111827] outline-none transition-all duration-150 placeholder:text-[#9CA3AF] hover:border-[#C6D0DE] focus:border-brand focus:ring-4 focus:ring-brand/10';
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/45" onClick={() => { reset(); onClose(); }} />
-      <div className="relative w-[480px] max-w-full animate-fadeUp rounded-xl bg-white p-7 shadow-[0_20px_60px_rgba(0,0,0,.25)]">
-        <button onClick={() => { reset(); onClose(); }} aria-label="Close" className="absolute right-3.5 top-3.5 text-ink-mute"><Icon.Close /></button>
+      <div className="absolute inset-0 bg-[#0F172A]/45 backdrop-blur-[6px]" onClick={() => { reset(); onClose(); }} />
+      <div className="relative w-[460px] max-w-full animate-fadeUp rounded-[20px] border border-[#E8ECF2] bg-white p-7 shadow-[0_12px_32px_rgba(16,24,40,.10),0_32px_80px_rgba(16,24,40,.22)]">
+        <button
+          onClick={() => { reset(); onClose(); }}
+          aria-label="Close"
+          className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full text-[#6B7280] transition-all duration-150 hover:bg-[#F3F5F9] hover:text-[#111827] active:scale-95"
+        >
+          <Icon.Close />
+        </button>
+        <div className="mb-5 flex items-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gold-gradient font-serif text-[15px] font-bold text-white" style={{ fontFamily: 'Georgia, serif' }}>O</span>
+          <div>
+            <div className="text-[15px] font-bold leading-tight text-[#111827]">Welcome to OBS Events</div>
+            <div className="text-[12px] text-[#6B7280]">Discover, host and book business events.</div>
+          </div>
+        </div>
         {isVerify ? (
           <>
-            <div className="mb-5 border-b border-line">
-              <div className="pb-2.5 text-sm font-semibold text-ink">Verify your email</div>
-            </div>
+            <div className="mb-4 text-[15px] font-bold text-[#111827]">Verify your email</div>
             <div className="flex flex-col gap-3">
-              <p className="text-sm leading-relaxed text-ink-soft">We emailed a 6-digit code to <span className="font-semibold text-ink">{email}</span>. Enter it below to confirm your address. (Check spam if you don’t see it.)</p>
+              <p className="text-sm leading-relaxed text-[#4B5563]">We emailed a 6-digit code to <span className="font-semibold text-[#111827]">{email}</span>. Enter it below to confirm your address. (Check spam if you don’t see it.)</p>
               <input
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -129,34 +144,32 @@ export default function AuthModal({ open, onClose }) {
                 className={`${input} text-center text-lg font-bold tracking-[0.5em]`}
                 autoFocus
               />
-              <div className="min-h-[15px] text-xs text-brand">{err}</div>
-              <button onClick={submitOtp} disabled={busy} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60">
+              <div className="min-h-[15px] text-xs font-medium text-[#DC2626]">{err}</div>
+              <button onClick={submitOtp} disabled={busy} className="h-11 rounded-full bg-gold-gradient text-sm font-semibold text-white transition-all duration-150 active:scale-[.99] disabled:opacity-60">
                 {busy ? 'Verifying…' : 'Verify email'}
               </button>
               <div className="flex items-center justify-between text-xs">
                 <button onClick={resendOtp} className="font-medium text-brand hover:underline">Resend code</button>
-                <button onClick={() => done('You can verify anytime from your profile')} className="font-medium text-ink-mute hover:underline">Skip for now</button>
+                <button onClick={() => done('You can verify anytime from your profile')} className="font-medium text-[#6B7280] hover:underline">Skip for now</button>
               </div>
             </div>
           </>
         ) : isForgot ? (
           <>
-            <div className="mb-5 border-b border-line">
-              <div className="pb-2.5 text-sm font-semibold text-ink">Reset your password</div>
-            </div>
+            <div className="mb-4 text-[15px] font-bold text-[#111827]">Reset your password</div>
             {sent ? (
               <div className="flex flex-col gap-4">
-                <p className="text-sm leading-relaxed text-ink-soft">If an account exists for that email, a reset link is on its way — check your inbox.</p>
-                <button onClick={() => { setMode('in'); setSent(false); setErr(''); }} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark">
+                <p className="text-sm leading-relaxed text-[#4B5563]">If an account exists for that email, a reset link is on its way — check your inbox.</p>
+                <button onClick={() => { setMode('in'); setSent(false); setErr(''); }} className="h-11 rounded-full bg-gold-gradient text-sm font-semibold text-white transition-all duration-150 active:scale-[.99]">
                   Back to sign in
                 </button>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                <p className="text-sm leading-relaxed text-ink-soft">Enter the email you signed up with and we&rsquo;ll send you a link to reset your password.</p>
+                <p className="text-sm leading-relaxed text-[#4B5563]">Enter the email you signed up with and we&rsquo;ll send you a link to reset your password.</p>
                 <input value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !busy && submitForgot()} placeholder="Email address" className={input} />
-                <div className="min-h-[15px] text-xs text-brand">{err}</div>
-                <button onClick={submitForgot} disabled={busy} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60">
+                <div className="min-h-[15px] text-xs font-medium text-[#DC2626]">{err}</div>
+                <button onClick={submitForgot} disabled={busy} className="h-11 rounded-full bg-gold-gradient text-sm font-semibold text-white transition-all duration-150 active:scale-[.99] disabled:opacity-60">
                   {busy ? 'Please wait…' : 'Send reset link'}
                 </button>
                 <button onClick={() => { setMode('in'); setErr(''); }} className="text-center text-xs font-medium text-brand hover:underline">Back to sign in</button>
@@ -165,7 +178,7 @@ export default function AuthModal({ open, onClose }) {
           </>
         ) : (
           <>
-            <div className="mb-5 flex gap-6 border-b border-line">
+            <div className="mb-5 flex items-center gap-0.5 rounded-full border border-[#E8ECF2] bg-[#F3F5F9] p-1">
               <button onClick={() => { setMode('in'); setErr(''); }} className={tab(!isSignup)}>Sign in</button>
               <button onClick={() => { setMode('up'); setErr(''); }} className={tab(isSignup)}>Sign up</button>
             </div>
@@ -176,13 +189,13 @@ export default function AuthModal({ open, onClose }) {
               {!isSignup && (
                 <button onClick={() => { setMode('forgot'); setErr(''); }} className="self-end text-xs font-medium text-brand hover:underline">Forgot password?</button>
               )}
-              <div className="min-h-[15px] text-xs text-brand">{err}</div>
-              <button onClick={submit} disabled={busy} className="h-[42px] rounded-md bg-brand text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60">
+              <div className="min-h-[15px] text-xs font-medium text-[#DC2626]">{err}</div>
+              <button onClick={submit} disabled={busy} className="h-11 rounded-full bg-gold-gradient text-sm font-semibold text-white transition-all duration-150 active:scale-[.99] disabled:opacity-60">
                 {busy ? 'Please wait…' : isSignup ? 'Create account' : 'Sign in'}
               </button>
-              <div className="flex items-center gap-3 text-xs text-ink-mute"><div className="h-px flex-1 bg-line" />or<div className="h-px flex-1 bg-line" /></div>
+              <div className="flex items-center gap-3 text-xs text-[#6B7280]"><div className="h-px flex-1 bg-line" />or<div className="h-px flex-1 bg-line" /></div>
               <GoogleButton onCredential={onGoogle} onError={() => setErr('Could not load Google sign-in')} />
-              <div className="text-center text-xs text-ink-mute">By continuing you agree to the OBS terms of use and privacy policy.</div>
+              <div className="text-center text-xs text-[#6B7280]">By continuing you agree to the OBS terms of use and privacy policy.</div>
             </div>
           </>
         )}

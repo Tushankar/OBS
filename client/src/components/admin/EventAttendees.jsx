@@ -68,8 +68,8 @@ export default function EventAttendees({ eventId }) {
       </div>
 
       {err ? (
-        <div className="rounded-md border border-dashed border-[#D5DBE5] px-3 py-6 text-center text-[13px] text-[#697386]">
-          {err} <button onClick={() => setPage((p) => p)} className="ml-1 font-semibold text-brand hover:underline">Retry</button>
+        <div className="rounded-md border border-dashed border-[#DCE3EC] px-3 py-6 text-center text-[13px] text-[#6B7280]">
+          {err} <button onClick={() => setPage((p) => p)} className="ml-1 font-semibold text-[#8E6B1D] hover:underline">Retry</button>
         </div>
       ) : loading && !data ? (
         <Loading label="Loading attendees…" />
@@ -82,15 +82,15 @@ export default function EventAttendees({ eventId }) {
             renderCell={(row, key) => {
               if (key === 'attendee') return (
                 <div>
-                  <div className="font-semibold text-[#1A1F36]">{row.attendeeName || '—'}</div>
-                  <div className="text-[12px] text-[#8792A2]">{row.attendeeEmail || row.buyer?.email || '—'}</div>
+                  <div className="font-semibold text-[#111827]">{row.attendeeName || '—'}</div>
+                  <div className="text-[12px] text-[#6B7280]">{row.attendeeEmail || row.buyer?.email || '—'}</div>
                 </div>
               );
-              if (key === 'ticket') return <span className="font-mono text-[12px] text-[#3C4257]">{row.ticketNumber}</span>;
+              if (key === 'ticket') return <span className="font-mono text-[12px] text-[#374151]">{row.ticketNumber}</span>;
               if (key === 'type') return (
                 <div>
                   <div>{row.ticketType || '—'}</div>
-                  {row.price != null && <div className="text-[12px] text-[#8792A2]">{formatPrice(row.price, currency)}</div>}
+                  {row.price != null && <div className="text-[12px] text-[#6B7280]">{formatPrice(row.price, currency)}</div>}
                 </div>
               );
               if (key === 'status') return (
@@ -99,7 +99,7 @@ export default function EventAttendees({ eventId }) {
                   {row.checkedIn && <span className="text-[11px] font-medium text-[#0E7C4A]">✓ Checked in</span>}
                 </div>
               );
-              if (key === 'order') return <span className="font-mono text-[12px] text-[#697386]">{row.orderNumber || '—'}</span>;
+              if (key === 'order') return <span className="font-mono text-[12px] text-[#6B7280]">{row.orderNumber || '—'}</span>;
               if (key === 'action') return (
                 <Btn size="sm" variant="outline" onClick={() => setEmailFor(row)}>Email</Btn>
               );
@@ -107,7 +107,7 @@ export default function EventAttendees({ eventId }) {
             }}
           />
           {data && data.pages > 1 && (
-            <div className="mt-3 flex items-center justify-between text-[12.5px] text-[#697386]">
+            <div className="mt-3 flex items-center justify-between text-[12.5px] text-[#6B7280]">
               <span>Page {data.page} of {data.pages} · {data.total} tickets</span>
               <div className="flex gap-2">
                 <Btn size="sm" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Btn>
@@ -203,7 +203,7 @@ function EmailAttendeeModal({ eventId, ticket, onClose, onSent }) {
           <Field label="Message" hint="Sent as a branded OBS email to this attendee. A blank line starts a new paragraph.">
             <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={8} className={`${inputCls} resize-y`} placeholder="Write your message…" />
           </Field>
-          {err && <div className="text-[12.5px] text-[#DF1B41]">{err}</div>}
+          {err && <div className="text-[12.5px] text-[#EF4444]">{err}</div>}
         </div>
       )}
     </Modal>

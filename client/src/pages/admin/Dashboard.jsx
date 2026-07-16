@@ -1,208 +1,484 @@
-/* Hallmark · redesign · genre: modern-minimal · admin dashboard
- * voice: Stripe/Linear — tabular figures, one gold accent, hierarchy + real charts
- * over a grid of identical cards. honest copy: every figure is a real KPI/aggregate
- * (no invented trends/deltas). charts: single-series, no dual-axis (dataviz).
- * pre-emit critique: P5 H5 E5 S4 R5 V5
+/* Admin dashboard — premium white-theme overview: hero with live status +
+ * actions, compact stat cards (sparkline + real month-over-month trend where
+ * the backend provides a series), sales-reach map with pulsing city pins,
+ * organizer leaderboard, paid/free tornado, category-momentum radar, revenue
+ * trend and a real audit-trail activity feed. Every figure is a backend
+ * aggregate (no mock data); charts follow dataviz rules.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-import { PageHead, Card, Btn, Loading, formatPrice } from '../../components/portal/Kit';
+import { Card, Loading, StatCard, Avatar, formatPrice } from '../../components/portal/Kit';
 import { AdminIcon } from '../../components/admin/AdminIcons';
-import { AreaChart, BarList } from '../../components/admin/Charts';
+import { NavIcon } from '../../components/admin/NavIcons';
+import { AreaChart, GroupedBars, MultiLineChart } from '../../components/admin/Charts';
 
 const num = (n) => Number(n || 0).toLocaleString('en-IN');
-const figure = 'font-bold leading-none tracking-[-0.02em] [font-variant-numeric:tabular-nums]';
+const SERIES = ['#E5B700', '#4B5563', '#F4A920']; // SPECTRUM palette — gold lead, dark-gray second
+const CAT_COLORS = ['#E5B700', '#4B5563', '#F4A920', '#DAA520', '#FF9800', '#B45309']; // SPECTRUM gold-family hues
+
+const RANGES = [
+  { key: '30', label: 'Last 30 days', days: 30 },
+  { key: '90', label: 'Last 90 days', days: 90 },
+  { key: 'all', label: 'All time', days: null },
+];
 
 const MANAGE = [
   {
     group: 'Operations',
     items: [
-      ['Organizers', 'Review & approve applications', '/admin/organizers', 'Organizers'],
-      ['Events', 'Moderate the publish queue', '/admin/events', 'Events'],
-      ['Refunds', 'Approve or decline requests', '/admin/refunds', 'Refunds'],
-      ['Promo codes', 'Platform-wide campaigns', '/admin/promos', 'Star'],
-      ['Transactions', 'Payments & settlements', '/admin/transactions', 'Transactions'],
-      ['Users', 'Accounts & roles', '/admin/users', 'Users'],
-      ['Partner leads', 'Sponsorship enquiries', '/admin/partner-leads', 'Mail'],
+      ['Organizers', 'Review & approve applications', '/admin/organizers', 'Organizers', '#E5B700'],
+      ['Events', 'Moderate the publish queue', '/admin/events', 'Events', '#011F3F'],
+      ['Refunds', 'Approve or decline requests', '/admin/refunds', 'Refunds', '#E5B700'],
+      ['Promo codes', 'Platform-wide campaigns', '/admin/promos', 'Percent', '#011F3F'],
+      ['Transactions', 'Payments & settlements', '/admin/transactions', 'Transactions', '#E5B700'],
+      ['Users', 'Accounts & roles', '/admin/users', 'Users', '#011F3F'],
+      ['Partner leads', 'Sponsorship enquiries', '/admin/partner-leads', 'Inbox', '#E5B700'],
     ],
   },
   {
     group: 'Content',
     items: [
-      ['Programs', '100 Days editions & day themes', '/admin/programs', 'Events'],
-      ['Speakers', 'Directory profiles', '/admin/speakers', 'Speakers'],
-      ['Sponsors', 'Logos & placements', '/admin/sponsors', 'Sponsors'],
-      ['Articles', 'Newsroom posts', '/admin/articles', 'Cms'],
-      ['Hero carousel', 'Home page banners', '/admin/hero', 'Hero'],
-      ['Site pages', 'Terms, privacy & about', '/admin/cms', 'Cms'],
+      ['Programs', '100 Days editions & day themes', '/admin/programs', 'CalendarClock', '#E5B700'],
+      ['Speakers', 'Directory profiles', '/admin/speakers', 'Speakers', '#011F3F'],
+      ['Sponsors', 'Logos & placements', '/admin/sponsors', 'Sponsors', '#E5B700'],
+      ['Articles', 'Newsroom posts', '/admin/articles', 'Cms', '#011F3F'],
+      ['Hero carousel', 'Home page banners', '/admin/hero', 'Hero', '#E5B700'],
+      ['Site pages', 'Terms, privacy & about', '/admin/cms', 'Cms', '#011F3F'],
     ],
   },
 ];
 
-function Panel({ title, meta, children, className = '' }) {
+// Sales-reach map — floating white city chips with a pulsing live dot on a
+// light basemap, fitted to the cities that actually have coordinates.
+function ReachMap({ cities }) {
+  const boxRef = useRef(null);
+  useEffect(() => {
+    const pins = (cities || []).filter((c) => c.lat != null && c.lng != null);
+    if (!boxRef.current) return undefined;
+    const map = L.map(boxRef.current, { zoomControl: false, scrollWheelZoom: false, attributionControl: true });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 18,
+    }).addTo(map);
+    if (pins.length) {
+      pins.forEach((c) => {
+        L.marker([c.lat, c.lng], {
+          icon: L.divIcon({
+            className: '',
+            html: `<div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.96);color:#111827;padding:6px 11px;border-radius:10px;border:1px solid #E8ECF2;font:600 11.5px Inter,Roboto,sans-serif;white-space:nowrap;box-shadow:0 4px 10px rgba(16,24,40,.08),0 12px 32px rgba(16,24,40,.14)"><span class="pulse-dot" style="width:7px;height:7px;border-radius:99px;background:#E5B700;color:#E5B700"></span><span>${c.city}</span><span style="color:#6B7280;font-weight:700">${Number(c.tickets).toLocaleString('en-IN')}</span></div>`,
+            iconSize: null,
+            iconAnchor: [24, 34],
+          }),
+        }).addTo(map);
+      });
+      map.fitBounds(L.latLngBounds(pins.map((c) => [c.lat, c.lng])).pad(0.6));
+    } else {
+      map.setView([21.5, 78.9], 4); // India — no pinned cities yet
+    }
+    setTimeout(() => map.invalidateSize(), 120);
+    return () => map.remove();
+  }, [cities]);
+  return <div ref={boxRef} className="h-full min-h-[280px] w-full overflow-hidden rounded-[14px]" />;
+}
+
+// Recent privileged actions (audit trail) → timeline feed.
+const feedIcon = (action) => {
+  if (/APPROVED|CREATED|SENT|PROCESSED/.test(action)) return ['CheckCircle', '#047857', '#ECFDF5'];
+  if (/REJECTED|CANCELLED|DELETED|SUSPENDED|DECLINED|FAILED/.test(action)) return ['XCircle', '#B91C1C', '#FEF2F2'];
+  return ['Activity', '#8a6d00', 'rgba(229,183,0,0.20)'];
+};
+const actionLabel = (a) => String(a || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+const timeAgo = (d) => {
+  const s = Math.max(1, Math.round((Date.now() - new Date(d)) / 1000));
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+};
+
+function ActivityFeed({ entries, onViewAll }) {
   return (
-    <Card className={className}>
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="text-[13.5px] font-bold text-[#1A1F36]">{title}</h2>
-        {meta && <span className="text-[12px] text-[#8792A2]">{meta}</span>}
+    <Card className="flex flex-col !border-2 !border-[#E5B700] !bg-[#FFFAEF] !p-5">
+      <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3">
+        <h2 className="text-base font-semibold text-gray-800">Recent Activity</h2>
+        <button onClick={onViewAll} className="text-sm font-medium text-[#E5B700] transition-opacity hover:opacity-80">View All</button>
       </div>
-      {children}
+      {entries.length === 0 ? (
+        <div className="py-10 text-center text-[12.5px] text-[#6B7280]">No recorded actions yet.</div>
+      ) : (
+        <ol className="relative flex-1">
+          {entries.map((e, i) => {
+            const [icon, fg, bg] = feedIcon(e.action);
+            const Ic = AdminIcon[icon];
+            return (
+              <li key={i} className="group relative flex gap-3 pb-4 last:pb-0">
+                {i < entries.length - 1 && <span className="absolute left-[15px] top-8 h-[calc(100%-32px)] w-px bg-[#EEF2F6]" />}
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full" style={{ background: bg, color: fg }}>
+                  <Ic size={15} />
+                </span>
+                <div className="min-w-0 flex-1 rounded-xl px-2 py-1 -mx-2 -my-1 transition-colors group-hover:bg-[#F8FAFC]">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-[13px] font-semibold text-[#111827]">{actionLabel(e.action)}</span>
+                    <span className="shrink-0 text-[11px] font-medium text-[#9CA3AF]">{timeAgo(e.at)}</span>
+                  </div>
+                  <div className="truncate text-[12px] text-[#6B7280]">
+                    {e.actor}{e.entityType ? ` · ${e.entityType}` : ''}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </Card>
   );
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, pushToast } = useApp();
-  const [kpis, setKpis] = useState(null);
-  const [rep, setRep] = useState(null); // { monthly, top, byEvent }
+  const { pushToast } = useApp();
+  const [range, setRange] = useState('all');
+  const [data, setData] = useState(null);
+  const [rep, setRep] = useState(null);
+  const [feed, setFeed] = useState(null);
+  const [agoTick, setAgoTick] = useState(0); // re-render "updated Xs ago"
+
+  const load = (r = range) => {
+    const days = RANGES.find((x) => x.key === r)?.days;
+    api.adminDashboard(days ? { days } : undefined)
+      .then((d) => { setData(d); setAgoTick(0); })
+      .catch((e) => pushToast(apiError(e), false));
+  };
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => { load(range); }, [range]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    api.adminDashboard().then(setKpis).catch((e) => pushToast(apiError(e), false));
-    Promise.all([api.reportsMonthly(), api.reportsTopEvents(6), api.reportsByEvent(6)])
-      .then(([monthly, top, byEvent]) => setRep({ monthly, top, byEvent }))
-      .catch(() => setRep({ monthly: [], top: [], byEvent: [] }));
-  }, [pushToast]);
+    api.reportsMonthly().then((monthly) => setRep({ monthly })).catch(() => setRep({ monthly: [] }));
+    api.adminAudit().then((d) => setFeed((d.entries || []).slice(0, 6))).catch(() => setFeed([]));
+  }, []);
+  useEffect(() => {
+    const t = setInterval(() => setAgoTick((x) => x + 1), 5000);
+    return () => clearInterval(t);
+  }, []);
 
-  const firstName = (user?.name || 'there').split(' ')[0];
-  const pending = kpis?.pendingApprovals ?? 0;
-  const currency = kpis?.currency || 'INR';
-  const year = new Date().getFullYear();
-  const money = (v) => formatPrice(v, currency);
+  if (data === null) return <Loading />;
 
+  const money = (v) => formatPrice(v, data.currency || 'INR');
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const ago = data.updatedAt ? Math.max(1, Math.round((Date.now() - new Date(data.updatedAt)) / 1000)) : null;
   const trend = (rep?.monthly || []).map((m) => ({ label: m.month, value: m.revenue }));
-  const yearTotal = trend.reduce((s, d) => s + (d.value || 0), 0);
-  const topRev = (rep?.top || []).map((e) => ({ label: e.title, value: e.revenue }));
-  const topSold = (rep?.byEvent || []).map((e) => ({ label: e.title, value: e.sold }));
+  // Paid/free split per category (grouped bars) + per-category monthly trend
+  // (multi-line "momentum"): transpose radar data — axes are categories,
+  // series entries are months.
+  const catRows = (data.categorySplit || []).map((c) => ({ label: c.category, values: [c.paid || 0, c.free || 0] }));
+  const months = (data.radar?.series || []).map((s) => s.label);
+  const momentum = (data.radar?.axes || []).map((cat, i) => ({
+    label: cat,
+    color: CAT_COLORS[i % CAT_COLORS.length],
+    values: (data.radar?.series || []).map((s) => (s.values || [])[i] || 0),
+  }));
+  const pending = data.pendingApprovals || 0;
+
+  // Revenue sparkline + real month-over-month trend (only when the previous
+  // month has revenue — no fabricated percentages).
+  const revSpark = trend.map((t) => t.value || 0);
+  const nonEmpty = revSpark.filter((v, i) => v > 0 || i === revSpark.length - 1);
+  let revTrend = null, revUp;
+  if (trend.length >= 2) {
+    const last = revSpark[revSpark.length - 1];
+    const prev = revSpark[revSpark.length - 2];
+    if (prev > 0) {
+      const pct = Math.round(((last - prev) / prev) * 100);
+      revTrend = `${pct > 0 ? '+' : ''}${pct}%`;
+      revUp = pct >= 0;
+    }
+  }
+
+  // Extra tiles — all real aggregates, no invented figures.
+  const regSpark = (rep?.monthly || []).map((m) => m.registrations || 0);
+  const regTotal = rep ? regSpark.reduce((s, v) => s + v, 0) : null;
+  const avgOrder = data.paidOrders > 0 ? Math.round((data.grossRevenue || 0) / data.paidOrders) : 0;
+  const topCat = (data.categorySplit || [])
+    .map((c) => ({ name: c.category, tickets: (c.paid || 0) + (c.free || 0) }))
+    .sort((a, b) => b.tickets - a.tickets)[0];
 
   return (
     <div>
-      <PageHead title={`Welcome back, ${firstName}`} subtitle="A live view of activity across the OBS platform." />
+      {/* ── Hero ── */}
+      <div className="rise flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-semibold text-gray-800 sm:text-2xl">Overview</h1>
+            <span className="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+              <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-green-500 text-green-500" /> Live
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-gray-500">Bookings, revenue and attendance across the platform — updating in real time.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="hidden items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 shadow-sm md:flex">
+            <AdminIcon.Events size={14} className="text-gray-500" /> {today}
+          </span>
+          <button
+            onClick={() => load()}
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+          >
+            <AdminIcon.Refresh size={14} /> Refresh
+          </button>
+          <a
+            href="/"
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#E5B700] to-[#DE8806] px-4 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
+          >
+            <AdminIcon.External size={14} /> Open site
+          </a>
+        </div>
+      </div>
 
-      {kpis === null ? (
-        <Loading />
-      ) : (
-        <>
-          {/* Primary row — revenue hero + actionable review queue */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <Card className="flex flex-col justify-between lg:col-span-2">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-[11.5px] font-semibold uppercase tracking-[0.07em] text-[#697386]">Gross revenue</div>
-                  <div className={`mt-2.5 text-[34px] text-[#1A1F36] sm:text-[40px] ${figure}`}>{money(kpis.grossRevenue)}</div>
-                  <div className="mt-2.5 text-[13px] text-[#697386]">
-                    From <span className="font-semibold text-[#3C4257] [font-variant-numeric:tabular-nums]">{num(kpis.paidOrders)}</span> paid {kpis.paidOrders === 1 ? 'order' : 'orders'}
-                  </div>
-                </div>
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-dark"><AdminIcon.Transactions size={19} /></span>
-              </div>
-              <button onClick={() => navigate('/admin/transactions')} className="mt-6 inline-flex w-fit items-center gap-1 text-[13px] font-semibold text-brand-dark transition-all hover:gap-1.5">
-                View transactions <AdminIcon.ChevronRight size={14} />
-              </button>
+      {/* ── Range (SPECTRUM segmented filter) ── */}
+      <div className="rise rise-1 mt-5 inline-flex items-center rounded-full border border-gray-200 bg-white shadow-sm">
+        {RANGES.map((r, index) => (
+          <button
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium transition-all duration-200 ${
+              range === r.key ? 'rounded-full text-white shadow-sm' : 'bg-transparent text-gray-600 hover:text-gray-800'
+            } ${index < RANGES.length - 1 && range !== r.key ? 'border-r border-[#D0D5DD]' : ''}`}
+            style={range === r.key ? { background: 'linear-gradient(168deg, #E5B700 0%, #DE8806 100%)' } : {}}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Pending approvals — honest alert strip, only when real ── */}
+      {pending > 0 && (
+        <button
+          onClick={() => navigate('/admin/events')}
+          className="rise rise-1 mt-4 flex w-full items-center gap-3 rounded-xl border-2 border-[#E5B700] bg-[#FFFAEF] px-4 py-3 text-left transition-shadow duration-200 hover:shadow-md"
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[rgba(229,183,0,0.20)] text-[#8a6d00]"><AdminIcon.Warning size={16} /></span>
+          <span className="text-sm text-gray-700"><b>{num(pending)}</b> {pending === 1 ? 'item' : 'items'} awaiting review — organizer applications and event approvals.</span>
+          <AdminIcon.ChevronRight size={15} className="ml-auto shrink-0 text-[#E5B700]" />
+        </button>
+      )}
+
+      {/* ── Stats cards row (SPECTRUM: all tiles across the top) ── */}
+      <div className="rise rise-2 mb-4 mt-4 grid grid-cols-1 gap-3 sm:mb-6 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+        <StatCard icon={<AdminIcon.Ticket size={18} />} label="Tickets sold" value={num(data.ticketsSold)} />
+        <StatCard icon={<AdminIcon.Transactions size={18} />} label="Paid orders" value={num(data.paidOrders)} />
+        <StatCard
+          icon={<AdminIcon.Rupee size={18} />}
+          label="Gross revenue"
+          value={money(data.grossRevenue)}
+          trend={revTrend}
+          trendUp={revUp}
+          hint={revTrend ? 'vs last month' : undefined}
+          spark={nonEmpty.length > 1 ? revSpark : undefined}
+        />
+        <StatCard
+          icon={<AdminIcon.Check size={18} />}
+          label="Check-in rate"
+          value={`${(data.checkinRate ?? 0).toLocaleString('en-IN')}%`}
+          hint={`${num(data.checkedIn)} scanned in`}
+        />
+        <StatCard
+          icon={<AdminIcon.Reports size={18} />}
+          label={`Registrations · ${new Date().getFullYear()}`}
+          value={regTotal == null ? '—' : num(regTotal)}
+          hint="across all events"
+          spark={regSpark.some((v) => v > 0) ? regSpark : undefined}
+        />
+        <StatCard
+          icon={<AdminIcon.Wallet size={18} />}
+          label="Avg order value"
+          value={money(avgOrder)}
+          hint={`across ${num(data.paidOrders)} paid ${data.paidOrders === 1 ? 'order' : 'orders'}`}
+        />
+        <StatCard
+          icon={<AdminIcon.Categories size={18} />}
+          label="Top category"
+          value={topCat ? topCat.name : '—'}
+          hint={topCat ? `${num(topCat.tickets)} ${topCat.tickets === 1 ? 'ticket' : 'tickets'} in this period` : 'no tickets in this period'}
+        />
+        <StatCard
+          icon={<AdminIcon.Warning size={18} />}
+          label="Pending review"
+          value={num(pending)}
+          hint="organizer apps & event approvals"
+        />
+      </div>
+
+      {/* ── Main grid (SPECTRUM: 2/3 content + 1/3 right rail) ── */}
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
+        {/* Left column — category cards first, then revenue, map below */}
+        <div className="space-y-4 sm:space-y-6 xl:col-span-2">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+            <Card className="rise rise-3 !border-2 !border-[#E5B700] !bg-[#FFFAEF] !p-4 sm:!p-6">
+              <h2 className="mb-1 border-b border-gray-200 pb-2 text-base font-semibold text-gray-800">Tickets by category</h2>
+              <p className="mb-4 text-sm text-gray-500">Paid vs free tickets in this period.</p>
+              <GroupedBars rows={catRows} series={[{ label: 'Paid', color: SERIES[0] }, { label: 'Free', color: SERIES[1] }]} format={num} />
             </Card>
 
-            <Card className={pending > 0 ? 'border-[#E8CFA3] bg-[#FEFBF3]' : ''}>
-              <div className="text-[11.5px] font-semibold uppercase tracking-[0.07em] text-[#697386]">Needs attention</div>
-              {pending > 0 ? (
-                <>
-                  <div className="mt-3 flex items-baseline gap-2">
-                    <span className={`text-[34px] text-[#9A6B0F] ${figure}`}>{num(pending)}</span>
-                    <span className="text-[13px] text-[#697386]">awaiting review</span>
-                  </div>
-                  <p className="mt-2 text-[12.5px] leading-relaxed text-[#697386]">Organizer applications and events pending your approval.</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Btn size="sm" onClick={() => navigate('/admin/events')}>Events</Btn>
-                    <Btn size="sm" variant="ghost" onClick={() => navigate('/admin/organizers')}>Organizers</Btn>
-                  </div>
-                </>
-              ) : (
-                <div className="mt-3.5 flex items-center gap-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#E5F6E8] text-[#1B7A34]"><AdminIcon.Check size={18} /></span>
-                  <div>
-                    <div className="text-[14px] font-semibold text-[#1A1F36]">All caught up</div>
-                    <div className="text-[12.5px] text-[#697386]">No approvals waiting.</div>
-                  </div>
-                </div>
-              )}
+            <Card className="rise rise-4 !border-2 !border-[#E5B700] !bg-[#FFFAEF] !p-4 sm:!p-6">
+              <h2 className="mb-1 border-b border-gray-200 pb-2 text-base font-semibold text-gray-800">Category momentum</h2>
+              <p className="mb-3 text-sm text-gray-500">Tickets per category, last 3 months.</p>
+              <MultiLineChart labels={months} series={momentum} format={num} height={218} />
             </Card>
           </div>
 
-          {/* KPI strip — one instrument panel, hairline-divided */}
-          <Card className="mt-4 p-0">
-            <dl className="grid grid-cols-2 sm:grid-cols-4">
-              {[
-                ['Users', kpis.users, 'Users'],
-                ['Organizers', kpis.organizers, 'Organizers'],
-                ['Live events', kpis.publishedEvents, 'Events'],
-                ['Awaiting review', kpis.pendingApprovals, 'Reports'],
-              ].map(([label, value, icon], i) => {
-                const Ic = AdminIcon[icon];
-                const div = `${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t' : ''} sm:border-t-0 ${i === 0 ? 'sm:border-l-0' : 'sm:border-l'} border-[#EDF0F4]`;
-                return (
-                  <div key={label} className={`flex items-center gap-3 px-5 py-4 ${div}`}>
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[#F1F3F7] text-[#697386]"><Ic size={16} /></span>
-                    <div className="min-w-0">
-                      <dt className="text-[11.5px] font-medium text-[#697386]">{label}</dt>
-                      <dd className={`mt-1 text-[20px] text-[#1A1F36] ${figure}`}>{num(value)}</dd>
-                    </div>
-                  </div>
-                );
-              })}
-            </dl>
+          <Card className="rise rise-3 !p-4 sm:!p-6">
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <h2 className="text-base font-semibold text-gray-800 sm:text-lg">Revenue · {new Date().getFullYear()}</h2>
+              {rep && <span className="text-sm text-gray-500">{money(trend.reduce((s, d) => s + (d.value || 0), 0))} this year</span>}
+            </div>
+            <p className="mb-4 border-b border-gray-200 pb-3 text-sm text-gray-500">Gross revenue by month.</p>
+            {rep ? <AreaChart data={trend} format={money} accent={SERIES[0]} height={280} /> : <div className="h-[280px] animate-pulse rounded-lg bg-gray-100" />}
           </Card>
 
-          {/* Revenue trend — the hero chart */}
-          <div className="mt-4">
-            <Panel title={`Revenue · ${year}`} meta={rep ? `${money(yearTotal)} this year` : ''}>
-              {rep ? <AreaChart data={trend} format={money} /> : <div className="h-[220px] animate-pulse rounded-md bg-[#F1F3F7]" />}
-            </Panel>
-          </div>
+          <Card className="rise rise-3 flex flex-col !p-4 sm:!p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-800 sm:text-lg">Sales reach</h2>
+              <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <AdminIcon.MapPin size={13} className="text-[#E5B700]" /> {num((data.cities || []).length)} {((data.cities || []).length) === 1 ? 'city' : 'cities'}
+              </span>
+            </div>
+            <div className="mb-4 grid grid-cols-3 gap-3">
+              {[
+                ['Cities reached', `${num((data.cities || []).length)}`],
+                ['Attendees reached', `${num(data.usersReached)}`],
+                ['Months active', `${num(data.monthsActive)}`],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg bg-gray-50 px-3 py-2.5">
+                  <div className="text-[11px] font-medium text-gray-500">{label}</div>
+                  <div className="mt-0.5 text-lg font-bold leading-none text-gray-800 [font-variant-numeric:tabular-nums]">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="h-[280px] sm:h-[320px]"><ReachMap cities={data.cities} /></div>
+            <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
+              {ago != null && <span>Updated {agoTick >= 0 && ago < 60 ? `${ago}s` : `${Math.round(ago / 60)}m`} ago</span>}
+              <button onClick={() => load()} className="flex items-center gap-1 font-medium text-[#E5B700] transition-opacity hover:opacity-80">
+                <AdminIcon.Refresh size={12} /> Refresh
+              </button>
+            </div>
+          </Card>
+        </div>
 
-          {/* Ranked bars — top events two ways */}
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Panel title="Top events by revenue">
-              {rep ? <BarList items={topRev} format={money} empty="No revenue recorded yet." /> : <div className="h-40 animate-pulse rounded-md bg-[#F1F3F7]" />}
-            </Panel>
-            <Panel title="Top events by tickets sold">
-              {rep ? <BarList items={topSold} format={num} empty="No tickets sold yet." /> : <div className="h-40 animate-pulse rounded-md bg-[#F1F3F7]" />}
-            </Panel>
-          </div>
+        {/* Right rail — recent activity + quick actions + top organizers */}
+        <div className="space-y-4 sm:space-y-6">
+          {feed === null
+            ? <Card className="!p-5"><div className="min-h-[220px] animate-pulse rounded-lg bg-gray-100" /></Card>
+            : <div className="rise rise-4"><ActivityFeed entries={feed} onViewAll={() => navigate('/admin/activity')} /></div>}
 
-          {/* Manage — grouped settings-style lists */}
-          <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-7 lg:grid-cols-2">
-            {MANAGE.map((section) => (
-              <section key={section.group}>
-                <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8792A2]">{section.group}</h2>
-                <Card className="overflow-hidden p-0">
-                  <ul>
-                    {section.items.map(([label, desc, to, icon], i) => {
-                      const Ic = AdminIcon[icon];
-                      return (
-                        <li key={to}>
-                          <button
-                            onClick={() => navigate(to)}
-                            className={`group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#FAFBFD] ${i > 0 ? 'border-t border-[#EDF0F4]' : ''}`}
-                          >
-                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#F1F3F7] text-[#697386] transition-colors group-hover:bg-brand-soft group-hover:text-brand-dark"><Ic size={15} /></span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-[13.5px] font-semibold text-[#1A1F36]">{label}</span>
-                              <span className="block truncate text-[12px] text-[#8792A2]">{desc}</span>
-                            </span>
-                            <AdminIcon.ChevronRight size={15} className="shrink-0 text-[#C4CBD8] transition-all group-hover:translate-x-0.5 group-hover:text-[#697386]" />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </Card>
-              </section>
-            ))}
-          </div>
-        </>
-      )}
+          {/* Quick actions — SPECTRUM notifications-card style (tinted icon tiles) */}
+          <Card className="rise rise-3 !p-4 sm:!p-6">
+            <h2 className="mb-4 text-base font-semibold text-gray-800">Quick actions</h2>
+            <div className="space-y-1">
+              {[
+                ['Review event queue', pending > 0 ? `${num(pending)} awaiting approval` : 'Nothing waiting right now', '/admin/events', 'Events', true],
+                ['Support inbox', 'User-reported issues & tickets', '/admin/support', 'Comment', false],
+                ['Refund requests', 'Approve or decline refunds', '/admin/refunds', 'Refunds', true],
+                ['Organizer applications', 'Review new organizers', '/admin/organizers', 'Organizers', false],
+                ['Email campaigns', 'Send a marketing campaign', '/admin/campaigns', 'Megaphone', true],
+                ['Monthly reports', 'Revenue & registrations', '/admin/reports', 'Reports', false],
+              ].map(([label, sub, to, icon, goldTint]) => {
+                const Ic = NavIcon[icon] || AdminIcon[icon];
+                return (
+                  <button
+                    key={to}
+                    onClick={() => navigate(to)}
+                    className="group flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-50"
+                  >
+                    <span
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg"
+                      style={{ background: goldTint ? 'rgba(229, 183, 0, 0.20)' : 'rgba(1, 31, 63, 0.10)', color: goldTint ? '#8a6d00' : '#011F3F' }}
+                    >
+                      <Ic size={16} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-gray-900">{label}</span>
+                      <span className="block truncate text-xs text-gray-500">{sub}</span>
+                    </span>
+                    <AdminIcon.ChevronRight size={14} className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-gray-500" />
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card className="rise rise-3 !p-4 sm:!p-6">
+            <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3">
+              <h2 className="text-base font-semibold text-gray-800">Top organizers</h2>
+              <button onClick={() => navigate('/admin/organizers')} className="text-sm font-medium text-[#E5B700] transition-opacity hover:opacity-80">View All</button>
+            </div>
+            <div className="mb-1 grid grid-cols-[1fr_auto_auto] gap-3 pb-2 text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">
+              <span>Name</span><span>Events</span><span>Tickets</span>
+            </div>
+            {(data.topOrganizers || []).length === 0 ? (
+              <div className="py-8 text-center text-xs text-gray-500">No ticket sales in this period.</div>
+            ) : (
+              (data.topOrganizers || []).map((o, i) => (
+                <div key={o.id} className={`-mx-2 grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-gray-50 ${i > 0 ? 'border-t border-gray-100' : ''}`}>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <Avatar name={o.name} src={o.logoUrl} size={28} />
+                    <span className="truncate text-sm font-medium text-gray-800">{o.name}</span>
+                  </span>
+                  <span className="text-sm text-gray-500 [font-variant-numeric:tabular-nums]">{num(o.events)}</span>
+                  <span className="text-sm font-semibold text-gray-800 [font-variant-numeric:tabular-nums]">{num(o.tickets)}</span>
+                </div>
+              ))
+            )}
+          </Card>
+        </div>
+      </div>
+
+      {/* ── Manage — premium quick-link tiles ── */}
+      <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-7 lg:grid-cols-2">
+        {MANAGE.map((section) => (
+          <section key={section.group}>
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#111827]">{section.group}</h2>
+              <span className="rounded-full bg-[#F3F5F9] px-1.5 py-0.5 text-[10px] font-bold text-[#6B7280] [font-variant-numeric:tabular-nums]">{section.items.length}</span>
+              <span className="h-px flex-1 bg-[#EEF2F6]" />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {section.items.map(([label, desc, to, icon, accent]) => {
+                const Ic = AdminIcon[icon];
+                return (
+                  <button
+                    key={to}
+                    onClick={() => navigate(to)}
+                    className="group flex items-start gap-3 rounded-2xl border border-[#E8ECF2] bg-white p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_30px_rgba(16,24,40,.04)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[#D2DAE6] hover:shadow-[0_2px_4px_rgba(16,24,40,.05),0_14px_40px_rgba(16,24,40,.09)] active:translate-y-0 active:scale-[.99]"
+                  >
+                    <span
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] transition-transform duration-150 group-hover:scale-105"
+                      style={{ background: `${accent}14`, color: accent }}
+                    >
+                      <Ic size={16} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate text-[13.5px] font-bold tracking-[-0.01em] text-[#111827]">{label}</span>
+                        <AdminIcon.ArrowRight
+                          size={13}
+                          className="shrink-0 -translate-x-1 text-[#9CA3AF] opacity-0 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100"
+                        />
+                      </span>
+                      <span className="mt-0.5 block text-[12px] leading-snug text-[#6B7280]">{desc}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ export function shapeTicketType(t) {
     maxPerOrder: t.maxPerOrder,
     saleStartAt: t.saleStartAt || null,
     saleEndAt: t.saleEndAt || null,
+    validDays: t.validDays || [],
     isActive: t.isActive,
     createdAt: t.createdAt,
   };

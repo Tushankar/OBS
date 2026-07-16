@@ -13,7 +13,7 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'nume
 const TONE = {
   PAID: 'bg-[#E7F7EC] text-success', PENDING: 'bg-[#FFF4E0] text-[#B7791F]',
   EXPIRED: 'bg-surface text-ink-mute', CANCELLED: 'bg-[#FDE8EC] text-brand-red',
-  FAILED: 'bg-[#FDE8EC] text-brand-red', REFUNDED: 'bg-[#E7F0FD] text-[#2563EB]', REFUND_REQUESTED: 'bg-[#FFF4E0] text-[#B7791F]',
+  FAILED: 'bg-[#FDE8EC] text-brand-red', REFUNDED: 'bg-[#F5F3FF] text-[#6D28D9]', REFUND_REQUESTED: 'bg-[#FFF4E0] text-[#B7791F]',
 };
 
 // Shared modal shell (backdrop + Esc close + scroll lock), styled like PickerModal.

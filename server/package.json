@@ -30,7 +30,8 @@
     "pdfkit": "^0.19.1",
     "qrcode": "^1.5.4",
     "stripe": "^22.3.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "multer": "^2.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

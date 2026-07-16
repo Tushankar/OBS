@@ -1,6 +1,7 @@
 import { Sponsor, PartnerApplication, Event } from '../../models/index.js';
 import { notFoundError } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
+import { notifyAdmins } from '../notifications/notifications.service.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { publicEventCard, loadOwnedEvent } from '../events/events.service.js';
 
@@ -169,6 +170,14 @@ function shapeApplication(a) {
 // POST /partner-applications (public form → admin queue).
 export async function submitApplication(body) {
   const app = await PartnerApplication.create({ ...body, status: 'NEW' });
+  await notifyAdmins({
+    type: 'PARTNER_LEAD',
+    title: `New partner lead: ${app.orgName}`,
+    body: `${app.contactName} (${app.email})`,
+    link: '/admin/partner-leads',
+    entityType: 'PartnerApplication',
+    entityId: app._id,
+  });
   return shapeApplication(app);
 }
 export async function adminListApplications({ status } = {}) {

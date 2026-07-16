@@ -102,12 +102,12 @@ export default function Categories() {
                 <div className="text-[30px] leading-none">{c.icon || '🏷️'}</div>
                 {!c.isActive && <Pill tone="gray">Hidden</Pill>}
               </div>
-              <div className="mt-3 text-[14px] font-semibold text-[#1A1F36]">{c.name}</div>
-              <div className="mt-0.5 text-[12px] text-[#8792A2]">/{c.slug}</div>
+              <div className="mt-3 text-[14px] font-semibold text-[#111827]">{c.name}</div>
+              <div className="mt-0.5 text-[12px] text-[#6B7280]">/{c.slug}</div>
               <div className="mt-4 flex gap-1.5">
                 <Btn variant="ghost" size="sm" onClick={() => setEditor(c)}><AdminIcon.Edit size={13} /> Edit</Btn>
                 <Btn variant="ghost" size="sm" onClick={() => toggle(c)}>{c.isActive ? <AdminIcon.EyeOff size={13} /> : <AdminIcon.Eye size={13} />} {c.isActive ? 'Hide' : 'Show'}</Btn>
-                <Btn variant="ghost" size="sm" onClick={() => setConfirm(c)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
+                <Btn variant="ghost" size="sm" onClick={() => setConfirm(c)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /></Btn>
               </div>
             </Card>
           ))}

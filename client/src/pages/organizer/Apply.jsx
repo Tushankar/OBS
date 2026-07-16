@@ -67,18 +67,18 @@ export default function Apply() {
     return (
       <div className="mx-auto max-w-[560px] px-4 pb-16 pt-10 sm:px-6">
         <Card className="text-center">
-          <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-[28px] ${approved ? 'bg-[#E7F7EC] text-success' : 'bg-brand-soft text-brand-dark'}`}>
+          <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-[28px] ${approved ? 'bg-[#ECFDF5] text-success' : 'bg-[#FAF4E3] text-[#8E6B1D]'}`}>
             {approved ? '✓' : '⏳'}
           </div>
-          <h1 className="mt-4 text-xl font-bold text-ink">
+          <h1 className="mt-4 text-xl font-bold text-[#111827]">
             {approved ? "You're an approved organizer" : 'Application received'}
           </h1>
-          <p className="mt-2 text-[14px] text-ink-mute">
+          <p className="mt-2 text-[14px] text-[#6B7280]">
             {approved
               ? 'You can now create and submit events from your organizer portal.'
               : 'Our team reviews within 2 business days — we’ll email you when there’s an update.'}
           </p>
-          <div className="mt-3 flex items-center justify-center gap-2 text-[13px] text-ink-soft">
+          <div className="mt-3 flex items-center justify-center gap-2 text-[13px] text-[#4B5563]">
             <span className="font-semibold">{profile.orgName}</span>
             <Pill tone={statusTone(profile.status)}>{profile.status}</Pill>
           </div>
@@ -93,10 +93,10 @@ export default function Apply() {
   // No application yet, or a previously REJECTED one → show the form.
   return (
     <div className="mx-auto max-w-[560px] px-4 pb-16 pt-10 sm:px-6">
-      <h1 className="text-xl font-bold text-ink sm:text-[22px]">Become an organizer</h1>
-      <p className="mt-1 text-[13px] text-ink-mute">Tell us about your organization to start hosting events.</p>
+      <h1 className="text-xl font-bold text-[#111827] sm:text-[22px]">Become an organizer</h1>
+      <p className="mt-1 text-[13px] text-[#6B7280]">Tell us about your organization to start hosting events.</p>
       {profile?.status === 'REJECTED' && (
-        <div className="mt-4 rounded-md border border-line bg-brand-soft/40 px-4 py-3 text-[13px] text-ink-soft">
+        <div className="mt-4 rounded-xl border border-[#C99E25]/25 bg-[#FBF6E9] px-4 py-3 text-[13px] text-[#4B5563]">
           Your previous application wasn’t approved. Update your details below and re-apply.
         </div>
       )}

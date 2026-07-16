@@ -35,7 +35,8 @@ export default function CheckIn() {
     try {
       const res = await api.checkin({ qrToken: text, eventId: id });
       setCheckedIn((c) => c + 1);
-      setLast({ tone: 'ok', icon: '✓', msg: `Checked in — ${res.ticket.attendeeName || res.ticket.ticketNumber}` });
+      const dayNote = res.day && res.day.totalDays > 1 ? ` · Day ${res.day.number}/${res.day.totalDays}` : '';
+      setLast({ tone: 'ok', icon: '✓', msg: `Checked in — ${res.ticket.attendeeName || res.ticket.ticketNumber}${dayNote}` });
     } catch (e) {
       const code = apiErrorCode(e);
       setLast({ tone: code === 'ALREADY_USED' ? 'used' : 'error', icon: code === 'ALREADY_USED' ? '⚠️' : '✕', msg: apiError(e, 'Check-in failed') });
@@ -63,15 +64,18 @@ export default function CheckIn() {
   const total = stats.total || 0;
   const remaining = Math.max(0, total - checkedIn);
   const pct = total ? Math.min(100, Math.round((checkedIn / total) * 100)) : 0;
-  const banner = last && (last.tone === 'ok' ? 'bg-[#E7F7EC] text-success' : last.tone === 'used' ? 'bg-[#FBF1DC] text-[#9a6a14]' : 'bg-[#FDE8EC] text-brand-red');
+  const banner = last && (last.tone === 'ok' ? 'bg-[#ECFDF5] text-success' : last.tone === 'used' ? 'bg-[#FBF1DC] text-[#9a6a14]' : 'bg-[#FEF2F2] text-[#DC2626]');
 
   return (
     <div>
-      <PageHead title="Door check-in" subtitle="Scan attendee QR codes at the entrance." />
+      <PageHead
+        title="Door check-in"
+        subtitle={stats.totalDays > 1 ? `Day ${stats.dayNumber} of ${stats.totalDays} — attendees can re-enter on each day their ticket covers.` : 'Scan attendee QR codes at the entrance.'}
+      />
       <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
         <Card className="flex flex-col gap-4">
-          <div id={READER_ID} className={`w-full overflow-hidden rounded-xl ${scanning ? '' : 'flex aspect-square flex-col items-center justify-center border-2 border-dashed border-line bg-surface text-center'}`}>
-            {!scanning && (<><div className="text-[56px] leading-none">📷</div><div className="mt-3 text-sm font-medium text-ink-mute">Start the scanner to check attendees in</div></>)}
+          <div id={READER_ID} className={`w-full overflow-hidden rounded-xl ${scanning ? '' : 'flex aspect-square flex-col items-center justify-center border-2 border-dashed border-[#E8ECF2] bg-[#F3F5F9] text-center'}`}>
+            {!scanning && (<><div className="text-[56px] leading-none">📷</div><div className="mt-3 text-sm font-medium text-[#6B7280]">Start the scanner to check attendees in</div></>)}
           </div>
 
           {last && (
@@ -84,28 +88,28 @@ export default function CheckIn() {
             <Btn onClick={() => setScanning((s) => !s)} variant={scanning ? 'ghost' : 'primary'}>{scanning ? 'Stop scanner' : 'Start scanner'}</Btn>
           </div>
 
-          <div className="border-t border-line pt-4">
-            <div className="mb-1.5 text-[12px] font-semibold text-ink-soft">Or enter a ticket code / link manually</div>
+          <div className="border-t border-[#E8ECF2] pt-4">
+            <div className="mb-1.5 text-[12px] font-semibold text-[#4B5563]">Or enter a ticket code / link manually</div>
             <div className="flex gap-2">
               <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="OBS ticket QR value or /t/ link"
-                className="h-10 flex-1 rounded-md border border-line px-3 text-sm text-ink outline-none focus:border-brand" />
+                className="h-10 flex-1 rounded-[10px] border border-[#DCE3EC] px-3 text-sm text-[#111827] outline-none transition-all duration-150 focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10" />
               <Btn variant="ghost" disabled={busy || !manual.trim()} onClick={() => { handle(manual.trim()); setManual(''); }}>Check in</Btn>
             </div>
           </div>
         </Card>
 
         <Card className="flex flex-col justify-center">
-          <div className="text-[13px] font-semibold uppercase tracking-wide text-ink-mute">Checked in</div>
-          <div className="mt-2 leading-none text-ink">
+          <div className="text-[13px] font-semibold uppercase tracking-wide text-[#6B7280]">Checked in</div>
+          <div className="mt-2 leading-none text-[#111827]">
             <span className="text-[48px] font-extrabold">{checkedIn}</span>
             <span className="text-2xl font-bold text-ink-faint"> / {total}</span>
           </div>
-          <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-surface">
-            <div className="h-full rounded-full bg-brand transition-all duration-300" style={{ width: `${pct}%` }} />
+          <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-[#F3F5F9]">
+            <div className="h-full rounded-full bg-[#C99E25] transition-all duration-300" style={{ width: `${pct}%` }} />
           </div>
-          <div className="mt-4 flex items-center justify-between border-t border-line pt-4 text-sm">
-            <span className="text-ink-mute">Remaining</span>
-            <span className="text-lg font-bold text-ink">{remaining}</span>
+          <div className="mt-4 flex items-center justify-between border-t border-[#E8ECF2] pt-4 text-sm">
+            <span className="text-[#6B7280]">Remaining</span>
+            <span className="text-lg font-bold text-[#111827]">{remaining}</span>
           </div>
         </Card>
       </div>

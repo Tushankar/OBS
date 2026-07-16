@@ -14,6 +14,9 @@ const ticketTypeSchema = new Schema(
     maxPerOrder: { type: Number, default: 10 },
     saleStartAt: Date,
     saleEndAt: Date,
+    // Multi-day events: which event days (1-based, relative to startAt) this
+    // ticket admits. Empty = every day (an all-days / full pass).
+    validDays: { type: [Number], default: [] },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

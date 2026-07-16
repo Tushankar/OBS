@@ -18,7 +18,7 @@ const COLUMNS = [
 
 const TYPES = ['', 'CAMPAIGN', 'TICKET_DELIVERY', 'EVENT_REMINDER', 'PAYMENT_SUCCESS', 'REGISTRATION_CONFIRMATION', 'REFUND_PROCESSED', 'REFUND_REJECTED', 'EVENT_APPROVED', 'EVENT_REJECTED', 'ORGANIZER_APPROVED', 'ORGANIZER_REJECTED', 'PASSWORD_RESET'];
 const STATUSES = ['', 'SENT', 'FAILED', 'QUEUED'];
-const selectCls = 'h-9 rounded-md border border-line bg-white px-3 text-[13px] text-ink outline-none transition focus:border-brand';
+const selectCls = 'h-9 rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
 const fmtWhen = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 const typeLabel = (t) => t.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
@@ -41,15 +41,15 @@ export default function Emails() {
   useEffect(() => { load(); }, [load]);
 
   const renderCell = (row, key) => {
-    if (key === 'sentAt') return <span className="whitespace-nowrap text-ink-mute">{fmtWhen(row.sentAt)}</span>;
-    if (key === 'type') return <span className="text-[12px] font-medium text-ink-soft">{typeLabel(row.type)}</span>;
-    if (key === 'to') return <span className="text-ink">{row.to}</span>;
-    if (key === 'subject') return <span className="block max-w-[280px] truncate text-ink-soft" title={row.subject}>{row.subject}</span>;
-    if (key === 'event') return <span className="block max-w-[180px] truncate text-ink-mute" title={row.event || ''}>{row.event || '—'}</span>;
+    if (key === 'sentAt') return <span className="whitespace-nowrap text-[#6B7280]">{fmtWhen(row.sentAt)}</span>;
+    if (key === 'type') return <span className="text-[12px] font-medium text-[#4B5563]">{typeLabel(row.type)}</span>;
+    if (key === 'to') return <span className="text-[#111827]">{row.to}</span>;
+    if (key === 'subject') return <span className="block max-w-[280px] truncate text-[#4B5563]" title={row.subject}>{row.subject}</span>;
+    if (key === 'event') return <span className="block max-w-[180px] truncate text-[#6B7280]" title={row.event || ''}>{row.event || '—'}</span>;
     if (key === 'status') return (
       <span title={row.error || undefined}>
         <Pill tone={statusTone(row.status === 'SENT' ? 'SENT' : row.status === 'FAILED' ? 'FAILED' : 'QUEUED')}>{row.status}</Pill>
-        {row.error && <span className="mt-0.5 block max-w-[200px] truncate text-[11px] text-[#B3093C]" title={row.error}>{row.error}</span>}
+        {row.error && <span className="mt-0.5 block max-w-[200px] truncate text-[11px] text-[#B91C1C]" title={row.error}>{row.error}</span>}
       </span>
     );
     return row[key];

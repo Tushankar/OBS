@@ -35,14 +35,14 @@ export default function Payouts() {
   const renderCell = (r, key) => {
     if (key === 'title') return (
       <div>
-        <div className="font-semibold text-ink">{r.title}</div>
-        <div className="flex items-center gap-2 text-[12px] text-ink-mute">{fmtDate(r.startAt)} <Pill tone={statusTone(r.status)}>{r.status.replace('_', ' ')}</Pill></div>
+        <div className="font-semibold text-[#111827]">{r.title}</div>
+        <div className="flex items-center gap-2 text-[12px] text-[#6B7280]">{fmtDate(r.startAt)} <Pill tone={statusTone(r.status)}>{r.status.replace('_', ' ')}</Pill></div>
       </div>
     );
-    if (key === 'orders') return <span className="text-ink-soft [font-variant-numeric:tabular-nums]">{r.orders}</span>;
-    if (key === 'gross') return <span className="font-medium text-ink [font-variant-numeric:tabular-nums]">{money(r.gross)}</span>;
-    if (key === 'refunded') return <span className={`[font-variant-numeric:tabular-nums] ${r.refunded > 0 ? 'text-[#B3093C]' : 'text-ink-faint'}`}>{r.refunded > 0 ? `− ${money(r.refunded)}` : '—'}</span>;
-    if (key === 'net') return <span className="font-bold text-ink [font-variant-numeric:tabular-nums]">{money(r.net)}</span>;
+    if (key === 'orders') return <span className="text-[#4B5563] [font-variant-numeric:tabular-nums]">{r.orders}</span>;
+    if (key === 'gross') return <span className="font-medium text-[#111827] [font-variant-numeric:tabular-nums]">{money(r.gross)}</span>;
+    if (key === 'refunded') return <span className={`[font-variant-numeric:tabular-nums] ${r.refunded > 0 ? 'text-[#B91C1C]' : 'text-ink-faint'}`}>{r.refunded > 0 ? `− ${money(r.refunded)}` : '—'}</span>;
+    if (key === 'net') return <span className="font-bold text-[#111827] [font-variant-numeric:tabular-nums]">{money(r.net)}</span>;
     return null;
   };
 
@@ -54,15 +54,15 @@ export default function Payouts() {
       />
 
       {/* Totals — instrument strip */}
-      <Card className="mb-4 p-0">
+      <Card className="mb-4 !p-0 overflow-hidden">
         <dl className="grid grid-cols-3">
           {[
-            ['Gross ticket revenue', data.totals.gross, 'text-[#1A1F36]'],
-            ['Refunded', data.totals.refunded, data.totals.refunded > 0 ? 'text-[#B3093C]' : 'text-[#1A1F36]'],
-            ['Net earned', data.totals.net, 'text-[#1B7A34]'],
+            ['Gross ticket revenue', data.totals.gross, 'text-[#111827]'],
+            ['Refunded', data.totals.refunded, data.totals.refunded > 0 ? 'text-[#B91C1C]' : 'text-[#111827]'],
+            ['Net earned', data.totals.net, 'text-[#047857]'],
           ].map(([label, value, tone], i) => (
-            <div key={label} className={`px-5 py-4 ${i > 0 ? 'border-l border-[#EDF0F4]' : ''}`}>
-              <dt className="text-[11.5px] font-medium text-[#697386]">{label}</dt>
+            <div key={label} className={`px-5 py-4 ${i > 0 ? 'border-l border-[#EEF2F6]' : ''}`}>
+              <dt className="text-[11.5px] font-medium text-[#6B7280]">{label}</dt>
               <dd className={`mt-1.5 text-[22px] ${figure} ${tone}`}>{money(value)}</dd>
             </div>
           ))}

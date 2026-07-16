@@ -79,16 +79,16 @@ export default function PromoCodesEditor({ eventId, admin = false }) {
 
   return (
     <div className="grid gap-4">
-      {items.length === 0 && !form && <p className="text-[13px] text-ink-mute">No promo codes yet. Add one to offer a discount (optional).</p>}
+      {items.length === 0 && !form && <p className="text-[13px] text-[#6B7280]">No promo codes yet. Add one to offer a discount (optional).</p>}
 
       {items.map((p) => (
-        <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3.5">
+        <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#E8ECF2] p-3.5">
           <div>
-            <div className="flex items-center gap-2 font-semibold text-ink">
+            <div className="flex items-center gap-2 font-semibold text-[#111827]">
               <span className="font-mono">{p.code}</span>
               <Pill tone={p.isActive ? 'green' : 'gray'}>{describe(p)}</Pill>
             </div>
-            <div className="mt-0.5 text-[12px] text-ink-mute">
+            <div className="mt-0.5 text-[12px] text-[#6B7280]">
               {p.usedCount} used{p.maxUses != null ? ` / ${p.maxUses}` : ''}{p.minOrderAmount ? ` · min ₹${(p.minOrderAmount / 100).toLocaleString('en-IN')}` : ''}
             </div>
           </div>
@@ -100,7 +100,7 @@ export default function PromoCodesEditor({ eventId, admin = false }) {
       ))}
 
       {form ? (
-        <div className="rounded-md border border-brand/40 bg-brand-soft/30 p-4">
+        <div className="rounded-md border border-[#C99E25]/30 bg-[#FBF6E9] p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Code"><input className={`${inputCls} font-mono uppercase`} value={form.code} onChange={(e) => set('code', e.target.value.toUpperCase())} placeholder="EARLYBIRD" /></Field>
             <Field label="Type">

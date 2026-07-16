@@ -15,7 +15,7 @@ const COLUMNS = [
 
 const GATEWAYS = ['', 'STRIPE', 'FREE'];
 const STATUSES = ['', 'CREATED', 'CAPTURED', 'FAILED', 'REFUNDED'];
-const selectCls = 'h-9 rounded-md border border-line bg-white px-3 text-[13px] text-ink outline-none transition focus:border-brand';
+const selectCls = 'h-9 rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
 const fmtDate = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
 
 export default function Transactions() {
@@ -37,18 +37,18 @@ export default function Transactions() {
   useEffect(() => { load(); }, [load]);
 
   const renderCell = (row, key) => {
-    if (key === 'orderNumber') return <span className="font-semibold text-ink">{row.orderNumber}</span>;
+    if (key === 'orderNumber') return <span className="font-semibold text-[#111827]">{row.orderNumber}</span>;
     if (key === 'buyer') return (
       <span className="block min-w-0">
-        <span className="block truncate font-medium text-ink">{row.buyer}</span>
-        {row.buyerEmail && <span className="block truncate text-[11.5px] text-ink-mute">{row.buyerEmail}</span>}
+        <span className="block truncate font-medium text-[#111827]">{row.buyer}</span>
+        {row.buyerEmail && <span className="block truncate text-[11.5px] text-[#6B7280]">{row.buyerEmail}</span>}
       </span>
     );
-    if (key === 'event') return <span className="text-ink-soft">{row.event}</span>;
-    if (key === 'gateway') return <span className="text-ink-mute">{row.gateway}</span>;
-    if (key === 'amount') return <span className="font-medium text-ink">{formatPrice(row.amount, row.currency)}</span>;
+    if (key === 'event') return <span className="text-[#4B5563]">{row.event}</span>;
+    if (key === 'gateway') return <span className="text-[#6B7280]">{row.gateway}</span>;
+    if (key === 'amount') return <span className="font-medium text-[#111827]">{formatPrice(row.amount, row.currency)}</span>;
     if (key === 'status') return <Pill tone={statusTone(row.status)}>{row.status}</Pill>;
-    if (key === 'date') return <span className="text-ink-mute">{fmtDate(row.date)}</span>;
+    if (key === 'date') return <span className="text-[#6B7280]">{fmtDate(row.date)}</span>;
     return row[key];
   };
 

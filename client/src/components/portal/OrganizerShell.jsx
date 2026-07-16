@@ -1,17 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../../context/AppContext';
 import { AdminIcon } from '../admin/AdminIcons';
+import { NavIcon } from '../admin/NavIcons';
 
-// Standalone organizer workspace chrome (no public navbar/footer) — same
-// Stripe-dashboard shell as the admin panel, scoped to one organizer's events.
+// Standalone organizer workspace chrome — SPECTRUM design language, matching
+// the admin shell: 300px white sidebar, gradient active nav items, profile +
+// bordered logout at the bottom, white topbar with page title and profile
+// pill. Routes & logic unchanged.
 
 const NAV = [
   { to: '/organizer', label: 'Dashboard', icon: 'Dashboard', end: true },
   { to: '/organizer/events', label: 'Events', icon: 'Events' },
   { to: '/organizer/emails', label: 'Emails', icon: 'Mail' },
-  { to: '/organizer/payouts', label: 'Payouts', icon: 'Transactions' },
-  { to: '/organizer/profile', label: 'Profile', icon: 'Organizers' },
+  { to: '/organizer/payouts', label: 'Payouts', icon: 'Wallet' },
+  { to: '/organizer/profile', label: 'Profile', icon: 'User' },
 ];
 
 // Topbar title for the current route (incl. per-event sub-pages).
@@ -27,14 +31,20 @@ function pageTitle(pathname) {
   return 'Dashboard';
 }
 
+const itemActive = 'bg-gradient-to-r from-[#E5B700] to-[#F7931E] text-white shadow-md';
+const itemIdle = 'text-gray-700 hover:bg-gray-100 hover:text-[#E5B700]';
+
 export default function OrganizerShell({ orgName = 'Organizer', children }) {
   const { user, logout, pushToast } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [drawer, setDrawer] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('obs.org.sidebar') === 'collapsed');
 
   const initials = (user?.name || 'O').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+
+  useEffect(() => { localStorage.setItem('obs.org.sidebar', collapsed ? 'collapsed' : 'open'); }, [collapsed]);
 
   const signOut = async () => {
     await logout();
@@ -42,111 +52,224 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
     navigate('/');
   };
 
-  const itemCls = ({ isActive }) =>
-    `group flex items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13.5px] font-medium transition-colors ${
-      isActive ? 'bg-[#F7F1DE] text-[#8E6B1D]' : 'text-[#4F566B] hover:bg-[#F1F3F7] hover:text-[#1A1F36]'
-    }`;
+  const SidebarExpanded = ({ onNavigate }) => (
+    <div className="font-portal flex h-full flex-col">
+      <div className="relative px-8 py-6">
+        <h1 className="whitespace-nowrap text-center text-[22px] font-bold leading-none text-brand" style={{ fontFamily: 'Georgia, serif' }}>OBS Events</h1>
+        <p className="mt-0.5 truncate text-center text-[11px] font-bold uppercase tracking-widest text-gray-800" title={orgName}>{orgName}</p>
+        <button
+          onClick={() => setCollapsed(true)}
+          title="Collapse sidebar"
+          className="absolute right-3 top-4 hidden h-8 w-8 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:grid"
+        >
+          <AdminIcon.Collapse size={16} strokeWidth={2.2} />
+        </button>
+      </div>
 
-  const Sidebar = ({ onNavigate }) => (
-    <div className="flex h-full flex-col">
-      <button onClick={() => { onNavigate?.(); navigate('/organizer'); }} className="flex items-center gap-2.5 px-5 pb-2 pt-5 text-left">
-        <span className="font-serif text-[26px] font-bold leading-none text-brand" style={{ fontFamily: 'Georgia, serif' }}>OBS</span>
-        <span className="rounded border border-[#E3E8EE] bg-[#F7FAFC] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#697386]">Organizer</span>
-      </button>
-      <div className="truncate px-5 pb-3 text-[12px] font-medium text-[#8792A2]" title={orgName}>{orgName}</div>
-
-      <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        <div className="px-2.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#8792A2]">Workspace</div>
-        <div className="space-y-0.5">
-          {NAV.map((n) => {
-            const Ic = AdminIcon[n.icon];
-            return (
-              <NavLink key={n.to} to={n.to} end={n.end} className={itemCls} onClick={onNavigate}>
-                <span className="shrink-0 opacity-80"><Ic size={16} /></span>
-                {n.label}
-              </NavLink>
-            );
-          })}
-        </div>
-        <div className="mt-4 px-1">
-          <button onClick={() => { onNavigate?.(); navigate('/organizer/events/new'); }} className="flex w-full items-center justify-center gap-1.5 rounded-md bg-brand px-3 py-2 text-[13px] font-semibold text-white transition hover:bg-[#B58C1F]">
-            <AdminIcon.Plus size={15} /> New event
-          </button>
-        </div>
+      <nav className="no-scrollbar flex-1 space-y-1.5 overflow-y-auto px-4 py-2">
+        <div className="px-3 pb-1.5 text-xs font-bold uppercase tracking-wider text-gray-800">Workspace</div>
+        {NAV.map((n) => {
+          const Ic = NavIcon[n.icon] || AdminIcon[n.icon];
+          return (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.end}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `flex h-11 w-full items-center gap-3 rounded-2xl p-3 text-sm font-medium transition-all duration-200 ${isActive ? itemActive : itemIdle}`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span className={`shrink-0 ${isActive ? 'text-white' : 'text-[#484C52]'}`}><Ic size={19} /></span>
+                  <span className="truncate">{n.label}</span>
+                </>
+              )}
+            </NavLink>
+          );
+        })}
+        <button
+          onClick={() => { onNavigate?.(); navigate('/organizer/events/new'); }}
+          className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#E5B700] to-[#DE8806] p-3 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
+        >
+          <AdminIcon.Plus size={16} /> New event
+        </button>
       </nav>
 
-      <div className="border-t border-[#E3E8EE] p-3">
-        <a href="/" target="_blank" rel="noreferrer" className="flex items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13.5px] font-medium text-[#4F566B] transition-colors hover:bg-[#F1F3F7] hover:text-[#1A1F36]">
-          <AdminIcon.External size={16} /> View site
-        </a>
-        <button onClick={signOut} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13.5px] font-medium text-[#4F566B] transition-colors hover:bg-[#F1F3F7] hover:text-[#1A1F36]">
-          <AdminIcon.Logout size={16} /> Sign out
+      <div className="border-t border-gray-100 p-4">
+        <div className="mb-3 flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#E5B700] to-[#F7931E] text-sm font-semibold text-white ring-2 ring-[#E5B700]/20">
+            {initials}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-semibold text-gray-800">{user?.name || 'Organizer'}</p>
+            <p className="truncate text-sm text-gray-500">Organizer</p>
+          </div>
+        </div>
+        <button
+          onClick={signOut}
+          className="flex w-full items-center justify-center rounded-xl border border-gray-200 p-3.5 font-medium text-gray-600 transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+        >
+          <AdminIcon.Logout size={18} />
+          <span className="ml-3 text-sm">Logout</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  const SidebarCollapsed = () => (
+    <div className="font-portal flex h-full flex-col items-center">
+      <div className="flex flex-col items-center gap-2 py-6">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-[#E5B700] to-[#F7931E] text-lg font-bold text-white">O</span>
+        <button
+          onClick={() => setCollapsed(false)}
+          title="Expand sidebar"
+          className="grid h-8 w-8 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        >
+          <AdminIcon.Expand size={16} strokeWidth={2.2} />
+        </button>
+      </div>
+      <nav className="no-scrollbar flex flex-1 flex-col items-center gap-1.5 overflow-y-auto pb-3">
+        {NAV.map((n) => {
+          const Ic = NavIcon[n.icon] || AdminIcon[n.icon];
+          return (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.end}
+              title={n.label}
+              className={({ isActive }) =>
+                `grid h-11 w-11 place-items-center rounded-2xl transition-all duration-200 ${
+                  isActive ? itemActive : 'text-[#484C52] hover:bg-gray-100 hover:text-[#E5B700]'
+                }`
+              }
+            >
+              <Ic size={19} />
+            </NavLink>
+          );
+        })}
+        <button
+          onClick={() => navigate('/organizer/events/new')}
+          title="New event"
+          className="mt-2 grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-r from-[#E5B700] to-[#DE8806] text-white shadow-sm transition-opacity hover:opacity-90"
+        >
+          <AdminIcon.Plus size={18} />
+        </button>
+      </nav>
+      <div className="flex flex-col items-center gap-2 border-t border-gray-100 py-4">
+        <span className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-[#E5B700] to-[#F7931E] text-xs font-semibold text-white ring-2 ring-[#E5B700]/20">{initials}</span>
+        <button onClick={signOut} title="Logout" className="grid h-10 w-10 place-items-center rounded-xl border border-gray-200 text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600">
+          <AdminIcon.Logout size={17} />
         </button>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F6F8FA] text-[#1A1F36]">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] border-r border-[#E3E8EE] bg-white lg:block">
-        <Sidebar />
+    <div className="font-portal min-h-screen bg-gray-100 text-gray-900">
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 hidden border-r border-gray-200 bg-white shadow-lg transition-[width] duration-300 ease-in-out lg:block ${collapsed ? 'w-[80px]' : 'w-[300px]'}`}
+      >
+        {collapsed ? <SidebarCollapsed /> : <SidebarExpanded />}
       </aside>
 
-      {drawer && (
-        <div className="fixed inset-0 z-[80] lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawer(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[248px] border-r border-[#E3E8EE] bg-white shadow-xl" style={{ animation: 'orgDrawer .2s ease-out' }}>
-            <Sidebar onNavigate={() => setDrawer(false)} />
-          </aside>
-        </div>
-      )}
+      <AnimatePresence>
+        {drawer && (
+          <motion.div
+            key="org-drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-black/50 lg:hidden"
+            onClick={() => setDrawer(false)}
+          />
+        )}
+        {drawer && (
+          <motion.aside
+            key="org-drawer"
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ duration: 0.26, ease: 'easeInOut' }}
+            className="fixed inset-y-0 left-0 z-[81] w-[300px] border-r border-gray-200 bg-white shadow-lg lg:hidden"
+          >
+            <SidebarExpanded onNavigate={() => setDrawer(false)} />
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
-      <div className="lg:pl-[232px]">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-[#E3E8EE] bg-white/95 px-4 backdrop-blur sm:px-6">
-          <button onClick={() => setDrawer(true)} className="rounded-md p-1.5 text-[#4F566B] hover:bg-[#F1F3F7] lg:hidden" aria-label="Menu">
-            <AdminIcon.Menu size={18} />
-          </button>
-          <div className="truncate text-[15px] font-semibold text-[#1A1F36]">{pageTitle(location.pathname)}</div>
-          <div className="ml-auto flex items-center gap-2">
-            <a href="/" target="_blank" rel="noreferrer" className="hidden items-center gap-1.5 rounded-md border border-[#E3E8EE] bg-white px-2.5 py-1.5 text-[12.5px] font-medium text-[#4F566B] transition hover:border-[#C9D2DE] hover:text-[#1A1F36] sm:flex">
+      <div className={`transition-[padding] duration-300 ease-in-out ${collapsed ? 'lg:pl-[80px]' : 'lg:pl-[300px]'}`}>
+        <header className="sticky top-0 z-30 flex w-full items-center justify-between border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4 md:px-6 lg:px-10">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setDrawer(true)} className="grid h-9 w-9 place-items-center rounded-lg text-gray-600 hover:bg-gray-100 lg:hidden" aria-label="Menu">
+              <AdminIcon.Menu size={18} />
+            </button>
+            <span className="truncate text-sm font-medium text-gray-800">{pageTitle(location.pathname)}</span>
+          </div>
+
+          <div className="flex items-center gap-2 lg:gap-4">
+            <button
+              onClick={() => navigate('/organizer/events/new')}
+              className="hidden h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#E5B700] to-[#DE8806] px-4 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:flex"
+            >
+              <AdminIcon.Plus size={15} /> New event
+            </button>
+            <a
+              href="/"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden h-9 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 md:flex"
+            >
               View site <AdminIcon.ArrowUpRight size={13} />
             </a>
             <div className="relative">
-              <button onClick={() => setMenu((v) => !v)} className="flex items-center gap-2 rounded-full border border-[#E3E8EE] bg-white py-1 pl-1 pr-2.5 transition hover:border-[#C9D2DE]">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-brand-soft text-[12px] font-bold text-[#8E6B1D]">{initials}</span>
-                <span className="hidden max-w-[140px] truncate text-[13px] font-medium text-[#1A1F36] sm:block">{user?.name}</span>
-                <AdminIcon.ChevronDown size={13} className="text-[#8792A2]" />
+              <button
+                onClick={() => setMenu((v) => !v)}
+                className="flex h-10 items-center gap-2 rounded-[1.5rem] bg-[rgba(212,212,212,0.3)] px-2 py-1 focus:outline-none sm:w-[10rem] lg:w-[11.5rem]"
+              >
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#E5B700] to-[#F7931E] text-xs font-semibold text-white">
+                  {initials}
+                </span>
+                <span className="hidden flex-1 truncate text-left text-sm font-medium text-black sm:block">{user?.name}</span>
+                <AdminIcon.ChevronDown size={15} className="hidden shrink-0 text-black sm:block" />
               </button>
-              {menu && (
-                <>
-                  <div className="fixed inset-0 z-[59]" onClick={() => setMenu(false)} />
-                  <div className="absolute right-0 top-[42px] z-[60] w-52 overflow-hidden rounded-lg border border-[#E3E8EE] bg-white shadow-[0_10px_30px_rgba(26,31,54,.12)]">
-                    <div className="border-b border-[#EDF0F4] px-3.5 py-2.5">
-                      <div className="truncate text-[13px] font-semibold text-[#1A1F36]">{user?.name}</div>
-                      <div className="truncate text-[11.5px] text-[#8792A2]">{user?.email}</div>
-                    </div>
-                    <button onClick={() => { setMenu(false); navigate('/account/tickets'); }} className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13px] text-[#4F566B] hover:bg-[#F7FAFC]">
-                      <AdminIcon.Events size={15} /> My tickets
-                    </button>
-                    <button onClick={() => { setMenu(false); navigate('/'); }} className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13px] text-[#4F566B] hover:bg-[#F7FAFC]">
-                      <AdminIcon.Home size={15} /> Back to site
-                    </button>
-                    <button onClick={() => { setMenu(false); signOut(); }} className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13px] text-[#4F566B] hover:bg-[#F7FAFC]">
-                      <AdminIcon.Logout size={15} /> Sign out
-                    </button>
-                  </div>
-                </>
-              )}
+              <AnimatePresence>
+                {menu && (
+                  <>
+                    <div className="fixed inset-0 z-[59]" onClick={() => setMenu(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.14 }}
+                      className="absolute right-0 top-[46px] z-[60] w-48 overflow-hidden rounded-lg border border-gray-100 bg-white shadow-lg"
+                    >
+                      <div className="border-b border-gray-100 px-4 py-2.5">
+                        <p className="truncate text-sm font-medium text-gray-800">{user?.name}</p>
+                        <p className="truncate text-xs text-gray-500">{user?.email}</p>
+                      </div>
+                      <button onClick={() => { setMenu(false); navigate('/account/tickets'); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">
+                        My tickets
+                      </button>
+                      <button onClick={() => { setMenu(false); navigate('/'); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">
+                        Back to site
+                      </button>
+                      <button onClick={() => { setMenu(false); signOut(); }} className="w-full rounded-b-lg px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">
+                        Logout
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1160px] px-4 py-6 sm:px-6 sm:py-8">
+        <main className="p-3 sm:p-4 md:p-6">
           {children}
         </main>
       </div>
-
-      <style>{`@keyframes orgDrawer { from { transform: translateX(-100%); } to { transform: none; } }`}</style>
     </div>
   );
 }

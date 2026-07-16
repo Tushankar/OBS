@@ -20,6 +20,9 @@ const eventSchema = new Schema(
     slug: { type: String, required: true, unique: true },
     description: String, // markdown; required at submit
     bannerUrl: String,
+    // Uploaded gallery (absolute URLs). images[0] mirrors bannerUrl (primary);
+    // the rest render as the public page's photo gallery.
+    images: { type: [String], default: [] },
     isOnline: { type: Boolean, default: false },
     meetingLink: String, // revealed to ticket holders only
     venueName: String,

@@ -4,15 +4,41 @@ import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { displayMoney } from '../../lib/currency';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const spanDays = (startAt, endAt) => {
+  if (!startAt || !endAt) return 1;
+  const s = new Date(startAt), e = new Date(endAt);
+  if (isNaN(s) || isNaN(e)) return 1;
+  const sd = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+  const ed = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+  return Math.max(1, Math.round((ed - sd) / DAY_MS) + 1);
+};
+const dayDate = (startAt, n) => {
+  const s = new Date(startAt);
+  const d = new Date(s.getFullYear(), s.getMonth(), s.getDate() + (n - 1));
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+};
+
 // Live booking card (§10): ticket-type steppers honoring min/max + availability,
 // promo input, fee-inclusive estimate, "Book now" → creates the held order and
-// goes to checkout (free orders skip straight to success).
+// goes to checkout (free orders skip straight to success). Multi-day events get
+// a day filter + per-ticket day badges so buyers pick the day they need.
 export default function BookingCard({ event }) {
   const navigate = useNavigate();
   const { user, setAuthOpen, pushToast, currency: displayCurrency } = useApp();
   const [qty, setQty] = useState({});
   const [promo, setPromo] = useState('');
+  const [dayFilter, setDayFilter] = useState(0); // 0 = all days
   const [submitting, setSubmitting] = useState(false);
+
+  const totalDays = spanDays(event.startAt, event.endAt);
+  const multiDay = totalDays > 1;
+  // A pass with no validDays admits every day, so it matches any day filter.
+  const matchesDay = (t) => dayFilter === 0 || !(t.validDays || []).length || t.validDays.includes(dayFilter);
+  const dayBadge = (t) =>
+    (t.validDays || []).length
+      ? t.validDays.map((n) => `Day ${n} · ${dayDate(event.startAt, n)}`).join('  +  ')
+      : `All ${totalDays} days`;
 
   const eventCurrency = event.currency || 'INR';
   // Prices display in the visitor's selected currency; the actual charge stays
@@ -75,8 +101,18 @@ export default function BookingCard({ event }) {
         <p className="text-[13px] text-ink-mute">Tickets aren’t on sale for this event right now.</p>
       ) : (
         <>
+          {multiDay && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              <button onClick={() => setDayFilter(0)} className={`rounded-full border px-3 py-1 text-[12px] font-semibold transition ${dayFilter === 0 ? 'border-brand bg-brand text-white' : 'border-line text-ink-soft hover:border-brand'}`}>All days</button>
+              {Array.from({ length: totalDays }, (_, i) => i + 1).map((n) => (
+                <button key={n} onClick={() => setDayFilter(n)} className={`rounded-full border px-3 py-1 text-[12px] font-semibold transition ${dayFilter === n ? 'border-brand bg-brand text-white' : 'border-line text-ink-soft hover:border-brand'}`}>
+                  Day {n} <span className="font-normal opacity-75">{dayDate(event.startAt, n)}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex flex-col gap-3">
-            {types.map((t) => {
+            {types.filter(matchesDay).map((t) => {
               const n = qty[t.id] || 0;
               const maxed = n >= cap(t);
               const lowStock = t.onSale && t.quantityAvailable > 0 && t.quantityAvailable <= 10;
@@ -85,6 +121,11 @@ export default function BookingCard({ event }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className={`text-sm font-semibold ${t.onSale ? 'text-ink' : 'text-ink-mute line-through decoration-ink-faint'}`}>{t.name}</div>
+                      {multiDay && (
+                        <div className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide ${(t.validDays || []).length ? 'bg-brand-soft text-brand-dark' : 'bg-surface text-ink-mute'}`}>
+                          {dayBadge(t)}
+                        </div>
+                      )}
                       {t.description && <div className="mt-0.5 text-[12px] text-ink-mute">{t.description}</div>}
                       <div className={`mt-1 text-[13px] font-bold ${t.onSale ? 'text-brand' : 'text-ink-faint'}`}>{t.price === 0 ? 'Free' : show(t.price)}</div>
                       {lowStock && <div className="mt-1 text-[11px] font-semibold text-[#B45309]">Only {t.quantityAvailable} left</div>}
@@ -105,6 +146,9 @@ export default function BookingCard({ event }) {
             })}
           </div>
           {onSale.length === 0 && <p className="mt-3 text-[12px] text-ink-mute">All ticket types are currently unavailable.</p>}
+          {multiDay && dayFilter !== 0 && types.filter(matchesDay).length === 0 && (
+            <p className="mt-1 text-[12px] text-ink-mute">No tickets for Day {dayFilter} yet — check the other days.</p>
+          )}
 
           <input
             value={promo}

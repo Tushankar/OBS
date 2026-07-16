@@ -6,7 +6,7 @@ const COLS = [
   ['Chapters', [['All chapters', '/chapters'], ['Start a chapter', '/chapters/create'], ['Chapter leaders', '/help'], ['Tier benefits', '/help']]],
   ['Company', [['About OBS', '/about'], ['Careers', '/careers'], ['Partner with us', '/become-a-sponsor']]],
   // Terms & privacy render from the admin-managed CMS (Admin → Site pages).
-  ['Help', [['Help center', '/help'], ['FAQs', '/faqs'], ['Refund policy', '/refund-policy'], ['Community guidelines', '/pages/community-guidelines']]],
+  ['Help', [['Help center', '/help'], ['Report an issue', '/report-issue'], ['FAQs', '/faqs'], ['Refund policy', '/refund-policy'], ['Community guidelines', '/pages/community-guidelines']]],
   ['Legal', [['Terms of use', '/terms'], ['Privacy policy', '/privacy'], ['Cookie policy', '/pages/cookie-policy']]],
 ];
 

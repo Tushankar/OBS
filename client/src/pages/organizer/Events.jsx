@@ -74,14 +74,14 @@ export default function Events() {
       case 'title':
         return (
           <button onClick={() => navigate(`/organizer/events/${ev.id}/edit`)} className="text-left">
-            <div className="font-semibold text-ink hover:text-brand">{ev.title}</div>
-            <div className="text-[12px] text-ink-mute">
+            <div className="font-semibold text-[#111827] hover:text-[#B58C1F]">{ev.title}</div>
+            <div className="text-[12px] text-[#6B7280]">
               {ev.category?.name || 'Uncategorized'}{ev.city ? ` · ${ev.city}` : ''}
             </div>
           </button>
         );
       case 'when':
-        return <span className="text-ink-soft">{fmtDate(ev.startAt)}</span>;
+        return <span className="text-[#4B5563]">{fmtDate(ev.startAt)}</span>;
       case 'status':
         return <Pill tone={statusTone(ev.status)}>{ev.status.replace('_', ' ')}</Pill>;
       case 'actions':
@@ -99,10 +99,10 @@ export default function Events() {
               {EDITABLE.includes(ev.status) ? <><AdminIcon.Edit size={13} /> Edit</> : <><AdminIcon.Eye size={13} /> View</>}
             </Btn>
             {ev.status === 'PUBLISHED' && (
-              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setCancelling(ev)} className="!text-[#B3093C]">Cancel event</Btn>
+              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setCancelling(ev)} className="!text-[#B91C1C]">Cancel event</Btn>
             )}
             {EDITABLE.includes(ev.status) && (
-              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setConfirm(ev)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
+              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setConfirm(ev)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /></Btn>
             )}
           </div>
         );

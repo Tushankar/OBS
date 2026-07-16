@@ -15,8 +15,8 @@ const COLUMNS = [
   { key: 'meta', label: 'Details' },
 ];
 
-const ENTITY_TYPES = ['', 'Event', 'OrganizerProfile', 'User', 'Refund', 'Order', 'Chapter', 'Sponsor', 'PartnerApplication', 'Campaign', 'Speaker', 'Article', 'Program'];
-const selectCls = 'h-9 rounded-md border border-line bg-white px-3 text-[13px] text-ink outline-none transition focus:border-brand';
+const ENTITY_TYPES = ['', 'Event', 'OrganizerProfile', 'User', 'Refund', 'Order', 'Chapter', 'Sponsor', 'PartnerApplication', 'SupportTicket', 'Campaign', 'Speaker', 'Article', 'Program'];
+const selectCls = 'h-9 rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
 const fmtWhen = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 const actionLabel = (a) => a.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
@@ -54,16 +54,16 @@ export default function Activity() {
   useEffect(() => { load(); }, [load]);
 
   const renderCell = (row, key) => {
-    if (key === 'at') return <span className="whitespace-nowrap text-ink-mute">{fmtWhen(row.at)}</span>;
+    if (key === 'at') return <span className="whitespace-nowrap text-[#6B7280]">{fmtWhen(row.at)}</span>;
     if (key === 'actor') return (
       <span className="block min-w-0">
-        <span className="block truncate font-medium text-ink">{row.actor}</span>
-        {row.actorEmail && <span className="block truncate text-[11px] text-ink-mute">{row.actorEmail}</span>}
+        <span className="block truncate font-medium text-[#111827]">{row.actor}</span>
+        {row.actorEmail && <span className="block truncate text-[11px] text-[#6B7280]">{row.actorEmail}</span>}
       </span>
     );
     if (key === 'action') return <Pill tone={ACTION_TONE(row.action)}>{actionLabel(row.action)}</Pill>;
-    if (key === 'entity') return <span className="text-[12.5px] text-ink-soft">{row.entityType || '—'}</span>;
-    if (key === 'meta') return <span className="block max-w-[320px] truncate text-[12px] text-ink-mute" title={metaLine(row.meta)}>{metaLine(row.meta)}</span>;
+    if (key === 'entity') return <span className="text-[12.5px] text-[#4B5563]">{row.entityType || '—'}</span>;
+    if (key === 'meta') return <span className="block max-w-[320px] truncate text-[12px] text-[#6B7280]" title={metaLine(row.meta)}>{metaLine(row.meta)}</span>;
     return row[key];
   };
 

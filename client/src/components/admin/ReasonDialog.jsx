@@ -31,7 +31,7 @@ export default function ReasonDialog({ open, onClose, onSubmit, title, subtitle,
           placeholder={placeholder}
           rows={4}
           autoFocus
-          className="w-full resize-y rounded-md border border-[#D5DBE5] bg-white px-3 py-2 text-[13.5px] leading-relaxed text-[#1A1F36] outline-none transition placeholder:text-[#A3ACBA] focus:border-brand focus:ring-2 focus:ring-brand/20"
+          className="w-full resize-y rounded-md border border-[#DCE3EC] bg-white px-3 py-2 text-[13.5px] leading-relaxed text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10"
         />
       </Field>
     </Modal>

@@ -79,10 +79,10 @@ function SpeakerEditor({ initial, onClose, onSaved }) {
         <Field label="Website URL"><input value={form.website} onChange={(e) => set('website', e.target.value)} placeholder="https://…" className={inputCls} /></Field>
         <Field label="Twitter / X" hint="Handle or URL"><input value={form.twitter} onChange={(e) => set('twitter', e.target.value)} placeholder="@handle" className={inputCls} /></Field>
         <Field label="Sort order" hint="Lower shows first"><input type="number" value={form.sortOrder} onChange={(e) => set('sortOrder', e.target.value)} className={inputCls} /></Field>
-        <label className="sm:col-span-2 flex items-center gap-2.5 rounded-lg border border-[#E3E8EE] bg-[#F7FAFC] px-3.5 py-2.5 cursor-pointer">
+        <label className="sm:col-span-2 flex items-center gap-2.5 rounded-lg border border-[#E8ECF2] bg-[#F8FAFC] px-3.5 py-2.5 cursor-pointer">
           <input type="checkbox" checked={form.isFeatured} onChange={(e) => set('isFeatured', e.target.checked)} className="h-4 w-4 accent-[#8E6B1D]" />
-          <span className="text-[13px] font-medium text-[#1A1F36]">Feature this speaker</span>
-          <span className="text-[12px] text-[#8792A2]">— highlighted at the top of the directory</span>
+          <span className="text-[13px] font-medium text-[#111827]">Feature this speaker</span>
+          <span className="text-[12px] text-[#6B7280]">— highlighted at the top of the directory</span>
         </label>
       </div>
     </Modal>
@@ -141,10 +141,10 @@ export default function Speakers() {
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-[14px] font-semibold text-[#1A1F36]">{s.name}</span>
+                    <span className="truncate text-[14px] font-semibold text-[#111827]">{s.name}</span>
                     {s.isFeatured && <span className="text-[#8E6B1D]" title="Featured"><AdminIcon.Star size={13} /></span>}
                   </div>
-                  <div className="truncate text-[12px] text-[#697386]">{[s.title, s.company].filter(Boolean).join(' · ') || '—'}</div>
+                  <div className="truncate text-[12px] text-[#6B7280]">{[s.title, s.company].filter(Boolean).join(' · ') || '—'}</div>
                 </div>
               </div>
               {s.topics?.length > 0 && (
@@ -153,9 +153,9 @@ export default function Speakers() {
                   {s.topics.length > 3 && <Pill tone="gray">+{s.topics.length - 3}</Pill>}
                 </div>
               )}
-              <div className="mt-4 flex gap-1.5 border-t border-[#EDF0F4] pt-3">
+              <div className="mt-4 flex gap-1.5 border-t border-[#EEF2F6] pt-3">
                 <Btn variant="ghost" size="sm" onClick={() => setEditor(s)}><AdminIcon.Edit size={13} /> Edit</Btn>
-                <Btn variant="ghost" size="sm" onClick={() => setConfirm(s)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
+                <Btn variant="ghost" size="sm" onClick={() => setConfirm(s)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /></Btn>
               </div>
             </Card>
           ))}

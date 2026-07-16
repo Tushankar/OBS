@@ -61,3 +61,7 @@ export const ARTICLE_STATUS = ['DRAFT', 'PUBLISHED'];
 export const PROGRAM_STATUS = ['UPCOMING', 'ACTIVE', 'ENDED'];
 export const EVENT_OWNERSHIP = ['OBS', 'PARTNER'];
 export const CHAPTER_STATUS = ['APPROVED', 'PENDING', 'SUSPENDED'];
+
+// ----- Support tickets (user-reported issues via footer/help) -----
+export const SUPPORT_STATUS = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
+export const SUPPORT_CATEGORY = ['BOOKING', 'PAYMENT', 'REFUND', 'ACCOUNT', 'EVENT', 'OTHER'];

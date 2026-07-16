@@ -53,7 +53,8 @@ export async function featureEvent(req, res) {
 
 // --- Dashboard ---
 export async function dashboard(req, res) {
-  const stats = await adminService.getAdminDashboard();
+  const days = [30, 90].includes(Number(req.query.days)) ? Number(req.query.days) : null;
+  const stats = await adminService.getAdminDashboard({ days });
   res.status(200).json(stats);
 }
 

@@ -25,18 +25,18 @@ export default function Dashboard() {
       <PageHead title="Dashboard" subtitle="Your events at a glance" actions={<Btn onClick={() => navigate('/organizer/events/new')}><AdminIcon.Plus size={15} /> Create event</Btn>} />
 
       <StatGrid>
-        <StatCard label="Events" value={data.events.total} hint={`${data.events.published} live · ${data.events.draft} draft · ${data.events.pending} pending`} icon={<AdminIcon.Events size={16} />} />
-        <StatCard label="Tickets sold" value={data.ticketsSold} icon={<AdminIcon.Transactions size={16} />} />
-        <StatCard label="Gross revenue" value={formatPrice(data.grossRevenue, data.currency)} hint={`${data.paidOrders} paid order${data.paidOrders === 1 ? '' : 's'}`} icon={<AdminIcon.Reports size={16} />} />
-        <StatCard label="Live events" value={data.events.published} icon={<AdminIcon.Star size={16} />} />
+        <StatCard accent="#C99E25" label="Events" value={data.events.total} hint={`${data.events.published} live · ${data.events.draft} draft · ${data.events.pending} pending`} icon={<AdminIcon.Events size={15} />} />
+        <StatCard accent="#7C3AED" label="Tickets sold" value={data.ticketsSold} icon={<AdminIcon.Ticket size={15} />} />
+        <StatCard accent="#10B981" label="Gross revenue" value={formatPrice(data.grossRevenue, data.currency)} hint={`${data.paidOrders} paid order${data.paidOrders === 1 ? '' : 's'}`} icon={<AdminIcon.Rupee size={15} />} />
+        <StatCard accent="#F59E0B" label="Live events" value={data.events.published} icon={<AdminIcon.Star size={15} />} />
       </StatGrid>
 
       <Card className="mt-6">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-mute">Next event</div>
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">Next event</div>
         {next ? (
           <>
-            <div className="mt-1.5 text-lg font-bold text-ink">{next.title}</div>
-            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-soft">
+            <div className="mt-1.5 text-lg font-bold text-[#111827]">{next.title}</div>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[#4B5563]">
               <span className="inline-flex items-center gap-1.5"><AdminIcon.Events size={13} /> {fmtDate(next.startAt)}</span>
               <span className="inline-flex items-center gap-1.5"><AdminIcon.Chapters size={13} /> {next.isOnline ? 'Online' : [next.venueName, next.city].filter(Boolean).join(', ') || 'TBA'}</span>
             </div>
@@ -49,7 +49,7 @@ export default function Dashboard() {
             </div>
           </>
         ) : (
-          <div className="mt-1.5 text-[13px] text-ink-mute">No upcoming published events. <button onClick={() => navigate('/organizer/events')} className="font-semibold text-brand">Manage events →</button></div>
+          <div className="mt-1.5 text-[13px] text-[#6B7280]">No upcoming published events. <button onClick={() => navigate('/organizer/events')} className="font-semibold text-[#8E6B1D]">Manage events →</button></div>
         )}
       </Card>
     </div>

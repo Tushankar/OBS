@@ -5,6 +5,7 @@ import { getStripe, isStripeConfigured } from '../../config/stripe.js';
 import { AppError, conflict, forbidden, notFoundError } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { sendMail } from '../../utils/mailer.js';
+import { notifyAdmins } from '../notifications/notifications.service.js';
 
 const money = (paise, currency = 'INR') => (currency === 'INR' ? '₹' : `${currency} `) + (Number(paise) / 100).toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US');
 
@@ -47,6 +48,14 @@ export async function requestRefund(userId, orderId, reason) {
 
   const refund = await Refund.create({ paymentId: payment._id, orderId: order._id, amount: order.totalAmount, reason, requestedById: userId, status: 'REQUESTED' });
   await Order.updateOne({ _id: order._id }, { $set: { status: 'REFUND_REQUESTED' } });
+  await notifyAdmins({
+    type: 'REFUND_REQUESTED',
+    title: `Refund requested — ₹${((order.totalAmount || 0) / 100).toLocaleString('en-IN')}`,
+    body: reason || `Order ${order.orderNumber || order._id}`,
+    link: '/admin/refunds',
+    entityType: 'Refund',
+    entityId: refund._id,
+  });
   return shapeRefund(refund);
 }
 

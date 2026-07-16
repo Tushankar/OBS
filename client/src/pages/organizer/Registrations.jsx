@@ -66,13 +66,13 @@ export default function Registrations() {
 
   const renderCell = (row, key) => {
     switch (key) {
-      case 'ticketNumber': return <span className="font-mono text-[12px] font-semibold text-ink">{row.ticketNumber}</span>;
-      case 'attendee': return <div className="leading-tight"><div className="font-medium text-ink">{row.attendeeName || '—'}</div><div className="text-[12px] text-ink-mute">{row.attendeeEmail}</div></div>;
-      case 'ticketType': return <span className="text-ink-soft">{row.ticketType}</span>;
-      case 'orderNumber': return <span className="font-mono text-[12px] text-ink-mute">{row.orderNumber}</span>;
-      case 'amount': return <span className="font-medium text-ink">{formatPrice(row.amount, data?.event?.currency)}</span>;
+      case 'ticketNumber': return <span className="font-mono text-[12px] font-semibold text-[#111827]">{row.ticketNumber}</span>;
+      case 'attendee': return <div className="leading-tight"><div className="font-medium text-[#111827]">{row.attendeeName || '—'}</div><div className="text-[12px] text-[#6B7280]">{row.attendeeEmail}</div></div>;
+      case 'ticketType': return <span className="text-[#4B5563]">{row.ticketType}</span>;
+      case 'orderNumber': return <span className="font-mono text-[12px] text-[#6B7280]">{row.orderNumber}</span>;
+      case 'amount': return <span className="font-medium text-[#111827]">{formatPrice(row.amount, data?.event?.currency)}</span>;
       case 'status': return <Pill tone={statusTone(row.status)}>{row.status}</Pill>;
-      case 'checkedInAt': return <span className="text-ink-mute">{fmtTime(row.checkedInAt)}</span>;
+      case 'checkedInAt': return <span className="text-[#6B7280]">{fmtTime(row.checkedInAt)}</span>;
       default: return null;
     }
   };

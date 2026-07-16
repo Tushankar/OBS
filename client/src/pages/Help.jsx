@@ -185,7 +185,7 @@ export default function Help() {
             </div>
             <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               {[
-                { icon: (p) => <Icon.Orders {...p} />, title: 'Email support', sub: 'Detailed issues, attachments & receipts.', cta: 'support@obs.events', href: 'mailto:support@obs.events' },
+                { icon: (p) => <Icon.Orders {...p} />, title: 'Raise a ticket', sub: 'Report an issue — every report is tracked and followed up on.', cta: 'Report an issue', to: '/report-issue' },
                 { icon: (p) => <Icon.Ticket {...p} />, title: 'Orders & refunds', sub: 'Manage a booking or request a refund.', cta: 'Go to my orders', to: '/account/orders' },
                 { icon: (p) => <Icon.Film {...p} />, title: 'Browse FAQs', sub: 'Self-serve answers to common questions.', cta: 'Read FAQs', to: '/faqs' },
               ].map((c) => {

@@ -15,7 +15,7 @@ const COLUMNS = [
   { key: 'status', label: 'Status' },
 ];
 
-const selectCls = 'h-9 rounded-md border border-line bg-white px-3 text-[13px] text-ink outline-none transition focus:border-brand';
+const selectCls = 'h-9 rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
 const fmtWhen = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 const typeLabel = (t) => t.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
@@ -33,11 +33,11 @@ export default function Emails() {
   useEffect(() => { load(); }, [load]);
 
   const renderCell = (row, key) => {
-    if (key === 'sentAt') return <span className="whitespace-nowrap text-ink-mute">{fmtWhen(row.sentAt)}</span>;
-    if (key === 'type') return <span className="text-[12px] font-medium text-ink-soft">{typeLabel(row.type)}</span>;
-    if (key === 'to') return <span className="text-ink">{row.to}</span>;
-    if (key === 'subject') return <span className="block max-w-[260px] truncate text-ink-soft" title={row.subject}>{row.subject}</span>;
-    if (key === 'event') return <span className="block max-w-[180px] truncate text-ink-mute" title={row.event || ''}>{row.event || '—'}</span>;
+    if (key === 'sentAt') return <span className="whitespace-nowrap text-[#6B7280]">{fmtWhen(row.sentAt)}</span>;
+    if (key === 'type') return <span className="text-[12px] font-medium text-[#4B5563]">{typeLabel(row.type)}</span>;
+    if (key === 'to') return <span className="text-[#111827]">{row.to}</span>;
+    if (key === 'subject') return <span className="block max-w-[260px] truncate text-[#4B5563]" title={row.subject}>{row.subject}</span>;
+    if (key === 'event') return <span className="block max-w-[180px] truncate text-[#6B7280]" title={row.event || ''}>{row.event || '—'}</span>;
     if (key === 'status') return <Pill tone={statusTone(row.status)}>{row.status}</Pill>;
     return row[key];
   };

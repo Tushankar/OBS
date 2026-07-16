@@ -19,6 +19,7 @@ export default function EventDetail() {
   const [event, setEvent] = useState(undefined); // undefined = loading, null = not found
   const [similar, setSimilar] = useState([]);
   const [readMore, setReadMore] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // gallery image URL being viewed full-size
 
   useEffect(() => {
     let alive = true;
@@ -145,6 +146,24 @@ export default function EventDetail() {
             )}
           </div>
 
+          {(event.images?.length || 0) > 1 && (
+            <>
+              <h2 className="mb-4 mt-8 text-lg font-bold text-ink">Photos</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {event.images.slice(1).map((img, i) => (
+                  <button
+                    key={img}
+                    onClick={() => setLightbox(img)}
+                    className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-line"
+                    aria-label={`Open photo ${i + 1}`}
+                  >
+                    <img src={img} alt={`${event.title} photo ${i + 1}`} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
           {event.speakers?.length > 0 && (
             <>
               <h2 className="mb-4 mt-8 text-lg font-bold text-ink">Speakers</h2>
@@ -231,6 +250,14 @@ export default function EventDetail() {
           )}
         </div>
       </div>
+
+      {/* Gallery lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/85 p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt={event.title} className="max-h-[88vh] max-w-full rounded-lg object-contain" />
+          <button onClick={() => setLightbox(null)} aria-label="Close photo" className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/15 text-xl text-white transition hover:bg-white/30">✕</button>
+        </div>
+      )}
     </div>
   );
 }

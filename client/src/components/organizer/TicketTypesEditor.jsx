@@ -8,11 +8,29 @@ const toPaise = (rupees) => Math.round(Number(rupees) * 100);
 const toRupees = (paise) => (Number(paise) / 100).toString();
 const fmt = (paise) => `₹${(Number(paise) / 100).toLocaleString('en-IN')}`;
 
-const BLANK = { name: '', priceRupees: '0', quantityTotal: '100', minPerOrder: '1', maxPerOrder: '10' };
+const BLANK = { name: '', priceRupees: '0', quantityTotal: '100', minPerOrder: '1', maxPerOrder: '10', validDays: [] };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const dayCount = (startAt, endAt) => {
+  if (!startAt || !endAt) return 1;
+  const s = new Date(startAt), e = new Date(endAt);
+  if (isNaN(s) || isNaN(e)) return 1;
+  const sd = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+  const ed = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+  return Math.max(1, Math.round((ed - sd) / DAY_MS) + 1);
+};
+const dayLabel = (startAt, n) => {
+  const s = new Date(startAt);
+  if (isNaN(s)) return `Day ${n}`;
+  const d = new Date(s.getFullYear(), s.getMonth(), s.getDate() + (n - 1));
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+};
 
 // `admin` switches to the /admin/events/:id/ticket-types endpoints — the admin
 // manages tickets on any event (OBS platform events have no organizer session).
-export default function TicketTypesEditor({ eventId, admin = false }) {
+// `startAt`/`endAt` (optional) enable the per-day validity picker for
+// multi-day events: which event days each ticket type admits.
+export default function TicketTypesEditor({ eventId, admin = false, startAt = null, endAt = null }) {
   const { pushToast } = useApp();
   const [items, setItems] = useState(null);
   const [form, setForm] = useState(null); // { id? , ...fields } when adding/editing
@@ -27,9 +45,16 @@ export default function TicketTypesEditor({ eventId, admin = false }) {
   }, [eventId, pushToast]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
 
+  const totalDays = dayCount(startAt, endAt);
+  const multiDay = totalDays > 1;
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const startAdd = () => setForm({ ...BLANK });
-  const startEdit = (t) => setForm({ id: t.id, name: t.name, priceRupees: toRupees(t.price), quantityTotal: String(t.quantityTotal), minPerOrder: String(t.minPerOrder), maxPerOrder: String(t.maxPerOrder) });
+  const startEdit = (t) => setForm({ id: t.id, name: t.name, priceRupees: toRupees(t.price), quantityTotal: String(t.quantityTotal), minPerOrder: String(t.minPerOrder), maxPerOrder: String(t.maxPerOrder), validDays: t.validDays || [] });
+  const toggleDay = (n) => setForm((f) => ({
+    ...f,
+    validDays: (f.validDays || []).includes(n) ? f.validDays.filter((d) => d !== n) : [...(f.validDays || []), n].sort((a, b) => a - b),
+  }));
 
   async function save() {
     if (!form.name.trim()) { pushToast('Ticket name is required', false); return; }
@@ -39,6 +64,7 @@ export default function TicketTypesEditor({ eventId, admin = false }) {
       quantityTotal: parseInt(form.quantityTotal, 10) || 0,
       minPerOrder: parseInt(form.minPerOrder, 10) || 1,
       maxPerOrder: parseInt(form.maxPerOrder, 10) || 1,
+      validDays: multiDay ? (form.validDays || []) : [],
     };
     if (!Number.isInteger(body.price) || body.price < 0) { pushToast('Enter a valid price', false); return; }
     if (body.quantityTotal < 1) { pushToast('Quantity must be at least 1', false); return; }
@@ -75,16 +101,21 @@ export default function TicketTypesEditor({ eventId, admin = false }) {
   return (
     <div className="grid gap-4">
       {items.length === 0 && !form && (
-        <p className="text-[13px] text-ink-mute">No ticket types yet. Add at least one (use price ₹0 for a free ticket).</p>
+        <p className="text-[13px] text-[#6B7280]">No ticket types yet. Add at least one (use price ₹0 for a free ticket).</p>
       )}
 
       {items.map((t) => (
-        <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3.5">
+        <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#E8ECF2] p-3.5">
           <div>
-            <div className="flex items-center gap-2 font-semibold text-ink">
-              {t.name} {t.price === 0 ? <Pill tone="green">Free</Pill> : <span className="text-brand">{fmt(t.price)}</span>}
+            <div className="flex items-center gap-2 font-semibold text-[#111827]">
+              {t.name} {t.price === 0 ? <Pill tone="green">Free</Pill> : <span className="text-[#8E6B1D] font-semibold">{fmt(t.price)}</span>}
+              {multiDay && (
+                <Pill tone={t.validDays?.length ? 'blue' : 'gray'}>
+                  {t.validDays?.length ? `Day ${t.validDays.join(' & ')}` : `All ${totalDays} days`}
+                </Pill>
+              )}
             </div>
-            <div className="mt-0.5 text-[12px] text-ink-mute">
+            <div className="mt-0.5 text-[12px] text-[#6B7280]">
               {t.quantityAvailable}/{t.quantityTotal} available · {t.minPerOrder}–{t.maxPerOrder} per order{t.quantitySold > 0 ? ` · ${t.quantitySold} sold` : ''}
             </div>
           </div>
@@ -96,7 +127,7 @@ export default function TicketTypesEditor({ eventId, admin = false }) {
       ))}
 
       {form ? (
-        <div className="rounded-md border border-brand/40 bg-brand-soft/30 p-4">
+        <div className="rounded-md border border-[#C99E25]/30 bg-[#FBF6E9] p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Name"><input className={inputCls} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="General / VIP / Early Bird" /></Field>
             <Field label="Price (₹) — 0 for free"><input type="number" min="0" step="1" className={inputCls} value={form.priceRupees} onChange={(e) => set('priceRupees', e.target.value)} /></Field>
@@ -105,6 +136,27 @@ export default function TicketTypesEditor({ eventId, admin = false }) {
               <Field label="Min / order"><input type="number" min="1" className={inputCls} value={form.minPerOrder} onChange={(e) => set('minPerOrder', e.target.value)} /></Field>
               <Field label="Max / order"><input type="number" min="1" className={inputCls} value={form.maxPerOrder} onChange={(e) => set('maxPerOrder', e.target.value)} /></Field>
             </div>
+            {multiDay && (
+              <div className="sm:col-span-2">
+                <Field label="Valid on days" hint={(form.validDays || []).length === 0 ? `No days selected = admits all ${totalDays} days (full pass)` : 'Ticket admits only on the selected day(s)'}>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from({ length: totalDays }, (_, i) => i + 1).map((n) => {
+                      const on = (form.validDays || []).includes(n);
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => toggleDay(n)}
+                          className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition ${on ? 'border-[#C99E25] bg-[#C99E25] text-white' : 'border-[#E8ECF2] bg-white text-[#4B5563] hover:border-[#E5C060]'}`}
+                        >
+                          Day {n} · {dayLabel(startAt, n)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              </div>
+            )}
           </div>
           <div className="mt-3 flex gap-2">
             <Btn size="sm" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save ticket type'}</Btn>

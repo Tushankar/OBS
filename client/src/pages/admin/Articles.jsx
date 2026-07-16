@@ -33,7 +33,7 @@ function SearchSelect({ value, valueLabel, placeholder, search, onSelect, onClea
     return (
       <div className={`${inputCls} flex items-center justify-between gap-2`}>
         <span className="truncate">{valueLabel || 'Loading…'}</span>
-        <button type="button" onClick={onClear} aria-label="Clear selection" className="shrink-0 text-[#8792A2] transition hover:text-[#DF1B41]">
+        <button type="button" onClick={onClear} aria-label="Clear selection" className="shrink-0 text-[#6B7280] transition hover:text-[#EF4444]">
           <AdminIcon.Close size={13} />
         </button>
       </div>
@@ -53,22 +53,22 @@ function SearchSelect({ value, valueLabel, placeholder, search, onSelect, onClea
       {open && (
         <div
           onMouseDown={(e) => e.preventDefault()} /* keep the input focused while picking/scrolling */
-          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-md border border-[#D5DBE5] bg-white py-1 shadow-lg"
+          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-md border border-[#DCE3EC] bg-white py-1 shadow-lg"
         >
           {options === null ? (
-            <div className="px-3 py-2 text-[12px] text-[#8792A2]">Searching…</div>
+            <div className="px-3 py-2 text-[12px] text-[#6B7280]">Searching…</div>
           ) : options.length === 0 ? (
-            <div className="px-3 py-2 text-[12px] text-[#8792A2]">No matches</div>
+            <div className="px-3 py-2 text-[12px] text-[#6B7280]">No matches</div>
           ) : (
             options.map((o) => (
               <button
                 key={o.id}
                 type="button"
                 onClick={() => { onSelect(o); setQ(''); setOpen(false); }}
-                className="block w-full px-3 py-2 text-left text-[13px] text-[#1A1F36] transition hover:bg-[#F7FAFC]"
+                className="block w-full px-3 py-2 text-left text-[13px] text-[#111827] transition hover:bg-[#F8FAFC]"
               >
                 <span className="block truncate">{o.label}</span>
-                {o.meta && <span className="block truncate text-[11px] text-[#8792A2]">{o.meta}</span>}
+                {o.meta && <span className="block truncate text-[11px] text-[#6B7280]">{o.meta}</span>}
               </button>
             ))
           )}
@@ -277,26 +277,26 @@ export default function Articles() {
           {rows.map((a) => (
             <Card key={a.id} className="flex flex-col p-4">
               <div className="flex items-start justify-between gap-2">
-                <div className="grid h-12 w-[72px] shrink-0 place-items-center overflow-hidden rounded-md border border-[#EDF0F4] bg-white">
-                  {a.coverUrl ? <img src={a.coverUrl} alt="" className="h-full w-full object-cover" /> : <span className="text-[10px] font-semibold text-[#C9D2DE]">No cover</span>}
+                <div className="grid h-12 w-[72px] shrink-0 place-items-center overflow-hidden rounded-md border border-[#EEF2F6] bg-white">
+                  {a.coverUrl ? <img src={a.coverUrl} alt="" className="h-full w-full object-cover" /> : <span className="text-[10px] font-semibold text-[#C6D0DE]">No cover</span>}
                 </div>
                 <Pill tone={statusTone(a.status)}>{STATUS_LABELS[a.status] || a.status}</Pill>
               </div>
-              <div className="mt-3 line-clamp-2 text-[14px] font-semibold text-[#1A1F36]">{a.title}</div>
+              <div className="mt-3 line-clamp-2 text-[14px] font-semibold text-[#111827]">{a.title}</div>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Pill tone="brand">{TYPE_LABELS[a.type] || a.type}</Pill>
-                {a.publishedAt && <span className="text-[11px] text-[#8792A2]">{fmtDate(a.publishedAt)}</span>}
+                {a.publishedAt && <span className="text-[11px] text-[#6B7280]">{fmtDate(a.publishedAt)}</span>}
               </div>
-              {a.excerpt && <div className="mt-2 line-clamp-2 text-[12px] text-[#697386]">{a.excerpt}</div>}
+              {a.excerpt && <div className="mt-2 line-clamp-2 text-[12px] text-[#6B7280]">{a.excerpt}</div>}
               {a.tags?.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {a.tags.slice(0, 3).map((t) => <Pill key={t} tone="gray">{t}</Pill>)}
                   {a.tags.length > 3 && <Pill tone="gray">+{a.tags.length - 3}</Pill>}
                 </div>
               )}
-              <div className="mt-4 flex gap-1.5 border-t border-[#EDF0F4] pt-3">
+              <div className="mt-4 flex gap-1.5 border-t border-[#EEF2F6] pt-3">
                 <Btn variant="ghost" size="sm" onClick={() => setEditor(a)}><AdminIcon.Edit size={13} /> Edit</Btn>
-                <Btn variant="ghost" size="sm" onClick={() => setConfirm(a)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
+                <Btn variant="ghost" size="sm" onClick={() => setConfirm(a)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /></Btn>
               </div>
             </Card>
           ))}

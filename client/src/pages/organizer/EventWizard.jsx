@@ -2,12 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card, Btn, PageHead, Pill, Field, inputCls, Loading } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
-import api, { apiError, apiErrorCode, uploadToPresignedUrl } from '../../lib/api';
+import api, { apiError, apiErrorCode } from '../../lib/api';
 import { fmtDateTime } from '../../lib/format';
 import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
 import TicketTypesEditor from '../../components/organizer/TicketTypesEditor';
 import PromoCodesEditor from '../../components/organizer/PromoCodesEditor';
 import SponsorsEditor from '../../components/organizer/SponsorsEditor';
+import ImagesUploader from '../../components/common/ImagesUploader';
+import MapPicker from '../../components/common/MapPicker';
 
 const STEPS = ['Basics', 'Banner', 'Venue', 'Tickets', 'Promos', 'Speakers & extras', 'Review'];
 const EXTRAS_STEP = 6;
@@ -24,7 +26,7 @@ const localInputToISO = (v) => (v && !isNaN(new Date(v)) ? new Date(v).toISOStri
 
 const BLANK = {
   title: '', categoryId: '', chapterId: '', description: '',
-  bannerUrl: '', isOnline: false, meetingLink: '',
+  bannerUrl: '', images: [], isOnline: false, meetingLink: '',
   venueName: '', address: '', city: '', country: '', lat: null, lng: null, placeId: '',
   startAt: '', endAt: '',
   speakerIds: [], programId: '', programDayNumber: '', isLaunch: false, launchAt: '',
@@ -33,7 +35,7 @@ const BLANK = {
 
 const eventToForm = (e) => ({
   title: e.title || '', categoryId: e.categoryId || '', chapterId: e.chapterId || '',
-  description: e.description || '', bannerUrl: e.bannerUrl || '',
+  description: e.description || '', bannerUrl: e.bannerUrl || '', images: e.images || [],
   isOnline: !!e.isOnline, meetingLink: e.meetingLink || '',
   venueName: e.venueName || '', address: e.address || '', city: e.city || '', country: e.country || '',
   lat: e.lat ?? null, lng: e.lng ?? null, placeId: e.placeId || '',
@@ -47,14 +49,14 @@ const eventToForm = (e) => ({
 });
 
 const RowKV = ({ k, v }) => (
-  <div className="flex justify-between gap-4 border-b border-line py-2 text-sm last:border-0">
-    <span className="text-ink-mute">{k}</span>
-    <span className="text-right font-medium text-ink">{v || <span className="text-ink-faint">—</span>}</span>
+  <div className="flex justify-between gap-4 border-b border-[#E8ECF2] py-2 text-sm last:border-0">
+    <span className="text-[#6B7280]">{k}</span>
+    <span className="text-right font-medium text-[#111827]">{v || <span className="text-ink-faint">—</span>}</span>
   </div>
 );
 
 const LiveBanner = ({ children, className = '' }) => (
-  <div className={`rounded-md border border-line bg-brand-soft/40 px-4 py-3 text-[13px] text-ink-soft ${className}`}>
+  <div className={`rounded-xl border border-[#C99E25]/25 bg-[#FBF6E9] px-4 py-3 text-[13px] text-[#4B5563] ${className}`}>
     {children}
   </div>
 );
@@ -286,19 +288,16 @@ export default function EventWizard() {
     }
   }
 
-  async function onBannerFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Multi-image list — images[0] is the banner everywhere. Persists on every
+  // change so leaving the wizard never loses uploads.
+  async function onImagesChange(images) {
     if (!eventId) { pushToast('Add a title first (step 1)', false); return; }
+    setForm((f) => ({ ...f, images, bannerUrl: images[0] || '' }));
     setBannerBusy(true);
     try {
-      const { uploadUrl, fileUrl } = await api.organizerBannerPresign(eventId, file.type);
-      await uploadToPresignedUrl(uploadUrl, file);
-      await api.organizerUpdateEvent(eventId, { bannerUrl: fileUrl });
-      set('bannerUrl', fileUrl);
-      pushToast('Banner uploaded');
+      await api.organizerUpdateEvent(eventId, { images, bannerUrl: images[0] || '' });
     } catch (err) {
-      pushToast(apiError(err, 'Upload failed — check your image and try again'), false);
+      pushToast(apiError(err, 'Could not save images'), false);
     } finally {
       setBannerBusy(false);
     }
@@ -356,9 +355,9 @@ export default function EventWizard() {
       />
 
       {status === 'REJECTED' && (
-        <div className="mb-5 rounded-md border border-line bg-brand-soft/40 px-4 py-3 text-[13px] text-ink-soft">
+        <div className="mb-5 rounded-xl border border-[#C99E25]/25 bg-[#FBF6E9] px-4 py-3 text-[13px] text-[#4B5563]">
           <p>This event was sent back for changes. Editing it saves it as a draft again.</p>
-          {form.rejectionReason && <p className="mt-1 font-semibold text-ink">Sent back: {form.rejectionReason}</p>}
+          {form.rejectionReason && <p className="mt-1 font-semibold text-[#111827]">Sent back: {form.rejectionReason}</p>}
         </div>
       )}
 
@@ -369,8 +368,8 @@ export default function EventWizard() {
           return (
             <div key={label} className="flex shrink-0 items-center gap-1">
               <button onClick={() => goStep(n)} className="flex items-center gap-2">
-                <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold ${on ? 'bg-brand text-white' : done ? 'bg-brand-soft text-brand' : 'bg-surface text-ink-mute'}`}>{done ? '✓' : n}</span>
-                <span className={`text-[13px] font-semibold ${on ? 'text-ink' : 'text-ink-mute'}`}>{label}</span>
+                <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold ${on ? 'bg-[#C99E25] text-white' : done ? 'bg-[#FAF4E3] text-[#8E6B1D]' : 'bg-[#F3F5F9] text-[#6B7280]'}`}>{done ? '✓' : n}</span>
+                <span className={`text-[13px] font-semibold ${on ? 'text-[#111827]' : 'text-[#6B7280]'}`}>{label}</span>
               </button>
               {n < REVIEW_STEP && <span className="mx-1 h-px w-5 bg-line" />}
             </div>
@@ -392,7 +391,7 @@ export default function EventWizard() {
                   {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 {catsFailed && (
-                  <p className="mt-1 text-[12px] text-[#B3093C]">
+                  <p className="mt-1 text-[12px] text-[#B91C1C]">
                     Couldn’t load categories. <button type="button" onClick={loadCats} className="font-semibold underline">Retry</button>
                   </p>
                 )}
@@ -410,30 +409,21 @@ export default function EventWizard() {
           </div>
         )}
 
-        {/* Step 2 — Banner */}
+        {/* Step 2 — Images (first = banner, rest = public gallery) */}
         {step === 2 && (
           <div>
-            {form.bannerUrl ? (
-              <div className="overflow-hidden rounded-xl border border-line">
+            {form.bannerUrl && (
+              <div className="mb-4 overflow-hidden rounded-xl border border-[#E8ECF2]">
                 <img src={form.bannerUrl} alt="Event banner" className="aspect-[1200/628] w-full object-cover" />
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-surface py-16 text-center">
-                <div className="text-[40px]">🖼️</div>
-                <div className="mt-3 text-sm font-semibold text-ink">Upload your event banner</div>
-                <div className="mt-1 text-[13px] text-ink-mute">JPG, PNG, WebP or GIF · 1200×628 recommended</div>
-              </div>
             )}
-            {!readOnly && (
-              <div className="mt-4 flex items-center gap-3">
-                <label className="cursor-pointer">
-                  <span className="inline-flex items-center rounded-md border border-line bg-white px-4 py-2.5 text-sm font-semibold text-ink-soft transition hover:bg-surface">
-                    {bannerBusy ? 'Uploading…' : form.bannerUrl ? 'Replace banner' : 'Choose image'}
-                  </span>
-                  <input type="file" accept="image/*" className="hidden" disabled={bannerBusy} onChange={onBannerFile} />
-                </label>
-                {form.bannerUrl && <span className="text-[13px] text-success">Banner set ✓</span>}
-              </div>
+            {readOnly ? (
+              !form.bannerUrl && <p className="text-[13px] text-[#6B7280]">No images uploaded.</p>
+            ) : (
+              <>
+                <ImagesUploader value={form.images} onChange={onImagesChange} disabled={bannerBusy} />
+                {bannerBusy && <p className="mt-1 text-[12px] text-[#6B7280]">Saving…</p>}
+              </>
             )}
           </div>
         )}
@@ -469,6 +459,21 @@ export default function EventWizard() {
                   <Field label="City"><input className={inputCls} value={form.city} disabled={readOnly} onChange={(e) => set('city', e.target.value)} /></Field>
                   <Field label="Country"><input className={inputCls} value={form.country} disabled={readOnly} onChange={(e) => set('country', e.target.value)} /></Field>
                 </div>
+                {!readOnly && (
+                  <Field label="Pin the venue on the map" hint="Attendees see this exact spot with a directions link on the event page.">
+                    <MapPicker
+                      lat={form.lat}
+                      lng={form.lng}
+                      onPick={({ lat, lng, address, city }) => setForm((f) => ({
+                        ...f,
+                        lat,
+                        lng,
+                        address: f.address || address || f.address,
+                        city: f.city || city || f.city,
+                      }))}
+                    />
+                  </Field>
+                )}
                 {form.lat != null && form.lng != null && (
                   <p className="text-[12px] text-success">📍 Location captured ({form.lat.toFixed(4)}, {form.lng.toFixed(4)})</p>
                 )}
@@ -489,11 +494,11 @@ export default function EventWizard() {
               {status === 'PUBLISHED' && (
                 <LiveBanner className="mb-4">Your event is live — you can still manage ticket inventory and promo codes here.</LiveBanner>
               )}
-              <p className="mb-4 text-[13px] text-ink-mute">Add the tickets attendees can buy. Use ₹0 for a free ticket. Every event needs at least one ticket type before it can sell.</p>
-              <TicketTypesEditor eventId={eventId} />
+              <p className="mb-4 text-[13px] text-[#6B7280]">Add the tickets attendees can buy. Use ₹0 for a free ticket. Every event needs at least one ticket type before it can sell.</p>
+              <TicketTypesEditor eventId={eventId} startAt={form.startAt} endAt={form.endAt} />
             </div>
           ) : (
-            <p className="py-8 text-center text-[13px] text-ink-mute">Save the basics first (step 1) to add ticket types.</p>
+            <p className="py-8 text-center text-[13px] text-[#6B7280]">Save the basics first (step 1) to add ticket types.</p>
           )
         )}
 
@@ -504,11 +509,11 @@ export default function EventWizard() {
               {status === 'PUBLISHED' && (
                 <LiveBanner className="mb-4">Your event is live — you can still manage ticket inventory and promo codes here.</LiveBanner>
               )}
-              <p className="mb-4 text-[13px] text-ink-mute">Optionally add discount codes buyers can apply at checkout.</p>
+              <p className="mb-4 text-[13px] text-[#6B7280]">Optionally add discount codes buyers can apply at checkout.</p>
               <PromoCodesEditor eventId={eventId} />
             </div>
           ) : (
-            <p className="py-8 text-center text-[13px] text-ink-mute">Save the basics first (step 1) to add promo codes.</p>
+            <p className="py-8 text-center text-[13px] text-[#6B7280]">Save the basics first (step 1) to add promo codes.</p>
           )
         )}
 
@@ -522,15 +527,15 @@ export default function EventWizard() {
 
               {/* Speakers */}
               <div>
-                <h3 className="text-sm font-bold text-ink">Speakers</h3>
-                <p className="mb-3 mt-1 text-[13px] text-ink-mute">Add speakers from the OBS directory. They appear on your event page, and your event shows on their profiles.</p>
+                <h3 className="text-sm font-bold text-[#111827]">Speakers</h3>
+                <p className="mb-3 mt-1 text-[13px] text-[#6B7280]">Add speakers from the OBS directory. They appear on your event page, and your event shows on their profiles.</p>
                 {selectedSpeakers.length > 0 && (
                   <div className="mb-3 flex flex-wrap gap-2">
                     {selectedSpeakers.map((s) => (
-                      <span key={s.id} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-[12.5px] font-semibold text-ink">
+                      <span key={s.id} className="inline-flex items-center gap-2 rounded-full border border-[#E8ECF2] bg-[#F3F5F9] px-3 py-1.5 text-[12.5px] font-semibold text-[#111827]">
                         {s.name}
                         {extrasEditable && (
-                          <button type="button" aria-label={`Remove ${s.name}`} onClick={() => toggleSpeaker(s.id)} className="text-ink-mute transition hover:text-ink">✕</button>
+                          <button type="button" aria-label={`Remove ${s.name}`} onClick={() => toggleSpeaker(s.id)} className="text-[#6B7280] transition hover:text-[#111827]">✕</button>
                         )}
                       </span>
                     ))}
@@ -538,25 +543,25 @@ export default function EventWizard() {
                 )}
                 {extrasEditable && (
                   speakers.length === 0 ? (
-                    <p className="rounded-md border border-dashed border-line px-4 py-3 text-[13px] text-ink-mute">The speaker directory is empty right now — the OBS team curates it. You can continue without speakers.</p>
+                    <p className="rounded-md border border-dashed border-[#E8ECF2] px-4 py-3 text-[13px] text-[#6B7280]">The speaker directory is empty right now — the OBS team curates it. You can continue without speakers.</p>
                   ) : (
                     <div>
                       <input className={inputCls} value={speakerQ} onChange={(e) => setSpeakerQ(e.target.value)} placeholder="Search speakers by name or company…" />
                       {sq && (
-                        <div className="mt-2 overflow-hidden rounded-md border border-line">
+                        <div className="mt-2 overflow-hidden rounded-md border border-[#E8ECF2]">
                           {speakerMatches.length === 0 ? (
-                            <p className="px-3.5 py-3 text-[13px] text-ink-mute">No speakers match “{speakerQ.trim()}”.</p>
+                            <p className="px-3.5 py-3 text-[13px] text-[#6B7280]">No speakers match “{speakerQ.trim()}”.</p>
                           ) : (
                             speakerMatches.map((s) => (
-                              <button key={s.id} type="button" onClick={() => { toggleSpeaker(s.id); setSpeakerQ(''); }} className="flex w-full items-center gap-3 border-b border-line px-3.5 py-2.5 text-left transition last:border-0 hover:bg-surface">
+                              <button key={s.id} type="button" onClick={() => { toggleSpeaker(s.id); setSpeakerQ(''); }} className="flex w-full items-center gap-3 border-b border-[#E8ECF2] px-3.5 py-2.5 text-left transition last:border-0 hover:bg-[#F3F5F9]">
                                 {s.photoUrl ? (
                                   <img src={s.photoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
                                 ) : (
-                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[12px] font-bold text-brand">{s.name.slice(0, 1)}</span>
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FAF4E3] text-[12px] font-bold text-[#8E6B1D]">{s.name.slice(0, 1)}</span>
                                 )}
                                 <span className="min-w-0">
-                                  <span className="block truncate text-[13px] font-semibold text-ink">{s.name}</span>
-                                  {(s.title || s.company) && <span className="block truncate text-[12px] text-ink-mute">{[s.title, s.company].filter(Boolean).join(' · ')}</span>}
+                                  <span className="block truncate text-[13px] font-semibold text-[#111827]">{s.name}</span>
+                                  {(s.title || s.company) && <span className="block truncate text-[12px] text-[#6B7280]">{[s.title, s.company].filter(Boolean).join(' · ')}</span>}
                                 </span>
                               </button>
                             ))
@@ -569,12 +574,12 @@ export default function EventWizard() {
               </div>
 
               {/* 100 Days program */}
-              <div className="border-t border-line pt-5">
-                <h3 className="text-sm font-bold text-ink">100 Days program</h3>
-                <label className={`mt-2 flex items-center gap-2 text-[13.5px] text-ink-soft ${extrasEditable && program ? 'cursor-pointer' : 'opacity-60'}`}>
+              <div className="border-t border-[#E8ECF2] pt-5">
+                <h3 className="text-sm font-bold text-[#111827]">100 Days program</h3>
+                <label className={`mt-2 flex items-center gap-2 text-[13.5px] text-[#4B5563] ${extrasEditable && program ? 'cursor-pointer' : 'opacity-60'}`}>
                   <input
                     type="checkbox"
-                    className="h-4 w-4 accent-brand"
+                    className="h-4 w-4 accent-[#C99E25]"
                     checked={!!form.programId}
                     disabled={!extrasEditable || !program}
                     onChange={(e) => {
@@ -585,10 +590,10 @@ export default function EventWizard() {
                   Part of the 100 Days program
                 </label>
                 {program === null && (
-                  <p className="mt-1.5 text-[12px] text-ink-mute">No 100 Days season is open right now — check back when the next edition is announced.</p>
+                  <p className="mt-1.5 text-[12px] text-[#6B7280]">No 100 Days season is open right now — check back when the next edition is announced.</p>
                 )}
                 {program && !form.programId && (
-                  <p className="mt-1.5 text-[12px] text-ink-mute">Link this event to one of the 100 days of {program.name}.</p>
+                  <p className="mt-1.5 text-[12px] text-[#6B7280]">Link this event to one of the 100 days of {program.name}.</p>
                 )}
                 {form.programId && (
                   <div className="mt-3 max-w-xs">
@@ -603,19 +608,19 @@ export default function EventWizard() {
               </div>
 
               {/* Launchpad */}
-              <div className="border-t border-line pt-5">
-                <h3 className="text-sm font-bold text-ink">Launchpad</h3>
-                <label className={`mt-2 flex items-center gap-2 text-[13.5px] text-ink-soft ${extrasEditable ? 'cursor-pointer' : 'opacity-60'}`}>
+              <div className="border-t border-[#E8ECF2] pt-5">
+                <h3 className="text-sm font-bold text-[#111827]">Launchpad</h3>
+                <label className={`mt-2 flex items-center gap-2 text-[13.5px] text-[#4B5563] ${extrasEditable ? 'cursor-pointer' : 'opacity-60'}`}>
                   <input
                     type="checkbox"
-                    className="h-4 w-4 accent-brand"
+                    className="h-4 w-4 accent-[#C99E25]"
                     checked={form.isLaunch}
                     disabled={!extrasEditable}
                     onChange={(e) => setForm((f) => ({ ...f, isLaunch: e.target.checked, launchAt: e.target.checked ? f.launchAt : '' }))}
                   />
                   This is a launch
                 </label>
-                <p className="mt-1.5 text-[12px] text-ink-mute">Launches appear on the OBS Launchpad — product unveilings, book releases, openings.</p>
+                <p className="mt-1.5 text-[12px] text-[#6B7280]">Launches appear on the OBS Launchpad — product unveilings, book releases, openings.</p>
                 {form.isLaunch && (
                   <div className="mt-3 max-w-xs">
                     <Field label="Launch moment (optional)" hint="Adds a countdown on the Launchpad.">
@@ -626,13 +631,13 @@ export default function EventWizard() {
               </div>
 
               {/* Event sponsors — submitted for admin approval */}
-              <div className="border-t border-line pt-5">
-                <h3 className="text-sm font-bold text-ink">Event sponsors</h3>
+              <div className="border-t border-[#E8ECF2] pt-5">
+                <h3 className="text-sm font-bold text-[#111827]">Event sponsors</h3>
                 <SponsorsEditor eventId={eventId} />
               </div>
             </div>
           ) : (
-            <p className="py-8 text-center text-[13px] text-ink-mute">Save the basics first (step 1) to add speakers, sponsors, a program day or launch details.</p>
+            <p className="py-8 text-center text-[13px] text-[#6B7280]">Save the basics first (step 1) to add speakers, sponsors, a program day or launch details.</p>
           )
         )}
 
@@ -640,7 +645,7 @@ export default function EventWizard() {
         {step === REVIEW_STEP && (
           <div className="grid gap-5">
             <div>
-              <h3 className="mb-1 text-sm font-bold text-ink">Basics</h3>
+              <h3 className="mb-1 text-sm font-bold text-[#111827]">Basics</h3>
               <RowKV k="Title" v={form.title} />
               <RowKV k="Category" v={catName ? <Pill tone="brand">{catName}</Pill> : null} />
               <RowKV k="Chapter" v={chapName} />
@@ -648,7 +653,7 @@ export default function EventWizard() {
               <RowKV k="Banner" v={form.bannerUrl ? 'Uploaded ✓' : null} />
             </div>
             <div>
-              <h3 className="mb-1 text-sm font-bold text-ink">Venue & schedule</h3>
+              <h3 className="mb-1 text-sm font-bold text-[#111827]">Venue & schedule</h3>
               <RowKV k="Format" v={form.isOnline ? 'Online' : 'In-person'} />
               {form.isOnline ? (
                 <RowKV k="Meeting link" v={form.meetingLink} />
@@ -664,16 +669,16 @@ export default function EventWizard() {
               <RowKV k="Ends" v={form.endAt ? fmtDateTime(form.endAt) : null} />
             </div>
             <div>
-              <h3 className="mb-1 text-sm font-bold text-ink">Speakers & extras</h3>
+              <h3 className="mb-1 text-sm font-bold text-[#111827]">Speakers & extras</h3>
               <RowKV
                 k="Speakers"
                 v={selectedSpeakers.length ? (
                   <span className="flex flex-wrap justify-end gap-1.5">
                     {selectedSpeakers.map((s) => (
-                      <span key={s.id} className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-0.5 text-[12px] font-semibold text-ink">
+                      <span key={s.id} className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-0.5 text-[12px] font-semibold text-[#111827]">
                         {s.name}
                         {extrasEditable && (
-                          <button type="button" aria-label={`Remove ${s.name}`} disabled={saving} onClick={() => removeExtras({ speakerIds: form.speakerIds.filter((x) => x !== s.id) })} className="text-ink-mute transition hover:text-ink">✕</button>
+                          <button type="button" aria-label={`Remove ${s.name}`} disabled={saving} onClick={() => removeExtras({ speakerIds: form.speakerIds.filter((x) => x !== s.id) })} className="text-[#6B7280] transition hover:text-[#111827]">✕</button>
                         )}
                       </span>
                     ))}
@@ -686,7 +691,7 @@ export default function EventWizard() {
                   <span className="inline-flex items-center gap-2">
                     {`Day ${form.programDayNumber || '—'} of ${programName}`}
                     {extrasEditable && (
-                      <button type="button" aria-label="Remove program link" disabled={saving} onClick={() => removeExtras({ programId: '', programDayNumber: '' })} className="text-ink-mute transition hover:text-ink">✕</button>
+                      <button type="button" aria-label="Remove program link" disabled={saving} onClick={() => removeExtras({ programId: '', programDayNumber: '' })} className="text-[#6B7280] transition hover:text-[#111827]">✕</button>
                     )}
                   </span>
                 ) : null}
@@ -697,13 +702,13 @@ export default function EventWizard() {
                   <span className="inline-flex items-center gap-2">
                     {form.launchAt ? `Yes · ${fmtDateTime(form.launchAt)}` : 'Yes'}
                     {extrasEditable && (
-                      <button type="button" aria-label="Remove launch flag" disabled={saving} onClick={() => removeExtras({ isLaunch: false, launchAt: '' })} className="text-ink-mute transition hover:text-ink">✕</button>
+                      <button type="button" aria-label="Remove launch flag" disabled={saving} onClick={() => removeExtras({ isLaunch: false, launchAt: '' })} className="text-[#6B7280] transition hover:text-[#111827]">✕</button>
                     )}
                   </span>
                 ) : null}
               />
             </div>
-            <div className="rounded-md border border-line bg-surface px-4 py-3 text-[13px] text-ink-mute">
+            <div className="rounded-md border border-[#E8ECF2] bg-[#F3F5F9] px-4 py-3 text-[13px] text-[#6B7280]">
               Set up ticket types (step 4) and any promo codes (step 5) before submitting. An event needs at least one ticket type to sell.
             </div>
           </div>

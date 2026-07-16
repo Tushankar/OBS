@@ -67,7 +67,7 @@ function SlideEditor({ initial, onClose, onSaved }) {
             <input value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} placeholder="/hero-summit.png" className={inputCls} />
           </Field>
           {form.imageUrl.trim() && (
-            <div className="mt-2 overflow-hidden rounded-md border border-[#E3E8EE]">
+            <div className="mt-2 overflow-hidden rounded-md border border-[#E8ECF2]">
               <img src={form.imageUrl} alt="Slide preview" className="max-h-40 w-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             </div>
           )}
@@ -82,7 +82,7 @@ function SlideEditor({ initial, onClose, onSaved }) {
           <input type="number" value={form.sortOrder} onChange={(e) => set('sortOrder', e.target.value)} className={inputCls} />
         </Field>
         <Field label="Visibility">
-          <label className="flex h-9 cursor-pointer items-center gap-2 text-[13.5px] text-[#3C4257]">
+          <label className="flex h-9 cursor-pointer items-center gap-2 text-[13.5px] text-[#374151]">
             <input type="checkbox" checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} className="h-4 w-4 accent-[#C99E25]" />
             Active (visible on the site)
           </label>
@@ -148,18 +148,18 @@ export default function Hero() {
           {slides.map((s) => (
             <Card key={s.id} className="p-3.5">
               <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center">
-                <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-md border border-[#E3E8EE] bg-[#F1F3F7] sm:w-36">
+                <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-md border border-[#E8ECF2] bg-[#F3F5F9] sm:w-36">
                   <img src={s.imageUrl} alt={s.title} className="h-full w-full object-cover" onError={(e) => { e.currentTarget.style.opacity = 0.15; }} />
-                  <span className="absolute left-1.5 top-1.5 rounded bg-[#1A1F36]/70 px-1.5 py-0.5 text-[10px] font-bold text-white">#{s.sortOrder}</span>
+                  <span className="absolute left-1.5 top-1.5 rounded bg-[#111827]/70 px-1.5 py-0.5 text-[10px] font-bold text-white">#{s.sortOrder}</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-[14px] font-semibold text-[#1A1F36]">{s.title}</span>
+                    <span className="truncate text-[14px] font-semibold text-[#111827]">{s.title}</span>
                     <Pill tone={s.isActive ? 'green' : 'gray'}>{s.isActive ? 'Live' : 'Hidden'}</Pill>
                   </div>
-                  {s.subtitle && <div className="mt-0.5 truncate text-[12.5px] text-[#697386]">{s.subtitle}</div>}
+                  {s.subtitle && <div className="mt-0.5 truncate text-[12.5px] text-[#6B7280]">{s.subtitle}</div>}
                   {(s.ctaText || s.ctaLink) && (
-                    <div className="mt-1 flex items-center gap-1 text-[12px] text-[#8792A2]">
+                    <div className="mt-1 flex items-center gap-1 text-[12px] text-[#6B7280]">
                       <AdminIcon.ArrowUpRight size={12} />
                       <span className="truncate">{s.ctaText || 'Link'} → {s.ctaLink || '—'}</span>
                     </div>
@@ -171,7 +171,7 @@ export default function Hero() {
                     {s.isActive ? 'Hide' : 'Show'}
                   </Btn>
                   <Btn size="sm" variant="ghost" onClick={() => setEditor(s)}><AdminIcon.Edit size={14} /> Edit</Btn>
-                  <Btn size="sm" variant="ghost" onClick={() => setConfirm(s)} className="!text-[#B3093C] hover:!border-[#F3C1CE]"><AdminIcon.Trash size={14} /></Btn>
+                  <Btn size="sm" variant="ghost" onClick={() => setConfirm(s)} className="!text-[#B91C1C] hover:!border-[#F3C1CE]"><AdminIcon.Trash size={14} /></Btn>
                 </div>
               </div>
             </Card>

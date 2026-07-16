@@ -13,14 +13,14 @@ import { AreaChart, BarChart, BarList } from '../../components/admin/Charts';
 
 const num = (n) => Number(n || 0).toLocaleString('en-IN');
 const figure = 'font-bold leading-none tracking-[-0.02em] [font-variant-numeric:tabular-nums]';
-const REG_ACCENT = '#2456C4'; // cool tone — registrations series (distinct from gold revenue)
+const REG_ACCENT = '#10B981'; // green — registrations series (distinct from blue revenue)
 
 function Panel({ title, meta, children, className = '' }) {
   return (
     <Card className={className}>
       <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="text-[13.5px] font-bold text-[#1A1F36]">{title}</h2>
-        {meta && <span className="text-[12px] text-[#8792A2]">{meta}</span>}
+        <h2 className="text-[13.5px] font-bold text-[#111827]">{title}</h2>
+        {meta && <span className="text-[12px] text-[#6B7280]">{meta}</span>}
       </div>
       {children}
     </Card>
@@ -66,14 +66,14 @@ export default function Reports() {
       />
 
       {/* Summary — instrument strip (2-up mobile, 5-up from sm) */}
-      <Card className="p-0">
+      <Card className="!p-0">
         <dl className="grid grid-cols-2 sm:grid-cols-5">
           {summary.map(([label, value, kind], i) => {
-            const div = `${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t' : ''} sm:border-t-0 ${i === 0 ? 'sm:border-l-0' : 'sm:border-l'} border-[#EDF0F4]`;
+            const div = `${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t' : ''} sm:border-t-0 ${i === 0 ? 'sm:border-l-0' : 'sm:border-l'} border-[#EEF2F6]`;
             return (
               <div key={label} className={`px-5 py-4 ${div}`}>
-                <dt className="text-[11.5px] font-medium text-[#697386]">{label}</dt>
-                <dd className={`mt-1.5 text-[22px] text-[#1A1F36] ${figure}`}>{kind === 'money' ? formatPrice(value) : num(value)}</dd>
+                <dt className="text-[11.5px] font-medium text-[#6B7280]">{label}</dt>
+                <dd className={`mt-1.5 text-[22px] text-[#111827] ${figure}`}>{kind === 'money' ? formatPrice(value) : num(value)}</dd>
               </div>
             );
           })}
@@ -103,14 +103,14 @@ export default function Reports() {
           <BarList items={soldByEvent} format={num} empty="No tickets sold yet." />
         </Panel>
         <div>
-          <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8792A2]">Top events — detail</h2>
+          <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7280]">Top events — detail</h2>
           <Table
             columns={[{ key: 'title', label: 'Event' }, { key: 'revenue', label: 'Revenue', align: 'right' }]}
             rows={top}
             empty="No revenue recorded yet."
             renderCell={(row, key) => key === 'revenue'
-              ? <span className="font-semibold text-[#1A1F36] [font-variant-numeric:tabular-nums]">{formatPrice(row.revenue)}</span>
-              : <span className="font-medium text-[#1A1F36]">{row.title}</span>}
+              ? <span className="font-semibold text-[#111827] [font-variant-numeric:tabular-nums]">{formatPrice(row.revenue)}</span>
+              : <span className="font-medium text-[#111827]">{row.title}</span>}
           />
         </div>
       </div>

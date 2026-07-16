@@ -4,6 +4,7 @@ import { sponsorsForEvent } from '../sponsors/sponsors.service.js';
 import { approveRefund } from '../refunds/refunds.service.js';
 import { sendMail } from '../../utils/mailer.js';
 import { writeAudit } from '../../utils/audit.js';
+import { notifyAdmins } from '../notifications/notifications.service.js';
 import { registrationsWorkbook } from '../../utils/xlsx.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { presignPut, objectUrl } from '../../utils/s3.js';
@@ -27,6 +28,7 @@ function shapeEvent(e) {
     description: e.description || '',
     status: e.status,
     bannerUrl: e.bannerUrl || null,
+    images: e.images || [],
     categoryId: cat ? String(cat._id) : e.categoryId ? String(e.categoryId) : null,
     category: cat ? { id: String(cat._id), name: cat.name, slug: cat.slug } : null,
     chapterId: chap ? String(chap._id) : e.chapterId ? String(e.chapterId) : null,
@@ -79,7 +81,7 @@ async function assertRefs({ categoryId, chapterId, programId, speakerIds }) {
 
 // Fields safe to edit AFTER an event is published (additive metadata, not the
 // contract with buyers). Editing only these bypasses the DRAFT/REJECTED gate.
-const POST_PUBLISH_FIELDS = ['speakerIds', 'programId', 'programDayNumber', 'isLaunch', 'launchAt'];
+const POST_PUBLISH_FIELDS = ['speakerIds', 'programId', 'programDayNumber', 'isLaunch', 'launchAt', 'images', 'bannerUrl', 'lat', 'lng'];
 
 // Load an event and verify the caller's organizer profile owns it. Exported so
 // the ticket-type / promo-code services can enforce the same ownership guard.
@@ -194,6 +196,14 @@ export async function submitEvent(organizerId, id) {
   await assertSubmittable(event);
   event.status = 'PENDING_APPROVAL';
   await event.save();
+  await notifyAdmins({
+    type: 'EVENT_PENDING',
+    title: `Event awaiting approval: ${event.title}`,
+    body: 'Review the submission, then publish or send it back.',
+    link: '/admin/events',
+    entityType: 'Event',
+    entityId: event._id,
+  });
   await event.populate('categoryId', 'name slug');
   await event.populate('chapterId', 'name slug');
   return shapeEvent(event);
@@ -467,6 +477,7 @@ function publicEventFull(e) {
     status: e.status, // CANCELLED renders an honest banner and blocks booking
     cancelReason: e.status === 'CANCELLED' ? e.cancelReason || null : null,
     description: e.description || '',
+    images: e.images || [], // uploaded gallery — [0] is the banner
     address: e.address || null,
     lat: e.lat ?? null,
     lng: e.lng ?? null,
@@ -506,6 +517,7 @@ function publicTicketType(t) {
     maxPerOrder: t.maxPerOrder,
     saleStartAt: t.saleStartAt || null,
     saleEndAt: t.saleEndAt || null,
+    validDays: t.validDays || [], // 1-based event days this admits; [] = all days
     onSale,
   };
 }

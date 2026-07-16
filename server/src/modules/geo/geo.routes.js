@@ -9,5 +9,6 @@ const router = Router();
 
 // Signed-in only (organizers geocoding a venue during event creation).
 router.post('/geocode', requireAuth, validate({ body: schemas.geocodeSchema }), asyncHandler(c.geocode));
+router.post('/reverse-geocode', requireAuth, validate({ body: schemas.reverseGeocodeSchema }), asyncHandler(c.reverseGeocode));
 
 export default router;

@@ -40,8 +40,13 @@ const eventContentShape = {
   country: z.string().trim().max(120),
   startAt: z.coerce.date(),
   endAt: z.coerce.date(),
+  lat: z.number().min(-90).max(90).nullable(),
+  lng: z.number().min(-180).max(180).nullable(),
+  timezone: z.string().trim().max(64),
   currency: z.string().trim().length(3).toUpperCase(),
   bannerUrl: z.string().trim().max(1000),
+  // Uploaded gallery — images[0] is the primary/banner, the rest show publicly.
+  images: z.array(z.string().trim().max(1000)).max(8),
   // §5.2 — speakers attached to the event.
   speakerIds: z.array(objectId).max(50),
   // §5.5 — link an event to a 100 Days edition + day (nullable to unlink).

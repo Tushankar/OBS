@@ -1,5 +1,6 @@
 import { OrganizerProfile, Event, Ticket, Order, EmailLog } from '../../models/index.js';
 import { uniqueSlug } from '../../utils/slugify.js';
+import { notifyAdmins } from '../notifications/notifications.service.js';
 import { conflict, notFoundError } from '../../utils/errors.js';
 import { publicEventCard } from '../events/events.service.js';
 
@@ -131,11 +132,27 @@ export async function apply(userId, { orgName, bio, website }) {
     existing.approvedById = undefined;
     existing.approvedAt = undefined;
     await existing.save();
+    await notifyAdmins({
+      type: 'ORGANIZER_APPLIED',
+      title: `Organizer re-applied: ${existing.orgName}`,
+      body: 'Review and approve the application.',
+      link: '/admin/organizers',
+      entityType: 'OrganizerProfile',
+      entityId: existing._id,
+    });
     return publicOrganizer(existing);
   }
 
   const slug = await uniqueSlug(OrganizerProfile, orgName);
   const profile = await OrganizerProfile.create({ userId, orgName, slug, bio, website, status: 'PENDING' });
+  await notifyAdmins({
+    type: 'ORGANIZER_APPLIED',
+    title: `Organizer application: ${orgName}`,
+    body: 'Review and approve the application.',
+    link: '/admin/organizers',
+    entityType: 'OrganizerProfile',
+    entityId: profile._id,
+  });
   return publicOrganizer(profile);
 }
 

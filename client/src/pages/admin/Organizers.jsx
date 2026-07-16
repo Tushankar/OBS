@@ -73,8 +73,8 @@ export default function Organizers() {
       case 'org':
         return (
           <div>
-            <div className="font-semibold text-ink">{o.orgName}</div>
-            <div className="text-[12px] text-ink-mute">
+            <div className="font-semibold text-[#111827]">{o.orgName}</div>
+            <div className="text-[12px] text-[#6B7280]">
               {o.user?.email || '—'}{o.website ? ` · ${o.website}` : ''}
             </div>
           </div>
@@ -82,13 +82,13 @@ export default function Organizers() {
       case 'status':
         return <Pill tone={statusTone(o.status)}>{o.status}</Pill>;
       case 'applied':
-        return <span className="text-ink-soft">{fmtDate(o.appliedAt)}</span>;
+        return <span className="text-[#4B5563]">{fmtDate(o.appliedAt)}</span>;
       case 'actions':
         if (o.status === 'PENDING') {
           return (
             <div className="flex justify-end gap-2">
               <Btn size="sm" disabled={busyId === o.id} onClick={() => approve(o)}>Approve</Btn>
-              <Btn size="sm" variant="ghost" disabled={busyId === o.id} onClick={() => setRejecting(o)} className="!text-[#B3093C]">Reject</Btn>
+              <Btn size="sm" variant="ghost" disabled={busyId === o.id} onClick={() => setRejecting(o)} className="!text-[#B91C1C]">Reject</Btn>
             </div>
           );
         }

@@ -30,10 +30,10 @@ function LeadDrawer({ lead, onClose, onSaved }) {
   };
 
   const Row = ({ k, v, href }) => (
-    <div className="flex gap-3 border-b border-[#EDF0F4] py-2 last:border-0">
-      <div className="w-24 shrink-0 text-[12px] font-medium text-[#8792A2]">{k}</div>
-      <div className="min-w-0 flex-1 break-words text-[13px] text-[#1A1F36]">
-        {v ? (href ? <a href={href} target="_blank" rel="noreferrer" className="text-brand hover:underline">{v}</a> : v) : <span className="text-[#C9D2DE]">—</span>}
+    <div className="flex gap-3 border-b border-[#EEF2F6] py-2 last:border-0">
+      <div className="w-24 shrink-0 text-[12px] font-medium text-[#6B7280]">{k}</div>
+      <div className="min-w-0 flex-1 break-words text-[13px] text-[#111827]">
+        {v ? (href ? <a href={href} target="_blank" rel="noreferrer" className="text-[#8E6B1D] hover:underline">{v}</a> : v) : <span className="text-[#C6D0DE]">—</span>}
       </div>
     </div>
   );
@@ -52,7 +52,7 @@ function LeadDrawer({ lead, onClose, onSaved }) {
         </>
       }
     >
-      <div className="rounded-lg border border-[#E3E8EE] bg-[#F7FAFC] px-3.5 py-1">
+      <div className="rounded-lg border border-[#E8ECF2] bg-[#F8FAFC] px-3.5 py-1">
         <Row k="Contact" v={lead.contactName} />
         <Row k="Email" v={lead.email} href={`mailto:${lead.email}`} />
         <Row k="Phone" v={lead.phone} href={lead.phone ? `tel:${lead.phone}` : undefined} />
@@ -61,7 +61,7 @@ function LeadDrawer({ lead, onClose, onSaved }) {
         <Row k="Message" v={lead.message} />
       </div>
       {lead.status === 'APPROVED' && lead.sponsorId && (
-        <div className="mt-4 rounded-lg border border-[#CBE6D2] bg-[#E5F6E8] px-3.5 py-3 text-[12.5px] text-[#1B7A34]">
+        <div className="mt-4 rounded-lg border border-[#CBE6D2] bg-[#ECFDF5] px-3.5 py-3 text-[12.5px] text-[#047857]">
           Draft sponsor created — finish setup in{' '}
           <Link to="/admin/sponsors" className="font-semibold underline hover:no-underline">Admin → Sponsors</Link>.
         </div>
@@ -109,21 +109,21 @@ export default function PartnerLeads() {
       case 'org':
         return (
           <div>
-            <div className="font-semibold text-ink">{a.orgName}</div>
-            {a.website && <div className="text-[12px] text-ink-mute">{a.website}</div>}
+            <div className="font-semibold text-[#111827]">{a.orgName}</div>
+            {a.website && <div className="text-[12px] text-[#6B7280]">{a.website}</div>}
           </div>
         );
       case 'contact':
         return (
           <div>
-            <div className="text-ink-soft">{a.contactName}</div>
-            <div className="text-[12px] text-ink-mute">{a.email}</div>
+            <div className="text-[#4B5563]">{a.contactName}</div>
+            <div className="text-[12px] text-[#6B7280]">{a.email}</div>
           </div>
         );
       case 'interest':
-        return a.interestTier ? <Pill tone="gray">{sponsorTierLabel(a.interestTier)}</Pill> : <span className="text-ink-mute">—</span>;
+        return a.interestTier ? <Pill tone="gray">{sponsorTierLabel(a.interestTier)}</Pill> : <span className="text-[#6B7280]">—</span>;
       case 'received':
-        return <span className="text-ink-soft">{fmtDate(a.createdAt)}</span>;
+        return <span className="text-[#4B5563]">{fmtDate(a.createdAt)}</span>;
       case 'status':
         return <Pill tone={statusTone(a.status)}>{cap(a.status)}</Pill>;
       case 'actions':

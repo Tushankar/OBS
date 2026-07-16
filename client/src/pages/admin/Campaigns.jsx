@@ -171,10 +171,10 @@ export default function Campaigns() {
             <Card key={c.id} className="flex flex-wrap items-center justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="truncate text-[14.5px] font-semibold text-[#1A1F36]">{c.subject}</span>
+                  <span className="truncate text-[14.5px] font-semibold text-[#111827]">{c.subject}</span>
                   <Pill tone={statusTone(c.status === 'SENT' ? 'COMPLETED' : c.status === 'SENDING' ? 'PENDING' : 'DRAFT')}>{c.status}</Pill>
                 </div>
-                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[12.5px] text-[#697386]">
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[12.5px] text-[#6B7280]">
                   <span>To: {AUDIENCE_LABEL[c.audience]}{c.audienceEventTitle ? ` · ${c.audienceEventTitle}` : ''}</span>
                   {c.eventTitle && <span>Features: {c.eventTitle}</span>}
                   {c.status === 'SENT' && (
@@ -189,11 +189,11 @@ export default function Campaigns() {
                   <>
                     <Btn size="sm" onClick={() => setConfirmSend(c)}>Send</Btn>
                     <Btn size="sm" variant="ghost" onClick={() => setEditor(c)}>Edit</Btn>
-                    <Btn size="sm" variant="ghost" onClick={() => setConfirmDelete(c)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
+                    <Btn size="sm" variant="ghost" onClick={() => setConfirmDelete(c)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /></Btn>
                   </>
                 )}
                 {c.status === 'SENT' && (
-                  <Link to="/admin/emails" className="text-[13px] font-semibold text-brand-dark hover:underline">View deliveries →</Link>
+                  <Link to="/admin/emails" className="text-[13px] font-semibold text-[#8E6B1D] hover:underline">View deliveries →</Link>
                 )}
               </div>
             </Card>

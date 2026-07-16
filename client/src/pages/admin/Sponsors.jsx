@@ -35,7 +35,7 @@ function SearchSelect({ value, valueLabel, placeholder, search, onSelect, onClea
     return (
       <div className={`${inputCls} flex items-center justify-between gap-2`}>
         <span className="truncate">{valueLabel || 'Loading…'}</span>
-        <button type="button" onClick={onClear} aria-label="Clear selection" className="shrink-0 text-[#8792A2] transition hover:text-[#DF1B41]">
+        <button type="button" onClick={onClear} aria-label="Clear selection" className="shrink-0 text-[#6B7280] transition hover:text-[#EF4444]">
           <AdminIcon.Close size={13} />
         </button>
       </div>
@@ -55,22 +55,22 @@ function SearchSelect({ value, valueLabel, placeholder, search, onSelect, onClea
       {open && (
         <div
           onMouseDown={(e) => e.preventDefault()} /* keep the input focused while picking/scrolling */
-          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-md border border-[#D5DBE5] bg-white py-1 shadow-lg"
+          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-md border border-[#DCE3EC] bg-white py-1 shadow-lg"
         >
           {options === null ? (
-            <div className="px-3 py-2 text-[12px] text-[#8792A2]">Searching…</div>
+            <div className="px-3 py-2 text-[12px] text-[#6B7280]">Searching…</div>
           ) : options.length === 0 ? (
-            <div className="px-3 py-2 text-[12px] text-[#8792A2]">No matches</div>
+            <div className="px-3 py-2 text-[12px] text-[#6B7280]">No matches</div>
           ) : (
             options.map((o) => (
               <button
                 key={o.id}
                 type="button"
                 onClick={() => { onSelect(o); setQ(''); setOpen(false); }}
-                className="block w-full px-3 py-2 text-left text-[13px] text-[#1A1F36] transition hover:bg-[#F7FAFC]"
+                className="block w-full px-3 py-2 text-left text-[13px] text-[#111827] transition hover:bg-[#F8FAFC]"
               >
                 <span className="block truncate">{o.label}</span>
-                {o.meta && <span className="block truncate text-[11px] text-[#8792A2]">{o.meta}</span>}
+                {o.meta && <span className="block truncate text-[11px] text-[#6B7280]">{o.meta}</span>}
               </button>
             ))
           )}
@@ -217,10 +217,10 @@ function SponsorEditor({ initial, onClose, onSaved }) {
         <div className="sm:col-span-2">
           <Field label="Blurb" hint="One line shown on hover / detail"><textarea value={form.blurb} onChange={(e) => set('blurb', e.target.value)} rows={2} placeholder="Short description of the sponsor…" className={`${inputCls} resize-y`} /></Field>
         </div>
-        <label className="sm:col-span-2 flex items-center gap-2.5 rounded-lg border border-[#E3E8EE] bg-[#F7FAFC] px-3.5 py-2.5 cursor-pointer">
+        <label className="sm:col-span-2 flex items-center gap-2.5 rounded-lg border border-[#E8ECF2] bg-[#F8FAFC] px-3.5 py-2.5 cursor-pointer">
           <input type="checkbox" checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} className="h-4 w-4 accent-[#8E6B1D]" />
-          <span className="text-[13px] font-medium text-[#1A1F36]">Active</span>
-          <span className="text-[12px] text-[#8792A2]">— visible on the public site</span>
+          <span className="text-[13px] font-medium text-[#111827]">Active</span>
+          <span className="text-[12px] text-[#6B7280]">— visible on the public site</span>
         </label>
       </div>
     </Modal>
@@ -284,22 +284,22 @@ export default function Sponsors() {
           {sorted.map((s) => (
             <Card key={s.id} className={`flex flex-col p-4 ${s.status === 'PENDING' ? 'border-[#E8CFA3] bg-[#FEFBF3]' : ''}`}>
               <div className="flex items-start justify-between gap-2">
-                <div className="grid h-12 w-[72px] shrink-0 place-items-center overflow-hidden rounded-md border border-[#EDF0F4] bg-white">
-                  {s.logoUrl ? <img src={s.logoUrl} alt={s.name} className="max-h-10 max-w-[64px] object-contain" /> : <span className="text-[10px] font-semibold text-[#C9D2DE]">No logo</span>}
+                <div className="grid h-12 w-[72px] shrink-0 place-items-center overflow-hidden rounded-md border border-[#EEF2F6] bg-white">
+                  {s.logoUrl ? <img src={s.logoUrl} alt={s.name} className="max-h-10 max-w-[64px] object-contain" /> : <span className="text-[10px] font-semibold text-[#C6D0DE]">No logo</span>}
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   {s.status !== 'APPROVED' && <Pill tone={statusTone(s.status)}>{STATUS_LABEL[s.status] || s.status}</Pill>}
                   {!s.isActive && <Pill tone="gray">Hidden</Pill>}
-                  {s.organizerId && <span className="text-[10px] font-medium text-[#8792A2]">Organizer-submitted</span>}
+                  {s.organizerId && <span className="text-[10px] font-medium text-[#6B7280]">Organizer-submitted</span>}
                 </div>
               </div>
-              <div className="mt-3 truncate text-[14px] font-semibold text-[#1A1F36]">{s.name}</div>
+              <div className="mt-3 truncate text-[14px] font-semibold text-[#111827]">{s.name}</div>
               <div className="mt-1.5 flex flex-wrap gap-1">
                 <Pill tone="brand">{sponsorTierLabel(s.tier)}</Pill>
                 <Pill tone="gray">{PLACEMENT_LABELS[s.scope] || s.scope}</Pill>
               </div>
-              {s.blurb && <div className="mt-2 line-clamp-2 text-[12px] text-[#697386]">{s.blurb}</div>}
-              <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-[#EDF0F4] pt-3">
+              {s.blurb && <div className="mt-2 line-clamp-2 text-[12px] text-[#6B7280]">{s.blurb}</div>}
+              <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-[#EEF2F6] pt-3">
                 {s.status === 'PENDING' && (
                   <>
                     <Btn size="sm" disabled={busyId === s.id} onClick={() => setStatus(s, 'APPROVED')}>Approve</Btn>
@@ -310,7 +310,7 @@ export default function Sponsors() {
                   <Btn size="sm" variant="ghost" disabled={busyId === s.id} onClick={() => setStatus(s, 'APPROVED')}>Approve</Btn>
                 )}
                 <Btn variant="ghost" size="sm" onClick={() => setEditor(s)}><AdminIcon.Edit size={13} /> Edit</Btn>
-                <Btn variant="ghost" size="sm" onClick={() => setConfirm(s)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /></Btn>
+                <Btn variant="ghost" size="sm" onClick={() => setConfirm(s)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /></Btn>
               </div>
             </Card>
           ))}

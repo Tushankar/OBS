@@ -95,6 +95,20 @@ export default function TicketDetail() {
           )}
           <div className="mt-3 font-mono text-[13px] font-semibold text-ink">{ticket.ticketNumber}</div>
           <div className="mt-1 text-xs text-ink-mute">{ticket.attendeeName || '—'} · {ticket.ticketType} · 1 admit</div>
+          {(() => {
+            // Multi-day events: say exactly which day(s) this ticket admits.
+            if (!ev.startAt || !ev.endAt) return null;
+            const s = new Date(ev.startAt), e = new Date(ev.endAt);
+            const days = Math.max(1, Math.round((new Date(e.getFullYear(), e.getMonth(), e.getDate()) - new Date(s.getFullYear(), s.getMonth(), s.getDate())) / 86400000) + 1);
+            if (days <= 1) return null;
+            const label = (n) => new Date(s.getFullYear(), s.getMonth(), s.getDate() + (n - 1)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+            const vd = ticket.validDays || [];
+            return (
+              <div className="mt-2 inline-block rounded-full bg-brand-soft px-3 py-1 text-[11px] font-bold text-brand-dark">
+                {vd.length ? `Admits Day ${vd.join(' & ')} · ${vd.map(label).join(', ')}` : `Admits all ${days} days`}
+              </div>
+            );
+          })()}
 
           <div className="mt-5 flex gap-2.5">
             <button onClick={downloadPdf} disabled={downloading} className="h-[42px] flex-1 rounded-md border border-line text-[13px] font-medium text-ink-soft transition hover:border-brand disabled:opacity-60">{downloading ? 'Preparing…' : 'Download PDF'}</button>

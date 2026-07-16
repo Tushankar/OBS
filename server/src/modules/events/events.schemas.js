@@ -25,6 +25,8 @@ const eventShape = {
   startAt: z.coerce.date(),
   endAt: z.coerce.date(),
   bannerUrl: z.string().trim().max(1000),
+  // Uploaded gallery — images[0] is the primary/banner, the rest show publicly.
+  images: z.array(z.string().trim().max(1000)).max(8),
   // §5.2 — organizers attach speakers to their own events.
   speakerIds: z.array(objectId).max(50),
   // §5.5 — link an event to a 100 Days edition + day (nullable to unlink).

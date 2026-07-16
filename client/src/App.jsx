@@ -30,6 +30,7 @@ import ListYourEvent from './pages/ListYourEvent';
 import Faqs from './pages/Faqs';
 import RefundPolicy from './pages/RefundPolicy';
 import Help from './pages/Help';
+import ReportIssue from './pages/ReportIssue';
 import Webinars from './pages/Webinars';
 import Summits from './pages/Summits';
 import OrganizersDirectory from './pages/OrganizersDirectory';
@@ -81,6 +82,7 @@ import AdminHero from './pages/admin/Hero';
 import AdminSpeakers from './pages/admin/Speakers';
 import AdminSponsors from './pages/admin/Sponsors';
 import AdminPartnerLeads from './pages/admin/PartnerLeads';
+import AdminSupport from './pages/admin/Support';
 import AdminPrograms from './pages/admin/Programs';
 import AdminArticles from './pages/admin/Articles';
 import AdminPromos from './pages/admin/Promos';
@@ -135,6 +137,7 @@ export default function App() {
           <Route path="/admin/activity" element={<AdminActivity />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/partner-leads" element={<AdminPartnerLeads />} />
+          <Route path="/admin/support" element={<AdminSupport />} />
           <Route path="/admin/categories" element={<AdminCategories />} />
           <Route path="/admin/chapters" element={<AdminChapters />} />
           <Route path="/admin/cms" element={<AdminCms />} />
@@ -188,6 +191,7 @@ export default function App() {
                   <Route path="/faqs" element={<Faqs />} />
                   <Route path="/refund-policy" element={<RefundPolicy />} />
                   <Route path="/help" element={<Help />} />
+                  <Route path="/report-issue" element={<ReportIssue />} />
                   <Route path="/webinars" element={<Webinars />} />
                   <Route path="/summits" element={<Summits />} />
                   

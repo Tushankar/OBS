@@ -121,16 +121,16 @@ export default function Events() {
         return (
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-ink">{ev.title}</span>
+              <span className="font-semibold text-[#111827]">{ev.title}</span>
               {ev.isFeatured && <Pill tone="brand">★ Featured</Pill>}
             </div>
-            <div className="text-[12px] text-ink-mute">{ev.category?.name || '—'} · {ev.isOnline ? 'Online' : ev.city || 'Venue TBC'}</div>
+            <div className="text-[12px] text-[#6B7280]">{ev.category?.name || '—'} · {ev.isOnline ? 'Online' : ev.city || 'Venue TBC'}</div>
           </div>
         );
       case 'organizer':
-        return <span className="text-ink-soft">{ev.organizer?.orgName || '—'}</span>;
+        return <span className="text-[#4B5563]">{ev.organizer?.orgName || '—'}</span>;
       case 'when':
-        return <span className="text-ink-soft">{fmtDate(ev.startAt)}</span>;
+        return <span className="text-[#4B5563]">{fmtDate(ev.startAt)}</span>;
       case 'status':
         return <Pill tone={statusTone(ev.status)}>{ev.status.replace('_', ' ')}</Pill>;
       case 'actions': {
@@ -139,7 +139,7 @@ export default function Events() {
           return (
             <div className="flex justify-end gap-2">
               <Btn size="sm" disabled={busyId === ev.id} onClick={() => approve(ev)}>Approve</Btn>
-              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setRejecting(ev)} className="!text-[#B3093C]">Reject</Btn>
+              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setRejecting(ev)} className="!text-[#B91C1C]">Reject</Btn>
               {edit}
             </div>
           );
@@ -161,14 +161,14 @@ export default function Events() {
                 <AdminIcon.Star size={13} /> {ev.isFeatured ? 'Unfeature' : 'Feature'}
               </Btn>
               {edit}
-              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setCancelling(ev)} className="!text-[#B3093C]">Cancel</Btn>
+              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setCancelling(ev)} className="!text-[#B91C1C]">Cancel</Btn>
             </div>
           );
         }
         // DRAFT / REJECTED / others — editable (rejection reason shown on hover)
         return (
           <div className="flex items-center justify-end gap-2">
-            {ev.status === 'REJECTED' && ev.rejectionReason && <span className="text-[12px] text-ink-mute" title={ev.rejectionReason}>Rejected</span>}
+            {ev.status === 'REJECTED' && ev.rejectionReason && <span className="text-[12px] text-[#6B7280]" title={ev.rejectionReason}>Rejected</span>}
             {edit}
           </div>
         );

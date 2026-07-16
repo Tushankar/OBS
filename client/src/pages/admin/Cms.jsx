@@ -90,10 +90,10 @@ export default function Cms() {
               const on = p.id === selectedId;
               return (
                 <button key={p.id} onClick={() => select(p)}
-                  className={`flex items-center justify-between gap-2 rounded-lg border px-3.5 py-2.5 text-left transition ${on ? 'border-brand bg-[#FDFBF4]' : 'border-[#E3E8EE] bg-white hover:border-[#C9D2DE]'}`}>
+                  className={`flex items-center justify-between gap-2 rounded-lg border px-3.5 py-2.5 text-left transition ${on ? 'border-[#C99E25] bg-[#FAF4E3]' : 'border-[#E8ECF2] bg-white hover:border-[#C6D0DE]'}`}>
                   <span className="min-w-0">
-                    <span className={`block truncate text-[13px] font-semibold ${on ? 'text-[#8E6B1D]' : 'text-[#1A1F36]'}`}>{p.title}</span>
-                    <span className="block truncate text-[11.5px] text-[#8792A2]">/{p.slug}</span>
+                    <span className={`block truncate text-[13px] font-semibold ${on ? 'text-[#8E6B1D]' : 'text-[#111827]'}`}>{p.title}</span>
+                    <span className="block truncate text-[11.5px] text-[#6B7280]">/{p.slug}</span>
                   </span>
                   <Pill tone={statusTone(p.status)}>{p.status === 'PUBLISHED' ? 'Live' : 'Draft'}</Pill>
                 </button>
@@ -104,11 +104,11 @@ export default function Cms() {
           {/* Editor */}
           {current && (
             <Card>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[#EDF0F4] pb-3">
-                <div className="flex items-center gap-2 text-[12px] text-[#8792A2]">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[#EEF2F6] pb-3">
+                <div className="flex items-center gap-2 text-[12px] text-[#6B7280]">
                   <AdminIcon.Cms size={14} /> /{current.slug}
                   {current.status === 'PUBLISHED' && (
-                    <a href={current.slug === 'terms' || current.slug === 'privacy' ? `/${current.slug}` : `/pages/${current.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[#2456C4] hover:underline">
+                    <a href={current.slug === 'terms' || current.slug === 'privacy' ? `/${current.slug}` : `/pages/${current.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[#8E6B1D] hover:underline">
                       View live <AdminIcon.ArrowUpRight size={11} />
                     </a>
                   )}
@@ -122,14 +122,14 @@ export default function Cms() {
 
               <div className="mt-4">
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[12.5px] font-semibold text-[#3C4257]">Content (markdown)</span>
-                  <div className="flex rounded-md border border-[#E3E8EE] p-0.5">
-                    <button onClick={() => setPreview(false)} className={`rounded px-2.5 py-1 text-[11.5px] font-semibold ${!preview ? 'bg-[#F1F3F7] text-[#1A1F36]' : 'text-[#697386]'}`}>Write</button>
-                    <button onClick={() => setPreview(true)} className={`rounded px-2.5 py-1 text-[11.5px] font-semibold ${preview ? 'bg-[#F1F3F7] text-[#1A1F36]' : 'text-[#697386]'}`}>Preview</button>
+                  <span className="text-[12.5px] font-semibold text-[#374151]">Content (markdown)</span>
+                  <div className="flex rounded-md border border-[#E8ECF2] p-0.5">
+                    <button onClick={() => setPreview(false)} className={`rounded px-2.5 py-1 text-[11.5px] font-semibold ${!preview ? 'bg-[#F3F5F9] text-[#111827]' : 'text-[#6B7280]'}`}>Write</button>
+                    <button onClick={() => setPreview(true)} className={`rounded px-2.5 py-1 text-[11.5px] font-semibold ${preview ? 'bg-[#F3F5F9] text-[#111827]' : 'text-[#6B7280]'}`}>Preview</button>
                   </div>
                 </div>
                 {preview ? (
-                  <div className="min-h-[280px] rounded-md border border-[#E3E8EE] bg-[#FBFCFE] px-4 py-3">
+                  <div className="min-h-[280px] rounded-md border border-[#E8ECF2] bg-[#FBFCFE] px-4 py-3">
                     <Markdown content={draft.content} />
                   </div>
                 ) : (
@@ -138,13 +138,13 @@ export default function Cms() {
                     onChange={(e) => setDraft((d) => ({ ...d, content: e.target.value }))}
                     rows={14}
                     placeholder={'# Heading\n\nWrite the page content in markdown…'}
-                    className="w-full resize-y rounded-md border border-[#D5DBE5] bg-white px-3.5 py-2.5 font-mono text-[13px] leading-relaxed text-[#1A1F36] outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    className="w-full resize-y rounded-md border border-[#DCE3EC] bg-white px-3.5 py-2.5 font-mono text-[13px] leading-relaxed text-[#111827] outline-none transition focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10"
                   />
                 )}
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#EDF0F4] pt-3.5">
-                <Btn variant="ghost" onClick={() => setConfirmDelete(true)} className="!text-[#B3093C]"><AdminIcon.Trash size={13} /> Delete</Btn>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#EEF2F6] pt-3.5">
+                <Btn variant="ghost" onClick={() => setConfirmDelete(true)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /> Delete</Btn>
                 <div className="flex gap-2">
                   <Btn variant="outline" onClick={togglePublish}>{current.status === 'PUBLISHED' ? <><AdminIcon.EyeOff size={13} /> Unpublish</> : <><AdminIcon.Eye size={13} /> Publish</>}</Btn>
                   <Btn onClick={save} disabled={busy || !dirty}>{busy ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}</Btn>

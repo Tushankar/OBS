@@ -159,6 +159,9 @@ export async function getEventAdmin(id) {
     address: e.address || '',
     country: e.country || '',
     bannerUrl: e.bannerUrl || '',
+    images: e.images || [],
+    lat: e.lat ?? null,
+    lng: e.lng ?? null,
     currency: e.currency || 'INR',
     // §5.1 community layer — speakers / 100 Days linkage / Launchpad flags.
     speakerIds: (e.speakerIds || []).map(String),
@@ -337,21 +340,111 @@ export async function rejectEvent(adminId, id, reason) {
 }
 
 // ===== Dashboard (task 3.5) =====
-export async function getAdminDashboard() {
-  const [users, organizers, publishedEvents, pendingEvents, pendingOrganizers, paidOrders, revenueAgg] = await Promise.all([
+export async function getAdminDashboard({ days } = {}) {
+  // Range-scoped metrics honor ?days=30|90; platform-wide counts never do.
+  const since = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : null;
+  const rangeTicket = { status: { $in: ['VALID', 'USED'] }, ...(since ? { createdAt: { $gte: since } } : {}) };
+  const rangeOrder = { status: 'PAID', ...(since ? { createdAt: { $gte: since } } : {}) };
+
+  const [
+    users, organizers, publishedEvents, pendingEvents, pendingOrganizers,
+    paidOrders, revenueAgg, ticketsSold, checkedIn, buyers, firstEvent,
+  ] = await Promise.all([
     User.countDocuments({}),
     OrganizerProfile.countDocuments({ status: 'APPROVED' }),
     Event.countDocuments({ status: 'PUBLISHED' }),
     Event.countDocuments({ status: 'PENDING_APPROVAL' }),
     OrganizerProfile.countDocuments({ status: 'PENDING' }),
-    Order.countDocuments({ status: 'PAID' }),
-    Order.aggregate([{ $match: { status: 'PAID' } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
+    Order.countDocuments(rangeOrder),
+    Order.aggregate([{ $match: rangeOrder }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
+    Ticket.countDocuments(rangeTicket),
+    Ticket.countDocuments({ ...rangeTicket, checkedInAt: { $ne: null } }),
+    Ticket.distinct('userId', rangeTicket),
+    Event.findOne({}).sort({ createdAt: 1 }).select('createdAt'),
   ]);
+
+  // Reach — sold tickets grouped by the event's city, with real coordinates
+  // (average of that city's event pins) so the dashboard map needs no lookups.
+  const cities = await Ticket.aggregate([
+    { $match: rangeTicket },
+    { $lookup: { from: 'events', localField: 'eventId', foreignField: '_id', as: 'ev' } },
+    { $unwind: '$ev' },
+    { $match: { 'ev.city': { $nin: [null, ''] } } },
+    { $group: { _id: '$ev.city', tickets: { $sum: 1 }, country: { $first: '$ev.country' }, lat: { $avg: '$ev.lat' }, lng: { $avg: '$ev.lng' } } },
+    { $sort: { tickets: -1 } },
+    { $limit: 8 },
+    { $project: { _id: 0, city: '$_id', tickets: 1, country: 1, lat: 1, lng: 1 } },
+  ]);
+
+  // Leaderboard — organizers ranked by tickets sold in range.
+  const topOrganizers = await Ticket.aggregate([
+    { $match: rangeTicket },
+    { $lookup: { from: 'events', localField: 'eventId', foreignField: '_id', as: 'ev' } },
+    { $unwind: '$ev' },
+    { $group: { _id: '$ev.organizerId', tickets: { $sum: 1 }, events: { $addToSet: '$ev._id' } } },
+    { $sort: { tickets: -1 } },
+    { $limit: 5 },
+    { $lookup: { from: 'organizerprofiles', localField: '_id', foreignField: '_id', as: 'org' } },
+    { $unwind: { path: '$org', preserveNullAndEmptyArrays: true } },
+    { $project: { _id: 0, id: '$_id', name: { $ifNull: ['$org.orgName', 'Unknown'] }, logoUrl: '$org.logoUrl', tickets: 1, events: { $size: '$events' } } },
+  ]);
+
+  // Category split — paid vs free tickets per category (same unit both sides).
+  const categorySplit = await Ticket.aggregate([
+    { $match: rangeTicket },
+    { $lookup: { from: 'tickettypes', localField: 'ticketTypeId', foreignField: '_id', as: 'tt' } },
+    { $unwind: '$tt' },
+    { $lookup: { from: 'events', localField: 'eventId', foreignField: '_id', as: 'ev' } },
+    { $unwind: '$ev' },
+    { $lookup: { from: 'categories', localField: 'ev.categoryId', foreignField: '_id', as: 'cat' } },
+    { $unwind: { path: '$cat', preserveNullAndEmptyArrays: true } },
+    { $group: {
+      _id: { $ifNull: ['$cat.name', 'Uncategorised'] },
+      paid: { $sum: { $cond: [{ $gt: ['$tt.price', 0] }, 1, 0] } },
+      free: { $sum: { $cond: [{ $gt: ['$tt.price', 0] }, 0, 1] } },
+    } },
+    { $sort: { paid: -1, free: -1 } },
+    { $limit: 6 },
+    { $project: { _id: 0, category: '$_id', paid: 1, free: 1 } },
+  ]);
+
+  // Momentum — tickets per category over the last 3 calendar months (radar).
+  // UTC month boundaries — $dateToString groups in UTC, so the keys must too.
+  const monthStart = (o) => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - o, 1)); };
+  const radarRaw = await Ticket.aggregate([
+    { $match: { status: { $in: ['VALID', 'USED'] }, createdAt: { $gte: monthStart(2) } } },
+    { $lookup: { from: 'events', localField: 'eventId', foreignField: '_id', as: 'ev' } },
+    { $unwind: '$ev' },
+    { $lookup: { from: 'categories', localField: 'ev.categoryId', foreignField: '_id', as: 'cat' } },
+    { $unwind: { path: '$cat', preserveNullAndEmptyArrays: true } },
+    { $group: { _id: { month: { $dateToString: { format: '%Y-%m', date: '$createdAt' } }, category: { $ifNull: ['$cat.name', 'Uncategorised'] } }, tickets: { $sum: 1 } } },
+  ]);
+  const radarAxes = [...new Set(radarRaw.map((r) => r._id.category))].slice(0, 6);
+  const monthKeys = [2, 1, 0].map((o) => monthStart(o).toISOString().slice(0, 7));
+  const radar = {
+    axes: radarAxes,
+    series: monthKeys.map((mk) => ({
+      label: new Date(mk + '-02').toLocaleString('en', { month: 'short' }),
+      values: radarAxes.map((ax) => radarRaw.find((r) => r._id.month === mk && r._id.category === ax)?.tickets || 0),
+    })),
+  };
+
   return {
     users, organizers, publishedEvents, paidOrders,
     grossRevenue: revenueAgg[0]?.total || 0, // paise
     pendingApprovals: pendingEvents + pendingOrganizers,
     currency: 'INR',
+    ticketsSold,
+    checkedIn,
+    checkinRate: ticketsSold ? +((checkedIn / ticketsSold) * 100).toFixed(2) : 0,
+    usersReached: buyers.length,
+    monthsActive: firstEvent ? Math.max(1, Math.ceil((Date.now() - firstEvent.createdAt) / (30.44 * 24 * 60 * 60 * 1000))) : 0,
+    platformSince: firstEvent?.createdAt || null,
+    cities,
+    topOrganizers,
+    categorySplit,
+    radar,
+    updatedAt: new Date(),
   };
 }
 
