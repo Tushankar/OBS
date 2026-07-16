@@ -69,7 +69,11 @@ export default function EventWizard() {
 
   const [eventId, setEventId] = useState(routeId || null);
   const [status, setStatus] = useState('DRAFT');
-  const [step, setStep] = useState(1);
+  // ?step=N deep-links straight to a section (e.g. Events → "Speakers & sponsors" → step 6).
+  const [step, setStep] = useState(() => {
+    const s = Number(searchParams.get('step'));
+    return Number.isInteger(s) && s >= 1 && s <= STEPS.length ? s : 1;
+  });
   const [form, setForm] = useState(BLANK);
   const [cats, setCats] = useState([]);
   const [chapters, setChapters] = useState([]);

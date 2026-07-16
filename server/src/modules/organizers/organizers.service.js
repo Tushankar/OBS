@@ -103,7 +103,15 @@ export function publicOrganizer(p) {
     logoUrl: p.logoUrl || null,
     bio: p.bio || null,
     website: p.website || null,
+    contactName: p.contactName || null,
+    phone: p.phone || null,
+    orgType: p.orgType || null,
+    city: p.city || null,
+    socialUrl: p.socialUrl || null,
+    experience: p.experience || null,
+    registrationNo: p.registrationNo || null,
     status: p.status,
+    rejectionReason: p.rejectionReason || null,
     approvedAt: p.approvedAt || null,
     createdAt: p.createdAt,
   };
@@ -112,7 +120,7 @@ export function publicOrganizer(p) {
 // A signed-in USER applies to become an organizer. Creates a PENDING profile.
 // The user's role stays USER until an admin approves (see admin.service). A
 // previously REJECTED applicant may re-apply (we reset the same row to PENDING).
-export async function apply(userId, { orgName, bio, website }) {
+export async function apply(userId, { orgName, bio, website, contactName, phone, orgType, city, socialUrl, experience, registrationNo }) {
   const existing = await OrganizerProfile.findOne({ userId });
   if (existing) {
     if (existing.status === 'PENDING') {
@@ -128,6 +136,13 @@ export async function apply(userId, { orgName, bio, website }) {
     existing.orgName = orgName;
     existing.bio = bio;
     existing.website = website;
+    existing.contactName = contactName;
+    existing.phone = phone;
+    existing.orgType = orgType;
+    existing.city = city;
+    existing.socialUrl = socialUrl;
+    existing.experience = experience;
+    existing.registrationNo = registrationNo;
     existing.status = 'PENDING';
     existing.approvedById = undefined;
     existing.approvedAt = undefined;
@@ -144,7 +159,11 @@ export async function apply(userId, { orgName, bio, website }) {
   }
 
   const slug = await uniqueSlug(OrganizerProfile, orgName);
-  const profile = await OrganizerProfile.create({ userId, orgName, slug, bio, website, status: 'PENDING' });
+  const profile = await OrganizerProfile.create({
+    userId, orgName, slug, bio, website,
+    contactName, phone, orgType, city, socialUrl, experience, registrationNo,
+    status: 'PENDING',
+  });
   await notifyAdmins({
     type: 'ORGANIZER_APPLIED',
     title: `Organizer application: ${orgName}`,

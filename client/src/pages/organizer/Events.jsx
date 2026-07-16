@@ -95,6 +95,9 @@ export default function Events() {
             {['PUBLISHED', 'COMPLETED'].includes(ev.status) && (
               <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/registrations`)}>Registrations</Btn>
             )}
+            <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/edit?step=6`)}>
+              <AdminIcon.Speakers size={13} /> Speakers &amp; sponsors
+            </Btn>
             <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/edit`)}>
               {EDITABLE.includes(ev.status) ? <><AdminIcon.Edit size={13} /> Edit</> : <><AdminIcon.Eye size={13} /> View</>}
             </Btn>

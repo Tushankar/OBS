@@ -21,6 +21,7 @@ const organizerProfileSchema = new Schema(
     experience: { type: String, enum: ['FIRST_TIME', 'UPTO_5', 'UPTO_20', 'OVER_20'] },
     registrationNo: String,
     status: { type: String, enum: ORGANIZER_STATUS, default: 'PENDING' },
+    rejectionReason: String,
     approvedById: { type: Schema.Types.ObjectId, ref: 'User' },
     approvedAt: Date,
   },

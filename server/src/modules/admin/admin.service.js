@@ -21,7 +21,15 @@ function adminOrganizerRow(p) {
     bio: p.bio || null,
     website: p.website || null,
     logoUrl: p.logoUrl || null,
+    contactName: p.contactName || null,
+    phone: p.phone || null,
+    orgType: p.orgType || null,
+    city: p.city || null,
+    socialUrl: p.socialUrl || null,
+    experience: p.experience || null,
+    registrationNo: p.registrationNo || null,
     status: p.status,
+    rejectionReason: p.rejectionReason || null,
     appliedAt: p.createdAt,
     approvedAt: p.approvedAt || null,
     user: u ? { id: String(u._id), name: u.name, email: u.email } : null,
@@ -56,6 +64,7 @@ export async function approveOrganizer(adminId, id) {
   if (profile.status === 'APPROVED') return adminOrganizerRow(profile); // idempotent
 
   profile.status = 'APPROVED';
+  profile.rejectionReason = undefined;
   profile.approvedById = adminId;
   profile.approvedAt = new Date();
   await profile.save();
@@ -92,6 +101,7 @@ export async function approveOrganizer(adminId, id) {
 export async function rejectOrganizer(adminId, id, reason) {
   const profile = await loadProfileWithUser(id);
   profile.status = 'REJECTED';
+  profile.rejectionReason = reason || undefined;
   profile.approvedById = undefined;
   profile.approvedAt = undefined;
   await profile.save();

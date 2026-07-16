@@ -1,15 +1,35 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Btn, Field, inputCls, Loading, Pill, statusTone } from '../../components/portal/Kit';
+import { Card, Btn, Field, inputCls, selectCls, Loading, Pill, statusTone } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError, apiErrorCode } from '../../lib/api';
 
 const WEBSITE_RE = /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i;
+const PHONE_RE = /^[+\d][\d\s()-]{6,19}$/;
+
+const ORG_TYPES = [
+  ['COMPANY', 'Company / Agency'],
+  ['NONPROFIT', 'Non-profit / NGO'],
+  ['COMMUNITY', 'Community / Club'],
+  ['EDUCATION', 'Education / Institute'],
+  ['INDIVIDUAL', 'Individual organizer'],
+];
+const EXPERIENCE = [
+  ['FIRST_TIME', 'First-time organizer'],
+  ['UPTO_5', '1–5 events organized'],
+  ['UPTO_20', '6–20 events organized'],
+  ['OVER_20', '20+ events organized'],
+];
+
+const EMPTY = {
+  orgName: '', contactName: '', phone: '', orgType: '', city: '',
+  experience: '', bio: '', website: '', socialUrl: '', registrationNo: '',
+};
 
 export default function Apply() {
-  const { pushToast } = useApp();
+  const { pushToast, user } = useApp();
   const [profile, setProfile] = useState(undefined); // undefined = loading · null = none · object = exists
-  const [form, setForm] = useState({ orgName: '', bio: '', website: '' });
+  const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -21,13 +41,24 @@ export default function Apply() {
       .catch(() => { if (alive) setProfile(null); });
     return () => { alive = false; };
   }, []);
+  // Sensible default: the signed-in user is usually the contact person.
+  useEffect(() => {
+    if (user) setForm((f) => ({ ...f, contactName: f.contactName || user.name || '' }));
+  }, [user]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   function validate() {
     const next = {};
     if (form.orgName.trim().length < 2) next.orgName = 'Enter your organization name (min 2 characters).';
+    if (form.contactName.trim().length < 2) next.contactName = 'Enter the contact person’s full name.';
+    if (!PHONE_RE.test(form.phone.trim())) next.phone = 'Enter a valid phone number (with country code if outside India).';
+    if (!form.orgType) next.orgType = 'Select your organization type.';
+    if (form.city.trim().length < 2) next.city = 'Enter your city.';
+    if (!form.experience) next.experience = 'Select your event experience.';
+    if (form.bio.trim().length < 30) next.bio = 'Describe your organization and events in at least 30 characters.';
     if (form.website.trim() && !WEBSITE_RE.test(form.website.trim())) next.website = 'Enter a valid website URL.';
+    if (form.socialUrl.trim() && !WEBSITE_RE.test(form.socialUrl.trim())) next.socialUrl = 'Enter a valid profile URL.';
     return next;
   }
 
@@ -40,8 +71,15 @@ export default function Apply() {
     try {
       const created = await api.applyOrganizer({
         orgName: form.orgName.trim(),
-        bio: form.bio.trim() || undefined,
+        contactName: form.contactName.trim(),
+        phone: form.phone.trim(),
+        orgType: form.orgType,
+        city: form.city.trim(),
+        experience: form.experience,
+        bio: form.bio.trim(),
         website: form.website.trim() || undefined,
+        socialUrl: form.socialUrl.trim() || undefined,
+        registrationNo: form.registrationNo.trim() || undefined,
       });
       setProfile(created);
       pushToast('Application submitted');
@@ -58,7 +96,7 @@ export default function Apply() {
   }
 
   if (profile === undefined) {
-    return <div className="mx-auto max-w-[560px] px-4 pb-16 pt-10 sm:px-6"><Loading /></div>;
+    return <div className="mx-auto max-w-[640px] px-4 pb-16 pt-10 sm:px-6"><Loading /></div>;
   }
 
   // A live application (PENDING/APPROVED/SUSPENDED) → show status, not the form.
@@ -67,18 +105,18 @@ export default function Apply() {
     return (
       <div className="mx-auto max-w-[560px] px-4 pb-16 pt-10 sm:px-6">
         <Card className="text-center">
-          <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-[28px] ${approved ? 'bg-[#ECFDF5] text-success' : 'bg-[#FAF4E3] text-[#8E6B1D]'}`}>
+          <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-[28px] ${approved ? 'bg-green-100 text-green-700' : 'bg-[#FFF3C4] text-[#8a6d00]'}`}>
             {approved ? '✓' : '⏳'}
           </div>
-          <h1 className="mt-4 text-xl font-bold text-[#111827]">
+          <h1 className="mt-4 text-xl font-bold text-gray-900">
             {approved ? "You're an approved organizer" : 'Application received'}
           </h1>
-          <p className="mt-2 text-[14px] text-[#6B7280]">
+          <p className="mt-2 text-sm text-gray-500">
             {approved
               ? 'You can now create and submit events from your organizer portal.'
               : 'Our team reviews within 2 business days — we’ll email you when there’s an update.'}
           </p>
-          <div className="mt-3 flex items-center justify-center gap-2 text-[13px] text-[#4B5563]">
+          <div className="mt-3 flex items-center justify-center gap-2 text-sm text-gray-600">
             <span className="font-semibold">{profile.orgName}</span>
             <Pill tone={statusTone(profile.status)}>{profile.status}</Pill>
           </div>
@@ -92,27 +130,110 @@ export default function Apply() {
 
   // No application yet, or a previously REJECTED one → show the form.
   return (
-    <div className="mx-auto max-w-[560px] px-4 pb-16 pt-10 sm:px-6">
-      <h1 className="text-xl font-bold text-[#111827] sm:text-[22px]">Become an organizer</h1>
-      <p className="mt-1 text-[13px] text-[#6B7280]">Tell us about your organization to start hosting events.</p>
+    <div className="mx-auto max-w-[640px] px-4 pb-16 pt-10 sm:px-6">
+      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Become an organizer</h1>
+      <p className="mt-1 text-sm text-gray-500">
+        Tell us about your organization — complete details help us review and approve faster.
+      </p>
       {profile?.status === 'REJECTED' && (
-        <div className="mt-4 rounded-xl border border-[#C99E25]/25 bg-[#FBF6E9] px-4 py-3 text-[13px] text-[#4B5563]">
-          Your previous application wasn’t approved. Update your details below and re-apply.
+        <div className="mt-4 rounded-xl border-2 border-[#E5B700] bg-[#FFFAEF] px-4 py-3 text-sm text-gray-700">
+          <p>Your previous application wasn’t approved. Update your details below and re-apply.</p>
+          {profile.rejectionReason && (
+            <p className="mt-1.5"><span className="font-semibold text-gray-900">Reviewer’s note:</span> {profile.rejectionReason}</p>
+          )}
         </div>
       )}
       <Card className="mt-5">
-        <form onSubmit={onSubmit} className="grid gap-4" noValidate>
-          <Field label="Organization name" error={errors.orgName}>
-            <input value={form.orgName} onChange={set('orgName')} className={inputCls} placeholder="e.g. Sunburn Events" />
-          </Field>
-          <Field label="About your organization" error={errors.bio}>
-            <textarea value={form.bio} onChange={set('bio')} rows={4} className={`${inputCls} resize-y`} placeholder="What kind of events do you host?" />
-          </Field>
-          <Field label="Website" error={errors.website}>
-            <input value={form.website} onChange={set('website')} className={inputCls} placeholder="https://your-site.com" />
-          </Field>
-          <div className="mt-1">
+        <form onSubmit={onSubmit} className="grid gap-5" noValidate>
+          {/* ── Organization ── */}
+          <div>
+            <h2 className="mb-3 border-b border-gray-200 pb-2 text-sm font-semibold text-gray-800">Organization</h2>
+            <div className="grid gap-4">
+              <Field label="Organization name *" error={errors.orgName}>
+                <input value={form.orgName} onChange={set('orgName')} className={inputCls} placeholder="e.g. Sunburn Events" />
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Organization type *" error={errors.orgType}>
+                  <select value={form.orgType} onChange={set('orgType')} className={`${selectCls} h-auto w-full py-2`}>
+                    <option value="">Select type…</option>
+                    {ORG_TYPES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </Field>
+                <Field label="City *" error={errors.city}>
+                  <input value={form.city} onChange={set('city')} className={inputCls} placeholder="e.g. Mumbai" />
+                </Field>
+              </div>
+              <Field label="Company / GST registration number" hint="Optional — speeds up verification for registered businesses." error={errors.registrationNo}>
+                <input value={form.registrationNo} onChange={set('registrationNo')} className={inputCls} placeholder="e.g. 27AAACX0000X1Z5" maxLength={60} />
+              </Field>
+            </div>
+          </div>
+
+          {/* ── Contact ── */}
+          <div>
+            <h2 className="mb-3 border-b border-gray-200 pb-2 text-sm font-semibold text-gray-800">Contact person</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Full name *" error={errors.contactName}>
+                <input value={form.contactName} onChange={set('contactName')} className={inputCls} placeholder="Who should we reach out to?" />
+              </Field>
+              <Field label="Phone *" error={errors.phone}>
+                <input value={form.phone} onChange={set('phone')} className={inputCls} placeholder="+91 98765 43210" inputMode="tel" />
+              </Field>
+            </div>
+          </div>
+
+          {/* ── Experience & presence ── */}
+          <div>
+            <h2 className="mb-3 border-b border-gray-200 pb-2 text-sm font-semibold text-gray-800">Experience & online presence</h2>
+            <div className="grid gap-4">
+              <Field label="Event experience *" error={errors.experience}>
+                <div className="flex flex-wrap gap-2">
+                  {EXPERIENCE.map(([k, v]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, experience: k }))}
+                      className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all duration-150 ${
+                        form.experience === k
+                          ? 'border-[#E5B700] bg-[#FFF3C4] text-[#8a6d00]'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-[#E5B700] hover:text-gray-800'
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Website" error={errors.website}>
+                  <input value={form.website} onChange={set('website')} className={inputCls} placeholder="https://your-site.com" />
+                </Field>
+                <Field label="LinkedIn / Instagram" error={errors.socialUrl}>
+                  <input value={form.socialUrl} onChange={set('socialUrl')} className={inputCls} placeholder="https://linkedin.com/company/…" />
+                </Field>
+              </div>
+            </div>
+          </div>
+
+          {/* ── About ── */}
+          <div>
+            <h2 className="mb-3 border-b border-gray-200 pb-2 text-sm font-semibold text-gray-800">About your events</h2>
+            <Field label="What kind of events do you host? *" error={errors.bio}>
+              <textarea
+                value={form.bio}
+                onChange={set('bio')}
+                rows={4}
+                maxLength={2000}
+                className={`${inputCls} resize-y`}
+                placeholder="Audience, formats, past highlights — anything that helps us understand your work."
+              />
+              <div className="mt-1 text-right text-[11px] text-gray-400 [font-variant-numeric:tabular-nums]">{form.bio.length}/2000 · min 30</div>
+            </Field>
+          </div>
+
+          <div>
             <Btn type="submit" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit application'}</Btn>
+            <p className="mt-2 text-xs text-gray-500">Fields marked * are required. Our team reviews within 2 business days.</p>
           </div>
         </form>
       </Card>
