@@ -5,6 +5,7 @@ import { qrPng } from '../../utils/qr.js';
 import { buildTicketPdf, buildInvoicePdf } from '../../utils/pdf.js';
 import { putObject, isS3Configured } from '../../utils/s3.js';
 import { env } from '../../config/env.js';
+import { notifyAdmins } from '../notifications/notifications.service.js';
 
 const MAX_EMAIL_ATTACH_BYTES = 8 * 1024 * 1024; // §8.3.5 — over 8 MB → send links, not attachments
 
@@ -28,6 +29,16 @@ export async function markPaidAndFulfil(orderId, { gateway } = {}) {
   if (order.promoCodeId) await PromoCode.updateOne({ _id: order.promoCodeId }, { $inc: { usedCount: 1 } });
 
   const [user, event] = await Promise.all([User.findById(order.userId), Event.findById(order.eventId)]);
+
+  // Admin bell — fires exactly once per booking (guarded by the PENDING→PAID flip above).
+  await notifyAdmins({
+    type: 'ORDER_PAID',
+    title: order.totalAmount > 0 ? `New booking — ${money(order.totalAmount, order.currency)}` : 'New free registration',
+    body: `${user?.name || 'A user'} · ${event?.title || 'Event'} (order ${order.orderNumber || order._id})`,
+    link: '/admin/transactions',
+    entityType: 'Order',
+    entityId: order._id,
+  });
 
   // One Ticket per unit (ticketNumber via the atomic counter; qrToken uuid default).
   const docs = [];
