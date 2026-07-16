@@ -303,6 +303,11 @@ api.submitSupportTicket = (body) => unwrap(api.post('/support-tickets', body)).t
 api.adminSupportTickets = (params) => unwrap(api.get('/admin/support-tickets', { params })); // { tickets, total }
 api.updateSupportTicket = (id, body) => unwrap(api.patch(`/admin/support-tickets/${id}`, body)).then((d) => d.ticket);
 
+// Admin notifications — header bell (polled)
+api.adminNotifications = (params) => unwrap(api.get('/admin/notifications', { params })); // { notifications, unread }
+api.readNotification = (id) => unwrap(api.post(`/admin/notifications/${id}/read`));
+api.readAllNotifications = () => unwrap(api.post('/admin/notifications/read-all'));
+
 // Articles / media (Phase 5.4)
 api.articles = (params) => unwrap(api.get('/articles', { params })).then((d) => d.articles);
 api.articlesPaged = (params) => unwrap(api.get('/articles', { params })); // { articles, total, page, limit, pages }

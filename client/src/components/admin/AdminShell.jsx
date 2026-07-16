@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../../context/AppContext';
+import api from '../../lib/api';
 import { AdminIcon } from './AdminIcons';
 import { NavIcon } from './NavIcons';
 
