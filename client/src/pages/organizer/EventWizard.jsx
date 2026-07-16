@@ -100,7 +100,7 @@ export default function EventWizard() {
   useEffect(() => {
     loadCats();
     api.chapters().then(setChapters).catch(() => {});
-    api.speakers().then(setSpeakers).catch(() => {});
+    api.organizerSpeakers().then(setSpeakers).catch(() => {});
     api.currentProgram().then((p) => setProgram(p || null)).catch(() => setProgram(null));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -532,7 +532,7 @@ export default function EventWizard() {
               {/* Speakers */}
               <div>
                 <h3 className="text-sm font-bold text-[#111827]">Speakers</h3>
-                <p className="mb-3 mt-1 text-[13px] text-[#6B7280]">Add speakers from the OBS directory. They appear on your event page, and your event shows on their profiles.</p>
+                <p className="mb-3 mt-1 text-[13px] text-[#6B7280]">Pick from your own speaker library — manage it under <a href="/organizer/speakers" className="font-medium text-[#E5B700] hover:opacity-80">Speakers</a>. They appear on your event page.</p>
                 {selectedSpeakers.length > 0 && (
                   <div className="mb-3 flex flex-wrap gap-2">
                     {selectedSpeakers.map((s) => (
@@ -547,7 +547,7 @@ export default function EventWizard() {
                 )}
                 {extrasEditable && (
                   speakers.length === 0 ? (
-                    <p className="rounded-md border border-dashed border-[#E8ECF2] px-4 py-3 text-[13px] text-[#6B7280]">The speaker directory is empty right now — the OBS team curates it. You can continue without speakers.</p>
+                    <p className="rounded-md border border-dashed border-[#E8ECF2] px-4 py-3 text-[13px] text-[#6B7280]">You haven’t created any speakers yet — add them under <a href="/organizer/speakers" className="font-medium text-[#E5B700] hover:opacity-80">Speakers</a> in the sidebar, then attach them here. You can continue without speakers.</p>
                   ) : (
                     <div>
                       <input className={inputCls} value={speakerQ} onChange={(e) => setSpeakerQ(e.target.value)} placeholder="Search speakers by name or company…" />

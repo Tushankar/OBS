@@ -282,6 +282,17 @@ api.speakers = (params) => unwrap(api.get('/speakers', { params })).then((d) => 
 api.speakersWithMeta = (params) => unwrap(api.get('/speakers', { params })); // { speakers, topics }
 api.speaker = (slug) => unwrap(api.get(`/speakers/${slug}`)); // { speaker, upcoming, past }
 api.adminSpeakers = () => unwrap(api.get('/admin/speakers')).then((d) => d.speakers);
+
+// Organizer speaker library — the organizer's own speakers (separate from the
+// platform directory) — and reusable sponsor library.
+api.organizerSpeakers = () => unwrap(api.get('/organizer/speakers')).then((d) => d.speakers);
+api.organizerCreateSpeaker = (body) => unwrap(api.post('/organizer/speakers', body)).then((d) => d.speaker);
+api.organizerUpdateSpeaker = (id, body) => unwrap(api.patch(`/organizer/speakers/${id}`, body)).then((d) => d.speaker);
+api.organizerDeleteSpeaker = (id) => unwrap(api.delete(`/organizer/speakers/${id}`));
+api.organizerSponsors = () => unwrap(api.get('/organizer/sponsors')).then((d) => d.sponsors);
+api.organizerCreateSponsor = (body) => unwrap(api.post('/organizer/sponsors', body)).then((d) => d.sponsor);
+api.organizerUpdateSponsor = (id, body) => unwrap(api.patch(`/organizer/sponsors/${id}`, body)).then((d) => d.sponsor);
+api.organizerDeleteSponsor = (id) => unwrap(api.delete(`/organizer/sponsors/${id}`));
 api.createSpeaker = (body) => unwrap(api.post('/admin/speakers', body)).then((d) => d.speaker);
 api.updateSpeaker = (id, body) => unwrap(api.patch(`/admin/speakers/${id}`, body)).then((d) => d.speaker);
 api.deleteSpeaker = (id) => unwrap(api.delete(`/admin/speakers/${id}`));

@@ -15,11 +15,34 @@ export default function SponsorsEditor({ eventId }) {
   const [items, setItems] = useState(null);
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [library, setLibrary] = useState([]); // reusable sponsors from /organizer/sponsors
 
   const load = useCallback(() => {
     api.eventSponsorsOrg(eventId).then(setItems).catch((e) => { setItems([]); pushToast(apiError(e), false); });
   }, [eventId, pushToast]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { api.organizerSponsors().then(setLibrary).catch(() => {}); }, []);
+
+  // One-click attach from the organizer's sponsor library — copies the entry
+  // into a normal event sponsor (still admin-reviewed before going public).
+  const attachFromLibrary = async (id) => {
+    const s = library.find((x) => x.id === id);
+    if (!s) return;
+    const body = { name: s.name, tier: s.tier };
+    if (s.website) body.website = s.website;
+    if (s.logoUrl) body.logoUrl = s.logoUrl;
+    if (s.blurb) body.blurb = s.blurb;
+    setBusy(true);
+    try {
+      await api.createEventSponsor(eventId, body);
+      pushToast(`${s.name} attached — submitted for review`);
+      load();
+    } catch (e) {
+      pushToast(apiError(e, 'Could not attach sponsor'), false);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const startAdd = () => setForm({ ...BLANK });
@@ -100,7 +123,21 @@ export default function SponsorsEditor({ eventId }) {
           </div>
         </div>
       ) : (
-        <div><Btn size="sm" variant="ghost" onClick={startAdd}>+ Add sponsor</Btn></div>
+        <div className="flex flex-wrap items-center gap-2">
+          {library.length > 0 && (
+            <select
+              defaultValue=""
+              disabled={busy}
+              onChange={(e) => { if (e.target.value) { attachFromLibrary(e.target.value); e.target.value = ''; } }}
+              className="h-8 rounded-lg border border-gray-300 bg-white px-2.5 text-xs font-medium text-gray-700 shadow-sm outline-none focus:border-[#E5B700] focus:ring-2 focus:ring-[#E5B700]/40"
+            >
+              <option value="">Add from my sponsors…</option>
+              {library.map((s) => <option key={s.id} value={s.id}>{s.name} ({sponsorTierLabel(s.tier)})</option>)}
+            </select>
+          )}
+          <Btn size="sm" variant="ghost" onClick={startAdd}>+ Add new sponsor</Btn>
+          <a href="/organizer/sponsors" className="text-xs font-medium text-[#E5B700] transition-opacity hover:opacity-80">Manage my sponsor library →</a>
+        </div>
       )}
     </div>
   );

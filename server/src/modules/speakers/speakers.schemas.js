@@ -24,3 +24,7 @@ export const createSpeakerSchema = z.object({
 });
 
 export const updateSpeakerSchema = createSpeakerSchema.partial().refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });
+
+// Organizer speaker library — no featured/sort (those are directory controls).
+export const organizerSpeakerSchema = createSpeakerSchema.omit({ isFeatured: true, sortOrder: true });
+export const updateOrganizerSpeakerSchema = organizerSpeakerSchema.partial().refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });

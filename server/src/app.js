@@ -33,6 +33,8 @@ import chapterRoutes from './modules/chapters/chapters.routes.js';
 import pageRoutes from './modules/pages/pages.routes.js';
 import speakerRoutes from './modules/speakers/speakers.routes.js';
 import speakerAdminRoutes from './modules/speakers/speakers.admin.routes.js';
+import speakerOrganizerRoutes from './modules/speakers/speakers.organizer.routes.js';
+import sponsorLibraryRoutes from './modules/sponsors/sponsors.library.routes.js';
 import sponsorRoutes from './modules/sponsors/sponsors.routes.js';
 import sponsorAdminRoutes from './modules/sponsors/sponsors.admin.routes.js';
 import sponsorOrganizerRoutes from './modules/sponsors/sponsors.organizer.routes.js';
@@ -119,6 +121,8 @@ export function createApp() {
   app.use('/api/v1/organizer/events/:eventId/ticket-types', ticketTypeRoutes);
   app.use('/api/v1/organizer/events/:eventId/promo-codes', promoCodeRoutes);
   app.use('/api/v1/organizer/events/:eventId/sponsors', sponsorOrganizerRoutes);
+  app.use('/api/v1/organizer/speakers', speakerOrganizerRoutes); // organizer's own speaker library
+  app.use('/api/v1/organizer/sponsors', sponsorLibraryRoutes); // organizer's reusable sponsor library
   app.use('/api/v1/organizer/events', organizerEventRoutes);
   app.use('/api/v1/organizer', organizerRoutes);
   app.use('/api/v1/organizer', checkinRoutes);

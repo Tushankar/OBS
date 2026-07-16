@@ -21,3 +21,17 @@ export async function remove(req, res) {
   await svc.deleteSpeaker(req.user.id, req.params.id);
   res.status(200).json({ ok: true });
 }
+
+// organizer — own speaker library
+export async function orgList(req, res) {
+  res.status(200).json({ speakers: await svc.listOrganizerSpeakers(req.organizer._id) });
+}
+export async function orgCreate(req, res) {
+  res.status(201).json({ speaker: await svc.createOrganizerSpeaker(req.organizer._id, req.body) });
+}
+export async function orgUpdate(req, res) {
+  res.status(200).json({ speaker: await svc.updateOrganizerSpeaker(req.organizer._id, req.params.id, req.body) });
+}
+export async function orgRemove(req, res) {
+  res.status(200).json(await svc.deleteOrganizerSpeaker(req.organizer._id, req.params.id));
+}

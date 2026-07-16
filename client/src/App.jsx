@@ -67,6 +67,8 @@ import OrganizerCheckIn from './pages/organizer/CheckIn';
 import OrganizerEmails from './pages/organizer/Emails';
 import OrganizerProfilePage from './pages/organizer/Profile';
 import OrganizerPayouts from './pages/organizer/Payouts';
+import OrganizerSpeakers from './pages/organizer/Speakers';
+import OrganizerSponsors from './pages/organizer/Sponsors';
 import AdminLayout from './components/portal/AdminLayout';
 import AdminOrganizers from './pages/admin/Organizers';
 import AdminEvents from './pages/admin/Events';
@@ -121,6 +123,8 @@ export default function App() {
           <Route path="/organizer/emails" element={<OrganizerEmails />} />
           <Route path="/organizer/profile" element={<OrganizerProfilePage />} />
           <Route path="/organizer/payouts" element={<OrganizerPayouts />} />
+          <Route path="/organizer/speakers" element={<OrganizerSpeakers />} />
+          <Route path="/organizer/sponsors" element={<OrganizerSponsors />} />
         </Route>
 
         {/* Admin panel — standalone chrome (no public navbar/footer) */}

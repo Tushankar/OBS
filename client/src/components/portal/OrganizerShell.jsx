@@ -13,6 +13,8 @@ import { NavIcon } from '../admin/NavIcons';
 const NAV = [
   { to: '/organizer', label: 'Dashboard', icon: 'Dashboard', end: true },
   { to: '/organizer/events', label: 'Events', icon: 'Events' },
+  { to: '/organizer/speakers', label: 'Speakers', icon: 'Speakers' },
+  { to: '/organizer/sponsors', label: 'Sponsors', icon: 'Sponsors' },
   { to: '/organizer/emails', label: 'Emails', icon: 'Mail' },
   { to: '/organizer/payouts', label: 'Payouts', icon: 'Wallet' },
   { to: '/organizer/profile', label: 'Profile', icon: 'User' },

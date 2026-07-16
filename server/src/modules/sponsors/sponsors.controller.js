@@ -51,3 +51,17 @@ export async function adminListApplications(req, res) {
 export async function updateApplication(req, res) {
   res.status(200).json({ application: await svc.updateApplication(req.user.id, req.params.id, req.body) });
 }
+
+// organizer — reusable sponsor library (not tied to an event)
+export async function orgListLibrary(req, res) {
+  res.status(200).json({ sponsors: await svc.listSponsorLibrary(req.organizer._id) });
+}
+export async function orgCreateLibrary(req, res) {
+  res.status(201).json({ sponsor: await svc.createLibrarySponsor(req.organizer._id, req.body) });
+}
+export async function orgUpdateLibrary(req, res) {
+  res.status(200).json({ sponsor: await svc.updateLibrarySponsor(req.organizer._id, req.params.id, req.body) });
+}
+export async function orgDeleteLibrary(req, res) {
+  res.status(200).json(await svc.deleteLibrarySponsor(req.organizer._id, req.params.id));
+}

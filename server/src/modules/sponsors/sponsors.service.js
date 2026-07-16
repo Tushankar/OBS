@@ -69,7 +69,10 @@ export async function getSponsorBySlug(slug) {
 
 // ---- Admin sponsor CRUD ----
 export async function adminListSponsors() {
-  return (await Sponsor.find({}).sort({ scope: 1, sortOrder: 1, name: 1 })).map(shapeSponsor);
+  // Excludes organizer library templates (scope EVENT with no eventId) — those
+  // only become reviewable once attached to an event.
+  const filter = { $nor: [{ scope: 'EVENT', eventId: null, organizerId: { $ne: null } }] };
+  return (await Sponsor.find(filter).sort({ scope: 1, sortOrder: 1, name: 1 })).map(shapeSponsor);
 }
 export async function createSponsor(adminId, body) {
   const slug = await uniqueSlug(Sponsor, body.name);
@@ -103,6 +106,49 @@ export async function deleteSponsor(adminId, id) {
 // PENDING (so a swapped logo/name is re-checked).
 // ---------------------------------------------------------------------------
 const ORG_SPONSOR_FIELDS = ['name', 'logoUrl', 'website', 'tier', 'blurb'];
+
+// ---- Organizer sponsor library — reusable sponsor profiles owned by one ----
+// ---- organizer, not tied to any event. Attaching one to an event copies ----
+// ---- it into a normal (admin-reviewed) event sponsor. Never public. ----
+export async function listSponsorLibrary(organizerId) {
+  const rows = await Sponsor.find({ organizerId, scope: 'EVENT', eventId: null }).sort({ name: 1 });
+  return rows.map(shapeSponsor);
+}
+
+async function loadLibrarySponsor(organizerId, id) {
+  const sponsor = await Sponsor.findOne({ _id: id, organizerId, scope: 'EVENT', eventId: null });
+  if (!sponsor) throw notFoundError('SPONSOR_NOT_FOUND', 'Sponsor not found');
+  return sponsor;
+}
+
+export async function createLibrarySponsor(organizerId, body) {
+  const slug = await uniqueSlug(Sponsor, body.name);
+  const sponsor = await Sponsor.create({
+    ...pick(body, ORG_SPONSOR_FIELDS),
+    slug,
+    scope: 'EVENT',
+    eventId: null,
+    organizerId,
+    status: 'APPROVED', // library entries are private; review happens per event
+    isActive: true,
+  });
+  return shapeSponsor(sponsor);
+}
+
+export async function updateLibrarySponsor(organizerId, id, body) {
+  const sponsor = await loadLibrarySponsor(organizerId, id);
+  for (const f of ORG_SPONSOR_FIELDS) {
+    if (body[f] !== undefined) sponsor[f] = body[f];
+  }
+  await sponsor.save();
+  return shapeSponsor(sponsor);
+}
+
+export async function deleteLibrarySponsor(organizerId, id) {
+  const sponsor = await loadLibrarySponsor(organizerId, id);
+  await sponsor.deleteOne();
+  return { ok: true };
+}
 
 export async function listEventSponsors(organizerId, eventId) {
   await loadOwnedEvent(organizerId, eventId);
