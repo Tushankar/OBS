@@ -146,7 +146,7 @@ export default function EventsListing() {
       </FilterSection>
       <FilterSection title="Chapter">
         <input value={chapSearch} onChange={(e) => setChapSearch(e.target.value)} placeholder="Search chapters" className="mb-2.5 h-8 w-full rounded-md border border-line px-2.5 text-xs text-ink-soft outline-none" />
-        <div className="flex flex-wrap gap-2">{chapShown.map((c) => <Chip key={c.slug} active={chapter === c.slug} onClick={() => toggleOne('chapter', chapter, c.slug)}>{c.flagEmoji ? `${c.flagEmoji} ` : ''}{c.name}</Chip>)}</div>
+        <div className="flex flex-wrap gap-2">{chapShown.map((c) => <Chip key={c.slug} active={chapter === c.slug} onClick={() => toggleOne('chapter', chapter, c.slug)}><ChapterFlag code={c.countryCode} className="mr-1.5 h-3 w-4 rounded-[2px] align-[-1px]" />{c.name}</Chip>)}</div>
         {chapList.length > 8 && <button onClick={() => setChapMore((v) => !v)} className="mt-2.5 text-xs font-medium text-brand">{chapMore ? 'Show less' : `Show all ${chapList.length}`}</button>}
       </FilterSection>
       <FilterSection title="Mode">

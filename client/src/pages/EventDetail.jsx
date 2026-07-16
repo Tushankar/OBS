@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import EvImage from '../components/common/EvImage';
 import ApiEventCard, { seedOf } from '../components/common/ApiEventCard';
 import BookingCard from '../components/booking/BookingCard';
+import { ChapterFlag } from '../components/common/ChapterMark';
 import Seo from '../components/common/Seo';
 import { Icon } from '../components/common/Icon';
 import SponsorLogo from '../components/cards/SponsorLogo';

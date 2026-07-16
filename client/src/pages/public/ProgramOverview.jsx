@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import Seo from '../../components/common/Seo';
+import { ChapterFlag } from '../../components/common/ChapterMark';
 import SponsorLogo from '../../components/cards/SponsorLogo';
 import SpeakerCard from '../../components/cards/SpeakerCard';
 

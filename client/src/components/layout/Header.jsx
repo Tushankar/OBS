@@ -5,6 +5,7 @@ import api from '../../lib/api';
 import { fmtDate } from '../../lib/format';
 import { CURRENCIES, CURRENCY_LABEL } from '../../lib/currency';
 import { Icon } from '../common/Icon';
+import ChapterMark from '../common/ChapterMark';
 import PickerModal from '../common/PickerModal';
 
 // Durable entry points for every public browse section — the signature sections

@@ -3,6 +3,7 @@ import { PageHead, Card, Pill, statusTone, Table, Tabs, SearchInput, Btn, Loadin
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
+import ChapterMark from '../../components/common/ChapterMark';
 
 const CHAPTER_TYPES = ['GEO_COUNTRY', 'GEO_CITY', 'LEADERSHIP_COMMUNITY', 'BUSINESS_CAPITAL', 'INDUSTRY_PROFESSIONAL', 'STRATEGIC_EXPANSION'];
 const TYPE_LABEL = {
