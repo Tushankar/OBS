@@ -18,22 +18,33 @@ const isLive = (p) =>
 
 // ---- Admin: who books the most ------------------------------------------
 // Ranked by tickets held (paid + free bookings), with paid-order spend as the
-// tiebreaker. Every figure is a real aggregate over Orders/Tickets.
-export async function topBookers({ limit = 20 } = {}) {
+// tiebreaker. Every figure is a real aggregate over Orders/Tickets. Nothing
+// here sends anything — the admin filters, selects and sends manually.
+// Filters: minTickets (≥ n tickets), days (booked within the last n days),
+// q (name/email search).
+export async function topBookers({ limit = 20, minTickets, days, q } = {}) {
+  const since = days ? new Date(Date.now() - days * 24 * 3600 * 1000) : null;
   const ticketAgg = await Ticket.aggregate([
+    ...(since ? [{ $match: { createdAt: { $gte: since } } }] : []),
     { $group: { _id: '$userId', tickets: { $sum: 1 } } },
+    ...(minTickets ? [{ $match: { tickets: { $gte: Number(minTickets) } } }] : []),
     { $sort: { tickets: -1 } },
     { $limit: Math.max(limit * 3, 60) }, // headroom: some rows drop when the user is gone
   ]);
   const ids = ticketAgg.map((r) => r._id).filter(Boolean);
   if (!ids.length) return { bookers: [] };
 
+  const userFilter = { _id: { $in: ids } };
+  if (q) {
+    const rx = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    userFilter.$or = [{ name: rx }, { email: rx }];
+  }
   const [orderAgg, users, grants] = await Promise.all([
     Order.aggregate([
-      { $match: { userId: { $in: ids }, status: { $in: ['PAID', 'REFUND_REQUESTED', 'REFUNDED'] } } },
+      { $match: { userId: { $in: ids }, status: { $in: ['PAID', 'REFUND_REQUESTED', 'REFUNDED'] }, ...(since ? { createdAt: { $gte: since } } : {}) } },
       { $group: { _id: '$userId', orders: { $sum: 1 }, spend: { $sum: '$totalAmount' }, lastBookingAt: { $max: '$createdAt' } } },
     ]),
-    User.find({ _id: { $in: ids } }).select('name email status'),
+    User.find(userFilter).select('name email status'),
     PromoGrant.aggregate([{ $match: { userId: { $in: ids } } }, { $group: { _id: '$userId', grants: { $sum: 1 } } }]),
   ]);
   const byOrder = new Map(orderAgg.map((r) => [String(r._id), r]));

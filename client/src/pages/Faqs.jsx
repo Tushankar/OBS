@@ -1,29 +1,58 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../components/common/Icon';
+import api from '../lib/api';
 import { FAQ_GROUPS } from '../data/events';
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+// The FAQ content is managed in Admin → Site pages (page `faqs`) as simple
+// markdown: `## Category` starts a group, `### Question` starts a question,
+// and the following paragraph(s) are its answer. Parsed here into the same
+// interactive accordion; falls back to the built-in FAQ_GROUPS.
+function parseFaqGroups(md) {
+  if (!md) return null;
+  const groups = [];
+  let g = null, item = null;
+  for (const line of md.split('\n')) {
+    const h3 = line.match(/^###\s+(.+)/);
+    if (h3) {
+      if (!g) { g = { cat: 'General', items: [] }; groups.push(g); }
+      item = [h3[1].trim(), ''];
+      g.items.push(item);
+      continue;
+    }
+    const h2 = line.match(/^##\s+(.+)/);
+    if (h2) { g = { cat: h2[1].trim(), items: [] }; groups.push(g); item = null; continue; }
+    if (item && line.trim()) item[1] += (item[1] ? ' ' : '') + line.trim();
+  }
+  const clean = groups.filter((x) => x.items.length);
+  return clean.length ? clean : null;
+}
 
 export default function Faqs() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState('0-0');
+  const [page, setPage] = useState(null); // CMS page `faqs` (content + hero copy)
   useEffect(() => { window.scrollTo(0, 0); document.title = 'FAQs — OBS Events'; }, []);
+  useEffect(() => { api.publicPage('faqs').then(setPage).catch(() => {}); }, []);
+
+  const sourceGroups = useMemo(() => parseFaqGroups(page?.content) || FAQ_GROUPS, [page]);
 
   const q = query.trim().toLowerCase();
   const groups = useMemo(
     () =>
-      FAQ_GROUPS.map((g, gi) => ({
+      sourceGroups.map((g, gi) => ({
         cat: g.cat,
         id: slug(g.cat),
         items: g.items
           .map((it, ii) => ({ q: it[0], a: it[1], key: `${gi}-${ii}` }))
           .filter((it) => !q || (it.q + ' ' + it.a).toLowerCase().includes(q)),
       })).filter((g) => g.items.length),
-    [q]
+    [q, sourceGroups]
   );
-  const total = useMemo(() => FAQ_GROUPS.reduce((n, g) => n + g.items.length, 0), []);
+  const total = useMemo(() => sourceGroups.reduce((n, g) => n + g.items.length, 0), [sourceGroups]);
   const empty = q && groups.length === 0;
 
   const jump = (id) => {
@@ -43,8 +72,8 @@ export default function Faqs() {
           <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-brand-light backdrop-blur-sm">
             <Icon.Headphones width={13} height={13} /> Support
           </span>
-          <h1 className="mx-auto mt-5 max-w-[620px] text-[32px] font-extrabold leading-tight text-white sm:text-[40px]">Frequently asked questions</h1>
-          <p className="mx-auto mt-3 max-w-[460px] text-[15px] leading-relaxed text-white/60">Quick answers about booking, tickets, refunds and chapters. Search or browse the categories below.</p>
+          <h1 className="mx-auto mt-5 max-w-[620px] text-[32px] font-extrabold leading-tight text-white sm:text-[40px]">{page?.title?.trim() || 'Frequently asked questions'}</h1>
+          <p className="mx-auto mt-3 max-w-[460px] text-[15px] leading-relaxed text-white/60">{page?.meta?.heroSubtitle || 'Quick answers about booking, tickets, refunds and chapters. Search or browse the categories below.'}</p>
 
           <form onSubmit={(e) => e.preventDefault()} className="relative mx-auto mt-7 flex max-w-[560px] items-center gap-2 rounded-full bg-white p-2 shadow-pop">
             <span className="pl-4 text-ink-mute"><Icon.Search width={18} height={18} /></span>
@@ -68,7 +97,7 @@ export default function Faqs() {
             <div className="sticky top-[92px]">
               <div className="mb-3 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-mute">Categories</div>
               <nav className="flex flex-col gap-1">
-                {(q ? groups : FAQ_GROUPS.map((g) => ({ cat: g.cat, id: slug(g.cat), items: g.items }))).map((g) => (
+                {(q ? groups : sourceGroups.map((g) => ({ cat: g.cat, id: slug(g.cat), items: g.items }))).map((g) => (
                   <button
                     key={g.id}
                     onClick={() => jump(g.id)}

@@ -2,7 +2,36 @@ import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../components/common/Icon';
 import EvImage from '../components/common/EvImage';
+import api from '../lib/api';
 import { HELP_CATS } from '../data/events';
+
+// Help topics are managed in Admin → Site pages (page `help`) as markdown:
+// `## 🎫 Category title` starts a topic (optional leading emoji), the next
+// paragraph is its subtitle, and `- Article name` bullets are its articles.
+// Parsed into the same designed cards; falls back to the built-in HELP_CATS.
+function parseHelpCats(md) {
+  if (!md) return null;
+  const cats = [];
+  let cur = null;
+  for (const line of md.split('\n')) {
+    const h2 = line.match(/^##\s+(.+)/);
+    if (h2) {
+      let t = h2[1].trim();
+      let emoji = '';
+      const em = t.match(/^(\p{Extended_Pictographic}️?)\s+(.*)$/u);
+      if (em) { emoji = em[1]; t = em[2].trim(); }
+      cur = [emoji || '📄', t, '', []];
+      cats.push(cur);
+      continue;
+    }
+    if (!cur) continue;
+    const li = line.match(/^[-*]\s+(.+)/);
+    if (li) { cur[3].push(li[1].trim()); continue; }
+    if (line.trim() && !cur[2]) cur[2] = line.trim();
+  }
+  const clean = cats.filter((c) => c[3].length);
+  return clean.length ? clean : null;
+}
 
 const POPULAR = ['Book a ticket', 'Apply a promo code', 'Request a refund', 'Find your QR code', 'Transfer a ticket'];
 
@@ -48,11 +77,14 @@ const QUICK_LINKS = [
 export default function Help() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(null); // CMS page `help`
   useEffect(() => { window.scrollTo(0, 0); document.title = 'Help center — OBS Events'; }, []);
+  useEffect(() => { api.publicPage('help').then(setPage).catch(() => {}); }, []);
 
+  const cats = useMemo(() => parseHelpCats(page?.content) || HELP_CATS, [page]);
   const allArticles = useMemo(
-    () => HELP_CATS.flatMap(([, title, , articles]) => articles.map((a) => ({ cat: title, article: a }))),
-    []
+    () => cats.flatMap(([, title, , articles]) => articles.map((a) => ({ cat: title, article: a }))),
+    [cats]
   );
   const q = query.trim().toLowerCase();
   const matches = q ? allArticles.filter((r) => (r.article + ' ' + r.cat).toLowerCase().includes(q)).slice(0, 6) : [];
@@ -61,7 +93,7 @@ export default function Help() {
     <div className="pb-16">
       {/* ── Hero ─────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-footer">
-        <EvImage seed={7} url="https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?q=80&w=1800&auto=format&fit=crop" label="Event crowd" />
+        <EvImage seed={7} url={page?.meta?.heroImageUrl || 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?q=80&w=1800&auto=format&fit=crop'} label="Event crowd" />
         <div className="absolute inset-0 bg-gradient-to-b from-footer/85 via-footer/75 to-footer/95" />
         <div className="pointer-events-none absolute -left-24 -top-24 h-[340px] w-[340px] rounded-full bg-brand/20 blur-[110px]" />
         <div className="pointer-events-none absolute -bottom-32 -right-16 h-[380px] w-[380px] rounded-full bg-brand-light/15 blur-[120px]" />
@@ -71,8 +103,8 @@ export default function Help() {
           <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-brand-light backdrop-blur-sm">
             <Icon.Headphones width={13} height={13} /> Help center
           </span>
-          <h1 className="mx-auto mt-5 max-w-[640px] text-[34px] font-extrabold leading-tight text-white sm:text-[44px]">How can we help you?</h1>
-          <p className="mx-auto mt-3 max-w-[480px] text-[15px] leading-relaxed text-white/60">Search our knowledge base or browse topics below — most answers take less than a minute to find.</p>
+          <h1 className="mx-auto mt-5 max-w-[640px] text-[34px] font-extrabold leading-tight text-white sm:text-[44px]">{page?.title?.trim() || 'How can we help you?'}</h1>
+          <p className="mx-auto mt-3 max-w-[480px] text-[15px] leading-relaxed text-white/60">{page?.meta?.heroSubtitle || 'Search our knowledge base or browse topics below — most answers take less than a minute to find.'}</p>
 
           <div className="relative mx-auto mt-8 max-w-[620px]">
             <form onSubmit={(e) => { e.preventDefault(); navigate('/faqs'); }} className="flex items-center gap-2 rounded-full bg-white p-2 shadow-pop">
@@ -143,7 +175,7 @@ export default function Help() {
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {HELP_CATS.map(([, title, sub, articles]) => {
+          {cats.map(([, title, sub, articles]) => {
             const CatIcon = CAT_ICONS[title] || ((p) => <Icon.Settings {...p} />);
             return (
               <div key={title} className="group flex flex-col rounded-xl border border-line bg-white p-6 transition hover:-translate-y-1 hover:border-brand/50 hover:shadow-panel">

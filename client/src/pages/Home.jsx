@@ -70,7 +70,21 @@ export default function Home() {
       ? `Starts in ${program.season.daysUntil} day${program.season.daysUntil === 1 ? '' : 's'}`
       : program ? 'Season ended' : '';
 
-  const spotlight = [...chapters].filter((c) => c.isFlagship).slice(0, 8);
+  // Chapter rail: flagship (thematic) chapters first, then country chapters
+  // with their national flags — a real cross-section of the network.
+  const flagshipChapters = chapters.filter((c) => c.isFlagship).slice(0, 8);
+  const countryChapters = chapters
+    .filter((c) => c.type === 'GEO_COUNTRY' && !flagshipChapters.some((f) => f.slug === c.slug))
+    .slice(0, 8);
+  const spotlight = [...flagshipChapters, ...countryChapters];
+  const CHAPTER_TYPE_LABEL = {
+    GEO_COUNTRY: 'Country chapter',
+    GEO_CITY: 'City chapter',
+    LEADERSHIP_COMMUNITY: 'Leadership',
+    INDUSTRY_PROFESSIONAL: 'Industry',
+    STRATEGIC_EXPANSION: 'Strategic',
+    BUSINESS_CAPITAL: 'Capital',
+  };
 
   return (
     <div className="bg-[#F5F5F5] pb-10">
@@ -187,17 +201,35 @@ export default function Home() {
 
       {/* Chapter spotlight */}
       <section className="mx-auto max-w-container px-4 pt-10 sm:px-6">
-        <h2 className="mb-4 text-2xl font-bold text-ink">Explore OBS chapters</h2>
-        <div className="no-scrollbar flex gap-4 overflow-x-auto pb-2">
-          <button onClick={() => navigate('/chapters')} className="flex h-24 w-[200px] shrink-0 items-center justify-center rounded-[10px] border border-brand-soft bg-brand-soft p-3 transition hover:-translate-y-0.5 hover:border-brand">
-            <span className="text-sm font-semibold text-brand">{chapters.length ? `All ${chapters.length} chapters ›` : 'All chapters ›'}</span>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-ink">Explore OBS chapters</h2>
+          <button onClick={() => navigate('/chapters')} className="text-[13px] font-semibold text-brand hover:underline">See all ›</button>
+        </div>
+        <div className="no-scrollbar flex gap-3.5 overflow-x-auto pb-2">
+          <button
+            onClick={() => navigate('/chapters')}
+            className="group relative flex h-[104px] w-[210px] shrink-0 flex-col justify-between overflow-hidden rounded-2xl bg-gold-gradient p-4 text-left shadow-card transition hover:-translate-y-0.5 hover:shadow-cardHover"
+          >
+            <span className="text-2xl leading-none">🌍</span>
+            <span>
+              <span className="block text-[15px] font-extrabold leading-tight text-black">{chapters.length ? `All ${chapters.length} chapters` : 'All chapters'}</span>
+              <span className="mt-0.5 flex items-center gap-1 text-[11.5px] font-semibold text-black/70">Across the globe <span className="transition-transform group-hover:translate-x-0.5">›</span></span>
+            </span>
           </button>
           {spotlight.map((c) => (
-            <button key={c.slug} onClick={() => navigate(`/chapters/${c.slug}`)} className="flex h-24 w-[200px] shrink-0 items-center gap-3 rounded-[10px] border border-line bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-brand">
-              <span className="text-3xl leading-none">{c.flagEmoji || '🏳️'}</span>
+            <button
+              key={c.slug}
+              onClick={() => navigate(`/chapters/${c.slug}`)}
+              className="group flex h-[104px] w-[210px] shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-4 text-left shadow-card transition hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-cardHover"
+            >
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-soft text-[26px] leading-none transition-transform group-hover:scale-105">
+                {c.flagEmoji || '🌍'}
+              </span>
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-ink">{c.name}</div>
-                <div className="mt-0.5 text-xs text-ink-mute">{c.tier || c.pillarGroup || 'Chapter'}</div>
+                <div className="truncate text-sm font-bold text-ink">{c.name}</div>
+                <div className="mt-1 inline-block rounded-full bg-surface px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-ink-mute">
+                  {c.tier || c.pillarGroup || CHAPTER_TYPE_LABEL[c.type] || 'Chapter'}
+                </div>
               </div>
             </button>
           ))}

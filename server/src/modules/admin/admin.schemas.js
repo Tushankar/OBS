@@ -142,14 +142,38 @@ export const updateChapterSchema = createChapterSchema.partial();
 export const setChapterStatusSchema = z.object({ status: z.enum(CHAPTER_STATUS) });
 
 // --- CMS pages CRUD (task 3.5) ---
+// Structured page settings (hero image/colors + designed sections). Every
+// field is optional; public pages fall back to their built-in defaults.
+const metaStr = (max) => z.string().trim().max(max).optional().or(z.literal('').transform(() => undefined));
+export const cmsMetaSchema = z.object({
+  heroImageUrl: metaStr(600),
+  heroEyebrow: metaStr(80),
+  heroSubtitle: metaStr(500),
+  accentColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'Use a hex color like #C99E25').optional().or(z.literal('').transform(() => undefined)),
+  stats: z.array(z.object({ value: z.string().trim().max(24), label: z.string().trim().max(60) })).max(6).optional(),
+  mission: z.object({
+    heading: metaStr(200),
+    body1: metaStr(1200),
+    body2: metaStr(1200),
+    imageUrl: metaStr(600),
+  }).optional(),
+  values: z.array(z.object({ title: z.string().trim().max(90), body: z.string().trim().max(400) })).max(8).optional(),
+  milestones: z.array(z.object({ year: z.string().trim().max(16), title: z.string().trim().max(90), body: z.string().trim().max(400) })).max(8).optional(),
+  leadership: z.array(z.object({ name: z.string().trim().max(90), role: z.string().trim().max(90), photoUrl: metaStr(600) })).max(12).optional(),
+  roles: z.array(z.object({ title: z.string().trim().max(140), dept: z.string().trim().max(60), location: z.string().trim().max(90), type: z.string().trim().max(50) })).max(30).optional(),
+  perks: z.array(z.string().trim().max(80)).max(20).optional(),
+}).optional();
+
 export const createCmsPageSchema = z.object({
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers and hyphens only').max(80).optional(),
   title: z.string().trim().min(2).max(160),
   content: z.string().max(50000).default(''),
   status: z.enum(PAGE_STATUS).optional(),
+  meta: cmsMetaSchema,
 });
 export const updateCmsPageSchema = z.object({
   title: z.string().trim().min(2).max(160).optional(),
   content: z.string().max(50000).optional(),
   status: z.enum(PAGE_STATUS).optional(),
+  meta: cmsMetaSchema,
 });

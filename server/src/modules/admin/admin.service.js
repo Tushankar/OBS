@@ -772,26 +772,27 @@ export async function deleteChapter(adminId, id) {
 
 // ===== CMS pages CRUD (task 3.5) — public render is the /pages module =====
 function shapeCms(p) {
-  return { id: String(p._id), slug: p.slug, title: p.title, content: p.content, status: p.status, updatedAt: p.updatedAt };
+  return { id: String(p._id), slug: p.slug, title: p.title, content: p.content, meta: p.meta || {}, status: p.status, updatedAt: p.updatedAt };
 }
 
 export async function adminListCmsPages() {
   return (await CmsPage.find({}).sort({ slug: 1 })).map(shapeCms);
 }
 
-export async function createCmsPage(adminId, { slug, title, content, status }) {
+export async function createCmsPage(adminId, { slug, title, content, status, meta }) {
   const finalSlug = await uniqueSlug(CmsPage, slug || title);
-  const page = await CmsPage.create({ slug: finalSlug, title, content, status: status || 'DRAFT', updatedById: adminId });
+  const page = await CmsPage.create({ slug: finalSlug, title, content, meta: meta || {}, status: status || 'DRAFT', updatedById: adminId });
   await writeAudit({ actorId: adminId, action: 'CMS_PAGE_CREATED', entityType: 'CmsPage', entityId: page._id, meta: { slug: finalSlug } });
   return shapeCms(page);
 }
 
-export async function updateCmsPage(adminId, id, { title, content, status }) {
+export async function updateCmsPage(adminId, id, { title, content, status, meta }) {
   const page = await CmsPage.findById(id);
   if (!page) throw notFoundError('PAGE_NOT_FOUND', 'Page not found');
   if (title !== undefined) page.title = title;
   if (content !== undefined) page.content = content;
   if (status !== undefined) page.status = status;
+  if (meta !== undefined) { page.meta = meta; page.markModified('meta'); }
   page.updatedById = adminId;
   await page.save();
   await writeAudit({ actorId: adminId, action: 'CMS_PAGE_UPDATED', entityType: 'CmsPage', entityId: page._id, meta: { slug: page.slug } });

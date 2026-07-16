@@ -93,19 +93,31 @@ function TopBookers() {
   const [rows, setRows] = useState(null);
   const [picked, setPicked] = useState(() => new Set());
   const [sending, setSending] = useState(false);
+  // Manual filters — the admin decides who counts as a "regular"; nothing is
+  // pre-selected and nothing sends without the button.
+  const [q, setQ] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
+  const [minTickets, setMinTickets] = useState('');
+  const [days, setDays] = useState('');
+
+  useEffect(() => { const t = setTimeout(() => setDebouncedQ(q.trim()), 300); return () => clearTimeout(t); }, [q]);
 
   const load = useCallback(() => {
-    api.adminTopBookers({ limit: 30 })
+    setRows(null);
+    api.adminTopBookers({
+      limit: 50,
+      q: debouncedQ || undefined,
+      minTickets: minTickets || undefined,
+      days: days || undefined,
+    })
       .then((d) => { setRows(d || []); setPicked(new Set()); })
       .catch((e) => { setRows([]); pushToast(apiError(e), false); });
-  }, [pushToast]);
+  }, [pushToast, debouncedQ, minTickets, days]);
   useEffect(() => { load(); }, [load]);
 
   const toggle = (id) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allPicked = rows?.length > 0 && picked.size === rows.length;
-  const toggleAll = () => setPicked(allPicked ? new Set() : new Set(rows.map((r) => r.userId)));
-
-  if (!rows) return <Loading />;
+  const toggleAll = () => setPicked(allPicked ? new Set() : new Set((rows || []).map((r) => r.userId)));
 
   const columns = [
     { key: 'pick', label: '' },
@@ -122,7 +134,7 @@ function TopBookers() {
     if (key === 'pick') return (
       <input type="checkbox" checked={picked.has(r.userId)} onChange={() => toggle(r.userId)} className="h-4 w-4 accent-[#E5B700]" aria-label={`Select ${r.name}`} />
     );
-    if (key === 'rank') return <span className="font-semibold text-gray-500">{rows.indexOf(r) + 1}</span>;
+    if (key === 'rank') return <span className="font-semibold text-gray-500">{(rows || []).indexOf(r) + 1}</span>;
     if (key === 'user') return (
       <span className="flex min-w-0 items-center gap-2.5">
         <Avatar name={r.name} size={30} />
@@ -143,20 +155,38 @@ function TopBookers() {
   return (
     <div>
       <Card className="mb-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput value={q} onChange={setQ} placeholder="Search name or email…" className="max-w-xs" />
+          <select value={minTickets} onChange={(e) => setMinTickets(e.target.value)} className={selectCls} aria-label="Minimum tickets">
+            <option value="">Any tickets</option>
+            <option value="2">2+ tickets</option>
+            <option value="3">3+ tickets</option>
+            <option value="5">5+ tickets</option>
+            <option value="10">10+ tickets</option>
+          </select>
+          <select value={days} onChange={(e) => setDays(e.target.value)} className={selectCls} aria-label="Booking period">
+            <option value="">All time</option>
+            <option value="30">Booked in last 30 days</option>
+            <option value="90">Booked in last 90 days</option>
+            <option value="365">Booked in last year</option>
+          </select>
+          <div className="ml-auto flex items-center gap-3">
             <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
               <input type="checkbox" checked={allPicked} onChange={toggleAll} className="h-4 w-4 accent-[#E5B700]" /> Select all
             </label>
             <span className="text-sm text-gray-500">{picked.size} selected</span>
+            <Btn disabled={picked.size === 0} onClick={() => setSending(true)}>
+              <AdminIcon.Percent size={14} /> Send promo code{picked.size > 0 ? ` (${picked.size})` : ''}
+            </Btn>
           </div>
-          <Btn disabled={picked.size === 0} onClick={() => setSending(true)}>
-            <AdminIcon.Percent size={14} /> Send promo code{picked.size > 0 ? ` (${picked.size})` : ''}
-          </Btn>
         </div>
       </Card>
-      <p className="mb-3 text-xs text-gray-500">Ranked by tickets booked (paid + free), with paid spend and last booking — reward your regulars with a personal promo code.</p>
-      <Table columns={columns} rows={rows.map((r) => ({ ...r, id: r.userId }))} renderCell={renderCell} empty="No bookings yet — this fills up as tickets are booked." />
+      <p className="mb-3 text-xs text-gray-500">
+        Ranked by tickets booked (paid + free) with paid spend and last booking. Filter to the regulars you want, tick them, then send — <span className="font-medium text-gray-700">nothing is ever sent automatically</span>.
+      </p>
+      {rows === null
+        ? <Loading />
+        : <Table columns={columns} rows={rows.map((r) => ({ ...r, id: r.userId }))} renderCell={renderCell} empty="No bookers match these filters." />}
       {sending && (
         <SendPromoModal
           userIds={[...picked]}

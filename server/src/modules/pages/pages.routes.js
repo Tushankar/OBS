@@ -17,7 +17,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const page = await CmsPage.findOne({ slug: req.params.slug.toLowerCase(), status: 'PUBLISHED' });
     if (!page) throw notFoundError('PAGE_NOT_FOUND', 'Page not found');
-    res.status(200).json({ page: { slug: page.slug, title: page.title, content: page.content, updatedAt: page.updatedAt } });
+    res.status(200).json({ page: { slug: page.slug, title: page.title, content: page.content, meta: page.meta || {}, updatedAt: page.updatedAt } });
   })
 );
 

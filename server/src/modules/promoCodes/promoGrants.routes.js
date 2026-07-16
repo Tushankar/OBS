@@ -13,7 +13,12 @@ const sendPromoSchema = z.object({
   promoCodeId: objectId,
   note: z.string().trim().max(500).optional().transform((v) => (v ? v : undefined)),
 });
-const topQuery = z.object({ limit: z.coerce.number().int().min(1).max(100).optional() });
+const topQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  minTickets: z.coerce.number().int().min(1).max(1000).optional(),
+  days: z.coerce.number().int().min(1).max(3650).optional(),
+  q: z.string().trim().max(160).optional(),
+});
 
 // Admin loyalty tools — who books the most + grant promo codes to them.
 // Mounted at /api/v1/admin/loyalty.
