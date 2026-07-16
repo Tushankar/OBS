@@ -2,6 +2,7 @@ import { Article, Chapter, ChapterMember, Event } from '../../models/index.js';
 import { notFoundError, forbidden, conflict, badRequest } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { uniqueSlug } from '../../utils/slugify.js';
+import { notifyAdmins } from '../notifications/notifications.service.js';
 import { publicEventCard } from '../events/events.service.js';
 
 // Fuller shape for owner/detail views (adds the editable + moderation fields).
@@ -114,6 +115,14 @@ export async function createChapter(userId, { name, type, countryCode, flagEmoji
     createdById: userId,
     isOfficial: false,
     status: 'PENDING',
+  });
+  await notifyAdmins({
+    type: 'CHAPTER_SUBMITTED',
+    title: `Chapter awaiting review: ${chapter.name}`,
+    body: 'A community chapter was submitted for approval.',
+    link: '/admin/chapters',
+    entityType: 'Chapter',
+    entityId: chapter._id,
   });
   return shapeChapterFull(chapter);
 }

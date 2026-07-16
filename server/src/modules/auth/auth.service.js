@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 import { User, Session } from '../../models/index.js';
+import { notifyAdmins } from '../notifications/notifications.service.js';
 import { env } from '../../config/env.js';
 import {
   signAccessToken,
@@ -111,6 +112,14 @@ export async function register({ name, email, password }, meta) {
   if (existing) throw conflict('EMAIL_TAKEN', 'An account with this email already exists');
   const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
   const user = await User.create({ name, email, passwordHash, role: 'USER', status: 'ACTIVE' });
+  await notifyAdmins({
+    type: 'USER_REGISTERED',
+    title: `New user signed up: ${user.name}`,
+    body: user.email,
+    link: '/admin/users',
+    entityType: 'User',
+    entityId: user._id,
+  });
   await sendVerificationEmail(user); // awaited so the OTP hash is persisted before the client asks to verify
   return { user: publicUser(user), ...(await issueTokens(user, meta)) };
 }
@@ -210,6 +219,14 @@ export async function googleAuth({ idToken }, meta) {
       role: 'USER',
       status: 'ACTIVE',
       emailVerifiedAt: emailVerified ? new Date() : undefined,
+    });
+    await notifyAdmins({
+      type: 'USER_REGISTERED',
+      title: `New user signed up: ${user.name}`,
+      body: `${user.email} · via Google`,
+      link: '/admin/users',
+      entityType: 'User',
+      entityId: user._id,
     });
   }
   if (user.status === 'SUSPENDED') throw forbidden('ACCOUNT_SUSPENDED', 'This account is suspended');

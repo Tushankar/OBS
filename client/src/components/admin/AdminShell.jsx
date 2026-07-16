@@ -189,6 +189,9 @@ const NOTIF_ICON = {
   REFUND_REQUESTED: ['Refunds', true],
   ORGANIZER_APPLIED: ['Organizers', false],
   PARTNER_LEAD: ['Inbox', true],
+  USER_REGISTERED: ['Users', false],
+  CHAPTER_SUBMITTED: ['Chapters', true],
+  EVENT_SPONSOR_PENDING: ['Sponsors', true],
 };
 const notifAgo = (d) => {
   const s = Math.max(1, Math.round((Date.now() - new Date(d)) / 1000));

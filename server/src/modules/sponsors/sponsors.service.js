@@ -123,6 +123,14 @@ export async function createEventSponsor(organizerId, eventId, body) {
     isActive: true,
   });
   await writeAudit({ actorId: organizerId, action: 'SPONSOR_SUBMITTED', entityType: 'Sponsor', entityId: sponsor._id, meta: { name: sponsor.name, eventId: String(eventId) } });
+  await notifyAdmins({
+    type: 'EVENT_SPONSOR_PENDING',
+    title: `Event sponsor awaiting approval: ${sponsor.name}`,
+    body: 'An organizer submitted a sponsor for their event.',
+    link: '/admin/sponsors',
+    entityType: 'Sponsor',
+    entityId: sponsor._id,
+  });
   return shapeSponsor(sponsor);
 }
 
