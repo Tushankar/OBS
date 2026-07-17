@@ -113,14 +113,18 @@ export default function ChapterGlobe({ markers = [], chips = [], onChipClick, sp
       });
 
       const animate = () => {
+        if (!visible) { running = false; return; } // stop burning frames offscreen
         if (!isPausedRef.current) phi += speed;
         const curPhi = phi + phiOffsetRef.current + dragOffset.current.phi;
         const curTheta = 0.2 + thetaOffsetRef.current + dragOffset.current.theta;
-        globe.update({
-          phi: curPhi,
-          theta: curTheta,
-          markers: markersRef.current.map((m) => ({ location: m.location, size: m.size })),
-        });
+        // Re-upload the marker buffer only when the data actually changes —
+        // uploading every frame is a needless per-frame GPU cost.
+        const frame = { phi: curPhi, theta: curTheta };
+        if (markersRef.current !== lastMarkers) {
+          lastMarkers = markersRef.current;
+          frame.markers = lastMarkers.map((m) => ({ location: m.location, size: m.size }));
+        }
+        globe.update(frame);
 
         // Float the flag cards over their live positions. Whole-pixel
         // placement (no fractional %) keeps the cards razor-sharp, and
@@ -144,7 +148,13 @@ export default function ChapterGlobe({ markers = [], chips = [], onChipClick, sp
         }
         animationId = requestAnimationFrame(animate);
       };
-      animate();
+      const start = () => {
+        if (running || !globe) return;
+        running = true;
+        animationId = requestAnimationFrame(animate);
+      };
+      canvas.__startLoop = start;
+      start();
       setTimeout(() => { if (canvas) canvas.style.opacity = '1'; });
     }
 
@@ -160,10 +170,27 @@ export default function ChapterGlobe({ markers = [], chips = [], onChipClick, sp
       ro.observe(canvas);
     }
 
+    // Render only while on screen — restart the loop the moment it scrolls
+    // back into view.
+    const io = new IntersectionObserver((entries) => {
+      visible = !!entries[0]?.isIntersecting;
+      if (visible) canvas.__startLoop?.();
+    }, { threshold: 0.05 });
+    io.observe(canvas);
+
     return () => {
       if (animationId) cancelAnimationFrame(animationId);
       if (ro) ro.disconnect();
+      io.disconnect();
       if (globe) globe.destroy();
+      delete canvas.__startLoop;
+      // Browsers cap live WebGL contexts (~16); without an explicit release,
+      // remounting this page repeatedly exhausts them and the globe silently
+      // renders nothing ("sometimes it doesn't load").
+      try {
+        const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+        gl?.getExtension('WEBGL_lose_context')?.loseContext();
+      } catch { /* best effort */ }
     };
   }, [speed]);
 
