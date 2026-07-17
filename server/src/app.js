@@ -30,6 +30,7 @@ import myTicketRoutes from './modules/tickets/tickets.routes.js';
 import ticketValidateRoutes from './modules/tickets/tickets.public.routes.js';
 import categoryRoutes from './modules/categories/categories.routes.js';
 import chapterRoutes from './modules/chapters/chapters.routes.js';
+import fxRoutes from './modules/fx/fx.routes.js';
 import pageRoutes from './modules/pages/pages.routes.js';
 import speakerRoutes from './modules/speakers/speakers.routes.js';
 import speakerAdminRoutes from './modules/speakers/speakers.admin.routes.js';
@@ -105,6 +106,7 @@ export function createApp() {
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/categories', categoryRoutes);
   app.use('/api/v1/chapters', chapterRoutes);
+  app.use('/api/v1/fx', fxRoutes);
   app.use('/api/v1/pages', pageRoutes);
   app.use('/api/v1/speakers', speakerRoutes);
   app.use('/api/v1', sponsorRoutes); // /sponsors, /events/:slug/sponsors, /partner-applications

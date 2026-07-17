@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import api, { setAccessToken, setOnLogout, refreshSession } from '../lib/api';
-import { detectDefaultCurrency } from '../lib/currency';
+import { detectDefaultCurrency, setLiveRates } from '../lib/currency';
 
 const AppContext = createContext(null);
 
@@ -76,6 +76,16 @@ export function AppProvider({ children }) {
     setJoined((j) => ({ ...j, [name]: !j[name] }));
     return !joined[name];
   }, [joined]);
+
+  // Live FX for display conversions — fetched at start and refreshed hourly;
+  // failures silently keep the last (or seed) rates. Charges are unaffected:
+  // buyers always pay in the event's own currency.
+  useEffect(() => {
+    const load = () => api.fx().then((d) => setLiveRates(d?.ratesToInr)).catch(() => {});
+    load();
+    const t = setInterval(load, 60 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // On load, try a silent refresh to restore a session from the httpOnly cookie.
   useEffect(() => {

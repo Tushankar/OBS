@@ -32,8 +32,8 @@ const eventSchema = new Schema(
     lat: Number,
     lng: Number,
     placeId: String, // Google Place ID (from Places Autocomplete)
-    timezone: { type: String, default: 'Asia/Kolkata' },
-    currency: { type: String, default: 'INR' },
+    timezone: { type: String, default: 'Asia/Dubai' },
+    currency: { type: String, default: 'AED' }, // UAE-first platform default
     startAt: { type: Date }, // required at submit
     endAt: { type: Date }, // required at submit
     status: { type: String, enum: EVENT_STATUS, default: 'DRAFT' },

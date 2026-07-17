@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import api from '../../lib/api';
 import { fmtDate } from '../../lib/format';
-import { CURRENCIES, CURRENCY_LABEL } from '../../lib/currency';
+import { CURRENCIES, CURRENCY_LABEL, CURRENCY_FLAG } from '../../lib/currency';
 import { Icon } from '../common/Icon';
 import ChapterMark from '../common/ChapterMark';
 import PickerModal from '../common/PickerModal';
@@ -264,10 +264,10 @@ export default function Header({ onOpenAuth }) {
         onClose={() => setCurModal(false)}
         title="Choose your currency"
         subtitle="Prices are shown in this currency. You're always charged in the event's own currency."
-        options={CURRENCIES.map((c) => ({ value: c, label: CURRENCY_LABEL[c] }))}
+        options={CURRENCIES.map((c) => ({ value: c, label: CURRENCY_LABEL[c], flagCode: CURRENCY_FLAG[c] }))}
         value={currency}
         onSelect={setCurrency}
-        columns={2}
+        wide
       />
       <PickerModal
         open={cityModal}
