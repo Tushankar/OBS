@@ -35,6 +35,8 @@ const eventShape = {
   // §5.6 — Launchpad: organizer flags an event as a launch (+ optional countdown).
   isLaunch: z.boolean(),
   launchAt: z.coerce.date().nullable(),
+  // Chapter-member perk: restrict booking to members of the event's chapter.
+  membersOnly: z.boolean(),
 };
 
 const eventObject = z.object(eventShape);

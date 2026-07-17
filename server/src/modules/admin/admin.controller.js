@@ -130,6 +130,10 @@ export async function setChapterStatus(req, res) {
   const chapter = await adminSetChapterStatus(req.user.id, req.params.id, req.body.status);
   res.status(200).json({ chapter });
 }
+export async function listChapterMembers(req, res) {
+  const result = await adminService.listChapterMembers(req.params.id, req.query);
+  res.status(200).json(result);
+}
 
 // --- CMS pages ---
 export async function listCmsPages(req, res) {

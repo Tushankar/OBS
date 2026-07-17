@@ -126,6 +126,42 @@ function StructuredPreview({ content, mode }) {
   );
 }
 
+// Live preview of the home "OBS network" band — what the home page renders
+// from this page's settings. The numbers strip is live platform data, so the
+// preview shows placeholder counters with an honest note.
+function BandPreview({ title, meta }) {
+  const bg = meta.heroImageUrl || '/images/chapter_band_bg.png';
+  return (
+    <div
+      className="overflow-hidden rounded-xl bg-gray-900 bg-cover bg-center px-6 py-6 text-white"
+      style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.7)), url('${bg}')` }}
+    >
+      <div className="flex flex-col items-center gap-5 lg:flex-row lg:justify-between lg:gap-8">
+        <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+          <span className="text-[10px] font-bold uppercase tracking-[1.5px] text-white/80">{meta.heroEyebrow || 'Eyebrow'}</span>
+          <div className="mt-1.5 text-lg font-black leading-tight">{title || 'Band title'}</div>
+          {meta.heroSubtitle && <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-white/85">{meta.heroSubtitle}</p>}
+          <div className="mt-3 flex gap-2">
+            <span className="rounded-full bg-white px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8E6B1D' }}>Explore chapters</span>
+            <span className="rounded-full border border-white/50 bg-white/10 px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white">Create a chapter</span>
+          </div>
+        </div>
+        <div className="w-full max-w-md border-t border-white/20 pt-3 lg:w-auto lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+          <div className="flex justify-center gap-6">
+            {[['108', 'Chapters'], ['55', 'Countries'], ['9', 'Events']].map(([v, l]) => (
+              <div key={l} className="flex flex-col items-center">
+                <span className="text-lg font-extrabold">{v}</span>
+                <span className="text-[9.5px] font-bold uppercase tracking-wider text-white/85">{l}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-center text-[10px] text-white/60">Numbers are live platform data — not editable</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Live preview of a designed page (About / Careers), rendered straight from
 // the draft settings — what /about and /careers will actually show.
 function SettingsPreview({ title, meta, sections }) {
@@ -270,7 +306,7 @@ export default function Cms() {
   const select = (p) => { setSelectedId(p.id); setDraft({ title: p.title || '', content: p.content || '', meta: cloneMeta(p.meta) }); setPreview(false); };
 
   // Main site pages first, then policies, then custom pages alphabetically.
-  const SLUG_ORDER = ['about', 'careers', 'faqs', 'help', 'refund-policy', 'terms', 'privacy', 'community-guidelines', 'cookie-policy'];
+  const SLUG_ORDER = ['home-network', 'event-hero', 'about', 'careers', 'faqs', 'help', 'refund-policy', 'terms', 'privacy', 'community-guidelines', 'cookie-policy'];
   const orderedPages = [...pages].sort((a, b) => {
     const ai = SLUG_ORDER.indexOf(a.slug), bi = SLUG_ORDER.indexOf(b.slug);
     if (ai !== -1 && bi !== -1) return ai - bi;
@@ -502,7 +538,14 @@ export default function Cms() {
                 )}
               </div>
 
-              {sections.length > 0 ? (
+              {current.slug === 'home-network' ? (
+                /* Home band: fully settings-driven — the markdown body is never
+                   shown publicly, so preview the band itself instead. */
+                <div className="mt-4">
+                  <div className="mb-1.5 text-[12.5px] font-semibold text-gray-700">Live preview — the home page band, built from the Page settings above</div>
+                  <BandPreview title={draft.title} meta={meta} />
+                </div>
+              ) : sections.length > 0 ? (
                 /* Designed page (About/Careers): the markdown body isn't shown
                    publicly — instead render a live preview of the settings. */
                 <div className="mt-4">

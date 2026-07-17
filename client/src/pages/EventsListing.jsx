@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ApiEventCard from '../components/common/ApiEventCard';
+import { ChapterFlag } from '../components/common/ChapterMark';
 import { SkeletonGrid } from '../components/common/Skeleton';
 import { Icon } from '../components/common/Icon';
 import { useApp } from '../context/AppContext';

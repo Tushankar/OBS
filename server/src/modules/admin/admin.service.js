@@ -1,10 +1,11 @@
 import mongoose from 'mongoose';
-import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, CmsPage, Speaker, Program, EmailLog, AuditLog, Ticket } from '../../models/index.js';
+import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, ChapterMember, CmsPage, Speaker, Program, EmailLog, AuditLog, Ticket } from '../../models/index.js';
 
 // User-supplied search terms go into $regex — escape metacharacters so a
 // search for "(" is a literal match, not a Mongo regex error (500).
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 import { cancelEventCascade } from '../events/events.service.js';
+import { notifyChapterMembersOfEvent } from '../chapters/chapters.service.js';
 import { notFoundError, conflict } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { sendMail } from '../../utils/mailer.js';
@@ -179,6 +180,7 @@ export async function getEventAdmin(id) {
     programDayNumber: e.programDayNumber ?? null,
     isLaunch: !!e.isLaunch,
     launchAt: e.launchAt || null,
+    membersOnly: !!e.membersOnly,
   };
 }
 
@@ -197,7 +199,7 @@ async function platformOrganizer(adminId) {
   return profile;
 }
 
-const ADMIN_EVENT_FIELDS = ['title', 'description', 'categoryId', 'chapterId', 'isOnline', 'meetingLink', 'venueName', 'address', 'city', 'country', 'startAt', 'endAt', 'currency', 'bannerUrl', 'speakerIds', 'programId', 'programDayNumber', 'isLaunch', 'launchAt'];
+const ADMIN_EVENT_FIELDS = ['title', 'description', 'categoryId', 'chapterId', 'isOnline', 'meetingLink', 'venueName', 'address', 'city', 'country', 'startAt', 'endAt', 'currency', 'bannerUrl', 'speakerIds', 'programId', 'programDayNumber', 'isLaunch', 'launchAt', 'membersOnly'];
 
 async function assertEventRefs(body) {
   if (body.categoryId && !(await Category.exists({ _id: body.categoryId }))) throw conflict('INVALID_CATEGORY', 'Category not found');
@@ -225,6 +227,8 @@ export async function createEventAdmin(adminId, body) {
   await event.populate('organizerId', 'orgName');
   await event.populate('categoryId', 'name');
   await writeAudit({ actorId: adminId, action: 'EVENT_CREATED_BY_ADMIN', entityType: 'Event', entityId: event._id, meta: { title: event.title, published: publish } });
+  // Member perk: tell the chapter's members their chapter has a new live event.
+  if (publish && event.chapterId) notifyChapterMembersOfEvent(event._id).catch((err) => console.error('[admin] member notify failed:', err.message));
   return adminEventRow(event);
 }
 
@@ -248,7 +252,9 @@ export async function updateEventAdmin(adminId, id, body) {
   if (body.title !== undefined && body.title !== event.title) event.slug = await uniqueSlug(Event, body.title, { ignoreId: event._id });
   if (event.startAt && event.endAt && new Date(event.endAt) <= new Date(event.startAt)) throw conflict('INVALID_DATE_RANGE', 'End time must be after the start time');
 
+  let notifyMembers = false;
   if (publish === true && event.status !== 'PUBLISHED') {
+    notifyMembers = !event.publishedAt && !!event.chapterId; // republish cycles never re-email members
     event.status = 'PUBLISHED';
     if (!event.publishedAt) event.publishedAt = new Date();
     await writeAudit({ actorId: adminId, action: 'EVENT_PUBLISHED_BY_ADMIN', entityType: 'Event', entityId: event._id, meta: { title: event.title } });
@@ -258,6 +264,9 @@ export async function updateEventAdmin(adminId, id, body) {
   }
 
   await event.save();
+  // Member perk: tell the chapter's members their chapter has a new live event
+  // (after the save so members never get a link to a not-yet-live event).
+  if (notifyMembers) notifyChapterMembersOfEvent(event._id).catch((err) => console.error('[admin] member notify failed:', err.message));
   return adminEventRow(event);
 }
 
@@ -291,12 +300,16 @@ export async function approveEvent(adminId, id) {
   if (event.status !== 'PENDING_APPROVAL') {
     throw conflict('INVALID_EVENT_STATE', `Only a pending event can be approved (this one is ${event.status})`);
   }
+  const firstPublish = !event.publishedAt; // re-approvals never re-email members
   event.status = 'PUBLISHED';
   event.publishedAt = new Date();
   event.rejectionReason = undefined;
   await event.save();
 
   await writeAudit({ actorId: adminId, action: 'EVENT_APPROVED', entityType: 'Event', entityId: event._id, meta: { title: event.title } });
+
+  // Member perk: tell the chapter's members their chapter has a new live event.
+  if (firstPublish && event.chapterId) notifyChapterMembersOfEvent(event._id).catch((err) => console.error('[admin] member notify failed:', err.message));
 
   const user = event.organizerId?.userId;
   if (user?.email) {
@@ -734,9 +747,38 @@ function shapeChapterAdmin(c) {
 
 export async function adminListChapters() {
   const rows = await Chapter.find({}).sort({ sortOrder: 1, name: 1 });
-  const counts = await Event.aggregate([{ $match: { chapterId: { $ne: null } } }, { $group: { _id: '$chapterId', n: { $sum: 1 } } }]);
+  const [counts, memberCounts] = await Promise.all([
+    Event.aggregate([{ $match: { chapterId: { $ne: null } } }, { $group: { _id: '$chapterId', n: { $sum: 1 } } }]),
+    ChapterMember.aggregate([{ $group: { _id: '$chapterId', n: { $sum: 1 } } }]),
+  ]);
   const cmap = new Map(counts.map((c) => [String(c._id), c.n]));
-  return rows.map((c) => ({ ...shapeChapterAdmin(c), eventCount: cmap.get(String(c._id)) || 0 }));
+  const mmap = new Map(memberCounts.map((c) => [String(c._id), c.n]));
+  return rows.map((c) => ({ ...shapeChapterAdmin(c), eventCount: cmap.get(String(c._id)) || 0, memberCount: mmap.get(String(c._id)) || 0 }));
+}
+
+// GET /admin/chapters/:id/members — the member roster (who joined, when), with
+// name/email search. Counts alone were useless for follow-up — this is the list.
+export async function listChapterMembers(chapterId, { q, page = 1, limit = 25 } = {}) {
+  const chapter = await Chapter.findById(chapterId);
+  if (!chapter) throw notFoundError('CHAPTER_NOT_FOUND', 'Chapter not found');
+  const filter = { chapterId };
+  if (q) {
+    const rx = { $regex: escapeRegex(q), $options: 'i' };
+    const users = await User.find({ $or: [{ name: rx }, { email: rx }] }).select('_id').limit(500);
+    filter.userId = { $in: users.map((u) => u._id) };
+  }
+  const [rows, total] = await Promise.all([
+    ChapterMember.find(filter).populate('userId', 'name email').sort({ joinedAt: -1 }).skip((page - 1) * limit).limit(limit),
+    ChapterMember.countDocuments(filter),
+  ]);
+  const members = rows.filter((m) => m.userId).map((m) => ({
+    id: String(m._id),
+    userId: String(m.userId._id),
+    name: m.userId.name,
+    email: m.userId.email,
+    joinedAt: m.joinedAt || null,
+  }));
+  return { chapter: { id: String(chapter._id), name: chapter.name }, members, total, page, limit, pages: Math.ceil(total / limit) || 1 };
 }
 
 const CHAPTER_FIELDS = ['type', 'tier', 'pillarGroup', 'ecosystemTier', 'countryCode', 'flagEmoji', 'description', 'isFlagship', 'isActive', 'sortOrder'];

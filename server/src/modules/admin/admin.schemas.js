@@ -21,6 +21,13 @@ export const listEventsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+// GET /admin/chapters/:id/members — roster with name/email search.
+export const listChapterMembersQuery = z.object({
+  q: z.string().trim().max(160).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
+
 export const rejectEventSchema = z.object({
   reason: z.string().trim().min(3, 'A reason is required').max(1000),
 });
@@ -55,6 +62,8 @@ const eventContentShape = {
   // §5.6 — Launchpad: flag an event as a launch (+ optional countdown).
   isLaunch: z.boolean(),
   launchAt: z.coerce.date().nullable(),
+  // Chapter-member perk: restrict booking to members of the event's chapter.
+  membersOnly: z.boolean(),
 };
 
 // POST /admin/events — admin creates an OBS event (title required; publish to go

@@ -4,6 +4,8 @@ import { writeAudit } from '../../utils/audit.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { notifyAdmins } from '../notifications/notifications.service.js';
 import { publicEventCard } from '../events/events.service.js';
+import { sendMail } from '../../utils/mailer.js';
+import { env } from '../../config/env.js';
 
 // Fuller shape for owner/detail views (adds the editable + moderation fields).
 function shapeChapterFull(c) {
@@ -89,6 +91,58 @@ export async function leaveChapter(userId, chapterId) {
   if (!chapter) throw notFoundError('CHAPTER_NOT_FOUND', 'Chapter not found');
   await ChapterMember.deleteOne({ chapterId, userId });
   return { joined: false, memberCount: await memberCountOf(chapterId) };
+}
+
+// Member perk: when an event goes live in a chapter, email every member of that
+// chapter (fire-and-forget — callers never await delivery). The event's own
+// organizer is skipped so admins/organizers don't get notified about their own
+// event. Callers gate this to the FIRST publish so unpublish→republish cycles
+// and re-approvals never re-blast members.
+export async function notifyChapterMembersOfEvent(eventId) {
+  const event = await Event.findById(eventId).populate('chapterId', 'name slug').populate({ path: 'organizerId', select: 'userId' });
+  if (!event || event.status !== 'PUBLISHED' || !event.chapterId?._id) return;
+  const chapter = event.chapterId;
+  const organizerUserId = event.organizerId?.userId ? String(event.organizerId.userId) : null;
+  const members = await ChapterMember.find({ chapterId: chapter._id }).populate('userId', 'name email');
+  const url = `${env.APP_URL}/event/${event.slug}`;
+  const when = event.startAt
+    ? new Date(event.startAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: event.timezone || 'Asia/Kolkata' })
+    : 'Date to be announced';
+  const where = event.isOnline ? 'Online' : [event.venueName, event.city].filter(Boolean).join(', ') || 'Venue TBA';
+  for (const m of members) {
+    const user = m.userId;
+    if (!user?.email || String(user._id) === organizerUserId) continue;
+    try {
+      await sendMail({
+        to: user.email,
+        subject: `New in your ${chapter.name} chapter: ${event.title}`,
+        type: 'CHAPTER_NEW_EVENT',
+        userId: user._id,
+        eventId: event._id,
+        text: `Hi ${user.name},\n\nA new event just went live in the ${chapter.name} chapter you're a member of:\n\n${event.title}\n${when} · ${where}\n\nBook your spot: ${url}\n\n— OBS Events`,
+        html: `<p>Hi ${user.name},</p><p>A new event just went live in the <strong>${chapter.name}</strong> chapter you're a member of:</p><p><strong>${event.title}</strong><br/>${when} · ${where}</p><p><a href="${url}">View the event &amp; book your spot</a></p><p>— OBS Events</p>`,
+      });
+    } catch (err) {
+      console.error(`[chapters] member mail failed (${user.email}):`, err.message);
+    }
+  }
+}
+
+// GET /chapters/mine/feed — the member perk feed: upcoming PUBLISHED events from
+// every chapter the user has joined or created (approved ones), soonest first.
+export async function myChapterFeed(userId, { limit = 12 } = {}) {
+  const [memberships, created] = await Promise.all([
+    ChapterMember.find({ userId }).select('chapterId'),
+    Chapter.find({ createdById: userId, status: 'APPROVED' }).select('_id'),
+  ]);
+  const ids = [...new Set([...memberships.map((m) => String(m.chapterId)), ...created.map((c) => String(c._id))])];
+  if (!ids.length) return { events: [], chapterCount: 0 };
+  const events = await Event.find({ chapterId: { $in: ids }, status: 'PUBLISHED', endAt: { $gte: new Date() } })
+    .populate('categoryId', 'name slug')
+    .populate('chapterId', 'name slug flagEmoji countryCode')
+    .sort({ startAt: 1 })
+    .limit(limit);
+  return { events: events.map(publicEventCard), chapterCount: ids.length };
 }
 
 // Community chapters may not impersonate official OBS chapters (admin-managed

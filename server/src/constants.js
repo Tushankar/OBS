@@ -43,6 +43,7 @@ export const EMAIL_TYPE = [
   'EMAIL_VERIFICATION', // verify-your-address link sent on signup / on request
   'ATTENDEE_MESSAGE', // admin-triggered one-to-one message to a specific ticket holder
   'PROMO_CODE', // loyalty promo code granted to a frequent booker
+  'CHAPTER_NEW_EVENT', // sent to chapter members when an event goes live in their chapter
 ];
 // Admin email campaigns (announcements / new-event launches).
 export const CAMPAIGN_STATUS = ['DRAFT', 'SENDING', 'SENT'];

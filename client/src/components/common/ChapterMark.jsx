@@ -449,7 +449,7 @@ export function ChapterFlag({ code, className = '' }) {
       alt=""
       loading="lazy"
       draggable="false"
-      className={`inline-block shrink-0 select-none object-cover ring-1 ring-black/10 ${className}`}
+      className={`inline-block shrink-0 select-none object-cover ${className}`}
     />
   );
 }
@@ -465,8 +465,8 @@ export default function ChapterMark({ chapter, size = 'md', className = '' }) {
   const s = SIZES[size] || SIZES.md;
   if (chapter?.countryCode) {
     return (
-      <span className={`grid shrink-0 place-items-center border border-line bg-white shadow-sm ${s.tile} ${className}`}>
-        <ChapterFlag code={chapter.countryCode} className={`${s.flag} shadow-sm`} />
+      <span className={`grid shrink-0 place-items-center ${s.tile} ${className}`}>
+        <ChapterFlag code={chapter.countryCode} className={s.flag} />
       </span>
     );
   }

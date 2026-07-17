@@ -68,6 +68,7 @@ router.post('/chapters', validate({ body: schemas.createChapterSchema }), asyncH
 router.patch('/chapters/:id', validate({ params: schemas.idParam, body: schemas.updateChapterSchema }), asyncHandler(c.updateChapter));
 router.patch('/chapters/:id/status', validate({ params: schemas.idParam, body: schemas.setChapterStatusSchema }), asyncHandler(c.setChapterStatus));
 router.delete('/chapters/:id', validate({ params: schemas.idParam }), asyncHandler(c.deleteChapter));
+router.get('/chapters/:id/members', validate({ params: schemas.idParam, query: schemas.listChapterMembersQuery }), asyncHandler(c.listChapterMembers));
 
 // --- CMS pages CRUD (task 3.5) ---
 router.get('/cms', asyncHandler(c.listCmsPages));

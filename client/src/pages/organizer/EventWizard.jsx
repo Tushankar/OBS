@@ -30,6 +30,7 @@ const BLANK = {
   venueName: '', address: '', city: '', country: '', lat: null, lng: null, placeId: '',
   startAt: '', endAt: '',
   speakerIds: [], programId: '', programDayNumber: '', isLaunch: false, launchAt: '',
+  membersOnly: false,
   rejectionReason: '',
 };
 
@@ -45,6 +46,7 @@ const eventToForm = (e) => ({
   programDayNumber: e.programDayNumber ?? '',
   isLaunch: !!e.isLaunch,
   launchAt: isoToLocalInput(e.launchAt),
+  membersOnly: !!e.membersOnly,
   rejectionReason: e.rejectionReason || '',
 });
 
@@ -178,6 +180,7 @@ export default function EventWizard() {
       description: form.description.trim() || undefined,
       categoryId: form.categoryId || undefined,
       chapterId: form.chapterId || null,
+      membersOnly: !!(form.chapterId && form.membersOnly), // meaningless without a chapter
     };
     setSaving(true);
     try {
@@ -405,6 +408,18 @@ export default function EventWizard() {
                   <option value="">No chapter</option>
                   {chapters.map((c) => <option key={c.id} value={c.id}>{c.flagEmoji ? `${c.flagEmoji} ` : ''}{c.name}</option>)}
                 </select>
+                {form.chapterId && (
+                  <label className={`mt-2 flex items-start gap-2 text-[12.5px] text-[#4B5563] ${readOnly ? 'opacity-60' : 'cursor-pointer'}`}>
+                    <input
+                      type="checkbox"
+                      checked={!!form.membersOnly}
+                      disabled={readOnly}
+                      onChange={(e) => set('membersOnly', e.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[#E5B700]"
+                    />
+                    <span><span className="font-semibold text-[#111827]">Members-only</span> — only members of this chapter can book tickets</span>
+                  </label>
+                )}
               </Field>
             </div>
             <Field label="Description">
@@ -604,7 +619,14 @@ export default function EventWizard() {
                     <Field label={program && form.programId === program.id ? `Day of ${program.name}` : 'Program day'}>
                       <select className={inputCls} value={form.programDayNumber || ''} disabled={!extrasEditable} onChange={(e) => set('programDayNumber', Number(e.target.value))}>
                         {!form.programDayNumber && <option value="">Select a day…</option>}
-                        {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Day {n}</option>)}
+                        {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => {
+                          // Day n's real date = season start + (n−1) days — the same
+                          // formula the server uses when generating ProgramDay rows.
+                          const date = program && form.programId === program.id && program.startAt
+                            ? new Date(new Date(program.startAt).getTime() + (n - 1) * 864e5).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : null;
+                          return <option key={n} value={n}>Day {n}{date ? ` — ${date}` : ''}</option>;
+                        })}
                       </select>
                     </Field>
                   </div>

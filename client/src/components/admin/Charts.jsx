@@ -311,7 +311,13 @@ export function GroupedBars({ rows = [], series = [], format = (v) => Number(v).
             <div className="space-y-1.5">
               {(r.values || []).map((v, si) => (
                 <div key={si} className="flex items-center gap-2.5" title={`${r.label} — ${series[si]?.label}: ${format(v || 0)}`}>
-                  <div className="h-[10px] flex-1 overflow-hidden rounded-full bg-gray-100">
+                  {/* Inline series label so each bar reads on its own — no
+                      cross-referencing the legend to know which row is which. */}
+                  <span className="flex w-12 shrink-0 items-center gap-1.5 truncate text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: series[si]?.color }} />
+                    {series[si]?.label}
+                  </span>
+                  <div className="h-3 flex-1 overflow-hidden rounded-full bg-gray-200/80">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -320,7 +326,7 @@ export function GroupedBars({ rows = [], series = [], format = (v) => Number(v).
                       }}
                     />
                   </div>
-                  <span className="w-12 shrink-0 text-right text-xs font-semibold text-gray-800 [font-variant-numeric:tabular-nums]">{format(v || 0)}</span>
+                  <span className={`w-12 shrink-0 text-right text-[13px] font-bold [font-variant-numeric:tabular-nums] ${v ? 'text-gray-900' : 'text-gray-400'}`}>{format(v || 0)}</span>
                 </div>
               ))}
             </div>

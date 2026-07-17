@@ -35,3 +35,8 @@ export async function mine(req, res) {
   const result = await chapterService.myChapters(req.user.id);
   res.status(200).json(result);
 }
+
+export async function mineFeed(req, res) {
+  const result = await chapterService.myChapterFeed(req.user.id);
+  res.status(200).json(result);
+}

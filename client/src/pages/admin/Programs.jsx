@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PageHead, Card, Btn, Loading, EmptyState, Pill, statusTone, Modal, ConfirmDialog, Field, inputCls, selectCls } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
@@ -22,6 +22,65 @@ function seasonLine(season) {
   if (season.phase === 'ACTIVE') return `Day ${season.dayOfSeason} of ${season.totalDays}`;
   if (season.phase === 'UPCOMING') return season.daysUntil > 0 ? `Starts in ${season.daysUntil} day${season.daysUntil === 1 ? '' : 's'}` : 'Starts today';
   return 'Season ended';
+}
+
+// Single-image banner control: upload a file (POST /uploads/images) or paste a
+// URL — with a live preview and remove button.
+function CoverUploader({ value, onChange, pushToast }) {
+  const inputRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+
+  async function handleFile(fileList) {
+    const file = fileList?.[0];
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { pushToast('Use a JPG, PNG, WEBP or GIF image', false); return; }
+    if (file.size > 5 * 1024 * 1024) { pushToast('Image is over 5MB', false); return; }
+    setBusy(true);
+    try {
+      const urls = await api.uploadImages([file]);
+      onChange(urls[0]);
+      pushToast('Banner uploaded');
+    } catch (e) {
+      pushToast(apiError(e, 'Upload failed — try again'), false);
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  return (
+    <div>
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={(e) => handleFile(e.target.files)} />
+      {value ? (
+        <div className="group relative overflow-hidden rounded-lg border border-[#DCE3EC]">
+          <img src={value} alt="Program banner" className="aspect-[16/4] w-full object-cover" />
+          <div className="absolute right-2 top-2 flex gap-1.5">
+            <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className="rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-black/75">
+              {busy ? 'Uploading…' : 'Replace'}
+            </button>
+            <button type="button" onClick={() => onChange('')} aria-label="Remove banner" className="grid h-6 w-6 place-items-center rounded-full bg-black/55 text-xs text-white transition hover:bg-black/75">✕</button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          className="flex h-20 w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-[#DCE3EC] text-[13px] text-[#6B7280] transition hover:border-[#C99E25] hover:text-[#C99E25] disabled:opacity-60"
+        >
+          {busy
+            ? <span className="flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#DCE3EC] border-t-[#C99E25]" /> Uploading…</span>
+            : <><span className="text-xl leading-none">＋</span><span>Upload banner image (wide, up to 5MB)</span></>}
+        </button>
+      )}
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="…or paste an image URL"
+        className={`${inputCls} mt-2`}
+      />
+    </div>
+  );
 }
 
 function ProgramEditor({ initial, onClose, onSaved }) {
@@ -106,7 +165,9 @@ function ProgramEditor({ initial, onClose, onSaved }) {
           <Field label="Theme" hint="Season-wide tagline"><input value={form.theme} onChange={(e) => set('theme', e.target.value)} placeholder="e.g. One Business Season" className={inputCls} /></Field>
         </div>
         <div className="sm:col-span-2">
-          <Field label="Cover URL"><input value={form.coverUrl} onChange={(e) => set('coverUrl', e.target.value)} placeholder="https://…" className={inputCls} /></Field>
+          <Field label="Banner image" hint="Shown behind the 100 Days band on the home page and the program hero.">
+            <CoverUploader value={form.coverUrl} onChange={(url) => set('coverUrl', url)} pushToast={pushToast} />
+          </Field>
         </div>
         <div className="sm:col-span-2">
           <Field label="Description"><textarea value={form.description} onChange={(e) => set('description', e.target.value)} rows={3} placeholder="What this season is about…" className={`${inputCls} resize-y`} /></Field>

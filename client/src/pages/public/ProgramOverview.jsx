@@ -85,7 +85,13 @@ export default function ProgramOverview() {
   return (
     <div className="bg-[#F5F5F5] pb-12">
       <Seo title="100 Days Program" description={program.description || '100 days of business events across the OBS network.'} />
-      <div className="relative overflow-hidden bg-gold-gradient py-12 text-white shadow-sm">
+      <div className={`relative overflow-hidden py-12 text-white shadow-sm ${program.coverUrl ? 'bg-footer' : 'bg-gold-gradient'}`}>
+        {program.coverUrl && (
+          <>
+            <img src={program.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <span className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/30" />
+          </>
+        )}
         <div className="relative z-10 mx-auto flex max-w-container flex-col px-4 sm:px-6 md:flex-row md:items-center md:justify-between">
           <div>
             <span className="rounded bg-white/20 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider backdrop-blur-md">

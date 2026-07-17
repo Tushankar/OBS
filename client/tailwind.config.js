@@ -40,7 +40,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Roboto', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['Poppins', 'Inter', 'Roboto', 'system-ui', 'sans-serif'],
       },
       maxWidth: {
         container: '1240px',
@@ -63,12 +63,15 @@ export default {
         slideUp: { from: { transform: 'translateY(100%)' }, to: { transform: 'translateY(0)' } },
         scaleIn: { from: { transform: 'scale(.5)', opacity: 0 }, to: { transform: 'scale(1)', opacity: 1 } },
         shake: { '0%,100%': { transform: 'translateX(0)' }, '25%': { transform: 'translateX(-4px)' }, '75%': { transform: 'translateX(4px)' } },
+        marquee: { to: { transform: 'translateX(-50%)' } },
       },
       animation: {
         fadeUp: 'fadeUp .25s ease',
         slideUp: 'slideUp .3s ease',
         scaleIn: 'scaleIn .4s ease-out',
         shake: 'shake .15s ease 2',
+        marquee: 'marquee var(--duration, 30s) linear infinite',
+        'marquee-reverse': 'marquee var(--duration, 30s) linear infinite reverse',
       },
     },
   },

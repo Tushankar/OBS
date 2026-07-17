@@ -9,6 +9,28 @@ import {
 const toStats = (rows) => rows.map(([value, label]) => ({ value, label }));
 
 const DEFAULTS = {
+  // Home "OBS network" band — eyebrow/title/subtitle/banner are editable; the
+  // stats strip (chapters/countries/events) always comes live from the API.
+  'home-network': () => ({
+    title: 'Local chapters. One global business season.',
+    content: 'Home page network band — edit the texts and banner via Page settings. The numbers strip is always live platform data.',
+    meta: {
+      heroEyebrow: 'The OBS Network',
+      heroSubtitle: 'Chapters are local OBS communities around the world — each runs its own events under the global season.',
+      heroImageUrl: '/images/chapter_band_bg.png',
+    },
+  }),
+
+  // Event page hero backdrop — one global image behind the dark band on every
+  // event detail page.
+  'event-hero': () => ({
+    title: 'Event page hero background',
+    content: 'Global background image for the dark hero band on every event page. Change it via the Banner image field in Page settings — no code needed.',
+    meta: {
+      heroImageUrl: '/images/event-hero.jpg',
+    },
+  }),
+
   about: () => ({
     title: 'We help the world go out — with purpose.',
     content: 'About OBS Events — this page is fully designed; edit it via Page settings in Admin → Site pages.',

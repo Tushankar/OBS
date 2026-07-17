@@ -41,6 +41,33 @@ export default function BookingCard({ event }) {
       .catch(() => {});
   }, [user, event.id]);
 
+  // Members-only gate (chapter perk). The server enforces this at order
+  // creation; the card explains it and offers a one-tap join instead of letting
+  // the booking fail with a 403.
+  const membersOnly = !!event.membersOnly && !!event.chapter;
+  const [membership, setMembership] = useState(null); // null = unknown/checking
+  const [joining, setJoining] = useState(false);
+  useEffect(() => {
+    if (!membersOnly || !user) { setMembership(null); return; }
+    api.chapter(event.chapter.slug)
+      .then((d) => setMembership({ isMember: !!d.isMember, chapterId: d.chapter?.id || event.chapter.id }))
+      .catch(() => setMembership({ isMember: false, chapterId: event.chapter.id }));
+  }, [membersOnly, user, event.chapter?.slug]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const joinAndUnlock = async () => {
+    if (!membership?.chapterId) return;
+    setJoining(true);
+    try {
+      await api.joinChapter(membership.chapterId);
+      setMembership((m) => ({ ...m, isMember: true }));
+      pushToast(`Welcome to the ${event.chapter.name} chapter — you can book now`);
+    } catch (e) {
+      pushToast(apiError(e, 'Could not join the chapter'), false);
+    } finally {
+      setJoining(false);
+    }
+  };
+
   const totalDays = spanDays(event.startAt, event.endAt);
   const multiDay = totalDays > 1;
   // A pass with no validDays admits every day, so it matches any day filter.
@@ -103,9 +130,43 @@ export default function BookingCard({ event }) {
     }
   }
 
+  // Non-members (and signed-out visitors) see the join gate instead of tickets.
+  if (membersOnly && (!user || !membership?.isMember)) {
+    return (
+      <div className="rounded-xl border border-line p-5 shadow-panel">
+        <div className="mb-3 text-base font-bold text-ink">Book tickets</div>
+        <div className="rounded-lg border border-brand/25 bg-brand-soft p-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-brand-dark">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+            Members-only event
+          </div>
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-soft">
+            Booking is exclusive to members of the <span className="font-semibold text-ink">{event.chapter.name}</span> chapter.
+          </p>
+          {!user ? (
+            <button onClick={() => setAuthOpen(true)} className="mt-3 w-full rounded-full bg-brand py-2.5 text-[13px] font-bold text-white transition hover:bg-brand-dark">
+              Sign in to continue
+            </button>
+          ) : membership === null ? (
+            <div className="mt-3 text-[12px] font-medium text-ink-mute">Checking your membership…</div>
+          ) : (
+            <button onClick={joinAndUnlock} disabled={joining} className="mt-3 w-full rounded-full bg-brand py-2.5 text-[13px] font-bold text-white transition hover:bg-brand-dark disabled:opacity-60">
+              {joining ? 'Joining…' : `Join the ${event.chapter.name} chapter — it's free`}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-line p-5 shadow-panel">
       <div className="mb-3 text-base font-bold text-ink">Book tickets</div>
+      {membersOnly && (
+        <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-bold text-brand-dark">
+          ✓ Members-only — you’re a {event.chapter.name} member
+        </div>
+      )}
 
       {types.length === 0 ? (
         <p className="text-[13px] text-ink-mute">Tickets aren’t on sale for this event right now.</p>

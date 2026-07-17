@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Order, Event, TicketType, PromoCode, Ticket, Refund } from '../../models/index.js';
+import { Order, Event, TicketType, PromoCode, Ticket, Refund, ChapterMember } from '../../models/index.js';
 import { nextSeq, formatOrderNumber } from '../../utils/counters.js';
 import { env } from '../../config/env.js';
 import { badRequest, conflict, forbidden, notFoundError } from '../../utils/errors.js';
@@ -82,6 +82,15 @@ export async function createOrder(userId, { eventId, items, promoCode }) {
   const saleCutoff = event.endAt || event.startAt;
   if (saleCutoff && saleCutoff <= new Date()) {
     throw badRequest('EVENT_ENDED', 'This event has already ended');
+  }
+
+  // Member-only perk (§ chapters): booking is restricted to members of the
+  // event's chapter. Enforced here so the guard can't be bypassed client-side.
+  if (event.membersOnly && event.chapterId) {
+    const isMember = await ChapterMember.exists({ chapterId: event.chapterId, userId });
+    if (!isMember) {
+      throw forbidden('MEMBERS_ONLY', 'This event is exclusive to chapter members — join the chapter to book');
+    }
   }
 
   const ids = items.map((i) => i.ticketTypeId);

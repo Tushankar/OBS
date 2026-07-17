@@ -30,6 +30,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
   const [chapters, setChapters] = useState([]);
   const [speakers, setSpeakers] = useState([]);
   const [programs, setPrograms] = useState([]);
+  const [programDays, setProgramDays] = useState([]);
   const [speakerQ, setSpeakerQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
@@ -56,6 +57,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     programDayNumber: initial?.programDayNumber ?? '',
     isLaunch: initial?.isLaunch ?? false,
     launchAt: toLocal(initial?.launchAt),
+    membersOnly: initial?.membersOnly ?? false,
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -102,8 +104,18 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
       programDayNumber: e.programDayNumber ?? '',
       isLaunch: !!e.isLaunch,
       launchAt: toLocal(e.launchAt),
+      membersOnly: !!e.membersOnly,
     }))).catch(() => {});
   }, [editing, initial]);
+
+  // Day dropdown options come from the selected program's real generated days
+  // (dates + any admin-set day titles) — no more typing a raw number.
+  useEffect(() => {
+    if (!form.programId) { setProgramDays([]); return; }
+    let alive = true;
+    api.programDaysAdmin(form.programId).then((days) => { if (alive) setProgramDays(Array.isArray(days) ? days : []); }).catch(() => { if (alive) setProgramDays([]); });
+    return () => { alive = false; };
+  }, [form.programId]);
 
   const toggleSpeaker = (id) => setForm((f) => ({
     ...f,
@@ -132,6 +144,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     };
     if (form.categoryId) body.categoryId = form.categoryId;
     body.chapterId = form.chapterId || null;
+    body.membersOnly = !!(form.chapterId && form.membersOnly); // meaningless without a chapter
     if (form.description.trim()) body.description = form.description.trim();
     if (form.startAt) body.startAt = new Date(form.startAt).toISOString();
     if (form.endAt) body.endAt = new Date(form.endAt).toISOString();
@@ -227,6 +240,12 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
               <option value="">No chapter</option>
               {chapters.map((c) => <option key={c.id} value={c.id}>{c.flagEmoji ? `${c.flagEmoji} ` : ''}{c.name}</option>)}
             </select>
+            {form.chapterId && (
+              <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-gray-600">
+                <input type="checkbox" checked={!!form.membersOnly} onChange={(e) => set('membersOnly', e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#E5B700]" />
+                <span><span className="font-semibold text-gray-900">Members-only</span> — only members of this chapter can book tickets</span>
+              </label>
+            )}
           </Field>
           <Field label="Format">
             <select value={form.isOnline ? 'online' : 'venue'} onChange={(e) => set('isOnline', e.target.value === 'online')} className={`${selectCls} w-full`}>
@@ -359,8 +378,17 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
                     {programs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </Field>
-                <Field label="Day (1–100)">
-                  <input type="number" min={1} max={100} value={form.programDayNumber || ''} onChange={(e) => set('programDayNumber', Number(e.target.value))} className={inputCls} />
+                <Field label="Day">
+                  <select value={form.programDayNumber || ''} onChange={(e) => set('programDayNumber', Number(e.target.value))} className={`${selectCls} w-full`}>
+                    {!form.programDayNumber && <option value="">Select a day…</option>}
+                    {(programDays.length ? programDays : Array.from({ length: 100 }, (_, i) => ({ dayNumber: i + 1 }))).map((d) => (
+                      <option key={d.dayNumber} value={d.dayNumber}>
+                        Day {d.dayNumber}
+                        {d.date ? ` — ${new Date(d.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                        {d.title || d.theme ? ` · ${(d.title || d.theme).slice(0, 32)}` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               </div>
             )}

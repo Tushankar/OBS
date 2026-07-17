@@ -91,7 +91,7 @@ export default function ApiEventCard({ event }) {
           {event.isOnline ? (
             <span className="ml-auto text-[10px] font-semibold text-white/60">ONLINE</span>
           ) : event.chapter?.countryCode ? (
-            <ChapterFlag code={event.chapter.countryCode} className="ml-auto h-3 w-4 rounded-[2px] ring-white/20" />
+            <ChapterFlag code={event.chapter.countryCode} className="ml-auto h-3 w-4 rounded-[2px]" />
           ) : null}
         </div>
       </div>
@@ -102,6 +102,11 @@ export default function ApiEventCard({ event }) {
           <span className="min-w-0 truncate">
             {loc}{event.chapter ? ` · ${event.chapter.name}` : ''}
           </span>
+          {event.membersOnly && (
+            <span className="shrink-0 rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[8.5px] font-bold uppercase tracking-wide leading-none text-amber-700">
+              Members
+            </span>
+          )}
           {event.ownership && (
             <span
               className={`shrink-0 rounded border px-1 py-0.5 text-[8.5px] font-bold uppercase tracking-wide leading-none ${

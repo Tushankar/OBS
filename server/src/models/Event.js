@@ -43,6 +43,9 @@ const eventSchema = new Schema(
     cancelReason: String,
     cancelledAt: Date,
     isFeatured: { type: Boolean, default: false },
+    // Chapter-member perk: when set (and chapterId is set), only members of
+    // that chapter can book — enforced server-side at order creation.
+    membersOnly: { type: Boolean, default: false },
     viewsCount: { type: Number, default: 0 },
     reminderSentAt: Date,
     publishedAt: Date,

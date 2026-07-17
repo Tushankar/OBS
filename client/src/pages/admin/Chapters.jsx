@@ -22,6 +22,7 @@ const COLUMNS = [
   { key: 'ecosystem', label: 'Ecosystem' },
   { key: 'flagship', label: 'Flagship' },
   { key: 'events', label: 'Events', align: 'right' },
+  { key: 'members', label: 'Members', align: 'right' },
   { key: 'actions', label: '', align: 'right' },
 ];
 const CAP = 40;
@@ -108,6 +109,67 @@ function Editor({ initial, onClose, onSaved, pushToast }) {
   );
 }
 
+// Member roster modal — who joined this chapter, when, with name/email search.
+function MembersModal({ chapter, onClose, pushToast }) {
+  const [data, setData] = useState(null); // { members, total, pages }
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    let alive = true;
+    const t = setTimeout(() => {
+      api.adminChapterMembers(chapter.id, { q: q.trim() || undefined, page, limit: 25 })
+        .then((d) => { if (alive) setData(d); })
+        .catch((e) => { if (alive) { setData({ members: [], total: 0, pages: 1 }); pushToast(apiError(e, 'Could not load members'), false); } });
+    }, q ? 300 : 0);
+    return () => { alive = false; clearTimeout(t); };
+  }, [chapter.id, q, page]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fmtJoined = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <Card className="max-h-[80vh] w-full max-w-xl overflow-y-auto">
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <h2 className="text-base font-bold text-[#111827]">Members — {chapter.name}</h2>
+          <Btn size="sm" variant="ghost" onClick={onClose}>Close</Btn>
+        </div>
+        <p className="mb-3 text-[12.5px] text-[#6B7280]">{data ? `${data.total} member${data.total === 1 ? '' : 's'}` : 'Loading…'}</p>
+        <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="Search name or email…" className="mb-3 max-w-xs" />
+        {!data ? (
+          <Loading />
+        ) : data.members.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[#DCE3EC] py-10 text-center text-sm text-[#6B7280]">
+            {q ? 'No members match your search.' : 'Nobody has joined this chapter yet.'}
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+            {data.members.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-soft text-xs font-bold uppercase text-[#C99E25]">
+                  {(m.name || '?').slice(0, 1)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-[#111827]">{m.name}</div>
+                  <div className="truncate text-xs text-[#6B7280]">{m.email}</div>
+                </div>
+                <span className="shrink-0 text-xs text-[#6B7280]">Joined {fmtJoined(m.joinedAt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {data && data.pages > 1 && (
+          <div className="mt-3 flex items-center justify-between">
+            <Btn size="sm" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>‹ Prev</Btn>
+            <span className="text-xs text-[#6B7280]">Page {page} of {data.pages}</span>
+            <Btn size="sm" variant="ghost" disabled={page >= data.pages} onClick={() => setPage((p) => p + 1)}>Next ›</Btn>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export default function Chapters() {
   const { pushToast } = useApp();
   const [chapters, setChapters] = useState(null);
@@ -118,6 +180,7 @@ export default function Chapters() {
   const [editor, setEditor] = useState(null); // null | {} | chapter
   const [confirm, setConfirm] = useState(null); // chapter pending delete
   const [suspendTarget, setSuspendTarget] = useState(null); // chapter pending suspend
+  const [membersFor, setMembersFor] = useState(null); // chapter whose roster is open
   const [busy, setBusy] = useState(false); // delete
   const [busyId, setBusyId] = useState(null); // status change
 
@@ -187,6 +250,11 @@ export default function Chapters() {
     if (key === 'ecosystem') return <span className="text-[#4B5563]">{c.ecosystemTier || '—'}</span>;
     if (key === 'flagship') return c.isFlagship ? <Pill tone="green">★</Pill> : <span className="text-ink-faint">—</span>;
     if (key === 'events') return <span className="font-medium text-[#111827]">{c.eventCount ?? 0}</span>;
+    if (key === 'members') return (
+      <button onClick={() => setMembersFor(c)} className="font-semibold text-[#C99E25] underline-offset-2 hover:underline" title="View member roster">
+        {c.memberCount ?? 0}
+      </button>
+    );
     if (key === 'actions') return (
       <div className="flex justify-end gap-1.5">
         {c.status !== 'APPROVED' && (
@@ -226,6 +294,7 @@ export default function Chapters() {
         </div>
       )}
       {editor && <Editor initial={editor} pushToast={pushToast} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); load(); }} />}
+      {membersFor && <MembersModal chapter={membersFor} pushToast={pushToast} onClose={() => setMembersFor(null)} />}
       <ConfirmDialog
         open={!!confirm}
         onClose={() => setConfirm(null)}

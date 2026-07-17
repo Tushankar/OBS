@@ -48,6 +48,7 @@ function shapeEvent(e) {
     endAt: e.endAt || null,
     rejectionReason: e.rejectionReason || null,
     isFeatured: !!e.isFeatured,
+    membersOnly: !!e.membersOnly,
     // §5.1 community layer — speakers / 100 Days linkage / Launchpad flags.
     speakerIds: (e.speakerIds || []).map(String),
     programId: e.programId ? String(e.programId) : null,
@@ -380,8 +381,9 @@ export function publicEventCard(e) {
     ownership: e.ownership || 'OBS',
     isLaunch: !!e.isLaunch,
     launchAt: e.launchAt || null,
+    membersOnly: !!e.membersOnly,
     category: cat ? { name: cat.name, slug: cat.slug } : null,
-    chapter: chap ? { name: chap.name, slug: chap.slug, flagEmoji: chap.flagEmoji || null, countryCode: chap.countryCode || null } : null,
+    chapter: chap ? { id: String(chap._id), name: chap.name, slug: chap.slug, flagEmoji: chap.flagEmoji || null, countryCode: chap.countryCode || null } : null,
   };
 }
 

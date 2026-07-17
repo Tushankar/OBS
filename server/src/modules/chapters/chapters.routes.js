@@ -16,6 +16,7 @@ router.get('/', validate({ query: schemas.listChaptersQuery }), asyncHandler(c.l
 // Open chapter creation (§5.1) — any signed-in user. `/mine` is declared before
 // `/:slug` so the literal path isn't captured by the slug param.
 router.get('/mine', requireAuth, asyncHandler(c.mine));
+router.get('/mine/feed', requireAuth, asyncHandler(c.mineFeed));
 router.post('/', requireAuth, validate({ body: schemas.createChapterSchema }), asyncHandler(c.create));
 router.patch('/:id', requireAuth, validate({ params: schemas.idParam, body: schemas.updateChapterSchema }), asyncHandler(c.update));
 router.get('/:slug', optionalAuth, validate({ params: slugParam }), asyncHandler(c.getBySlug));
