@@ -141,6 +141,7 @@ api.createMyChapter = (body) => unwrap(api.post('/chapters', body)).then((d) => 
 api.updateMyChapter = (id, body) => unwrap(api.patch(`/chapters/${id}`, body)).then((d) => d.chapter);
 api.myChapters = () => unwrap(api.get('/chapters/mine')); // { created, joined }
 api.myChapterFeed = () => unwrap(api.get('/chapters/mine/feed')); // { events, chapterCount } — member perk feed
+api.eventCities = () => unwrap(api.get('/events/cities')).then((d) => d.cities); // [{ city, country, count }] — live picker options
 api.adminChapterMembers = (id, params) => unwrap(api.get(`/admin/chapters/${id}/members`, { params })); // { chapter, members, total, ... }
 
 // Organizer events (Phase 1.2/1.3)

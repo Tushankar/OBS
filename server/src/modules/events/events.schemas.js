@@ -77,6 +77,7 @@ export const publicListQuery = z.object({
   q: z.string().trim().max(160).optional(),
   category: z.string().trim().max(160).optional(),
   city: z.string().trim().max(120).optional(),
+  country: z.string().trim().max(120).optional(),
   chapter: z.string().trim().max(160).optional(),
   mode: z.enum(['online', 'venue']).optional(),
   dateFrom: z.coerce.date().optional(),

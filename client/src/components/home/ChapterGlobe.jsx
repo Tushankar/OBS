@@ -182,15 +182,19 @@ export default function ChapterGlobe({ markers = [], chips = [], onChipClick, sp
       if (animationId) cancelAnimationFrame(animationId);
       if (ro) ro.disconnect();
       io.disconnect();
-      if (globe) globe.destroy();
+      if (globe) { globe.destroy(); globe = null; }
       delete canvas.__startLoop;
-      // Browsers cap live WebGL contexts (~16); without an explicit release,
-      // remounting this page repeatedly exhausts them and the globe silently
-      // renders nothing ("sometimes it doesn't load").
-      try {
-        const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-        gl?.getExtension('WEBGL_lose_context')?.loseContext();
-      } catch { /* best effort */ }
+      // Browsers cap live WebGL contexts (~16), so the context must be
+      // released — but ONLY once the canvas is really gone from the DOM.
+      // React StrictMode re-runs effects on the SAME canvas; losing its
+      // context there would permanently blank the globe.
+      setTimeout(() => {
+        if (canvas.isConnected) return; // same canvas will re-init — keep it
+        try {
+          const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+          gl?.getExtension('WEBGL_lose_context')?.loseContext();
+        } catch { /* best effort */ }
+      }, 0);
     };
   }, [speed]);
 

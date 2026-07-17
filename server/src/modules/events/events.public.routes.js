@@ -8,6 +8,8 @@ const router = Router();
 
 // Public catalog, mounted at /api/v1/events.
 router.get('/', validate({ query: schemas.publicListQuery }), asyncHandler(c.listPublic));
+// Declared before /:slug so the literal path isn't captured by the slug param.
+router.get('/cities', asyncHandler(c.listCities));
 router.get('/:slug/similar', validate({ params: schemas.slugParam }), asyncHandler(c.similar));
 router.get('/:slug', validate({ params: schemas.slugParam }), asyncHandler(c.getBySlug));
 

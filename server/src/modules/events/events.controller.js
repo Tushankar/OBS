@@ -70,6 +70,11 @@ export async function similar(req, res) {
   res.status(200).json({ events });
 }
 
+export async function listCities(req, res) {
+  const cities = await eventService.listPublicCities();
+  res.status(200).json({ cities });
+}
+
 // GET /launches (§5.6)
 export async function launches(req, res) {
   const events = await eventService.listLaunches(req.query);

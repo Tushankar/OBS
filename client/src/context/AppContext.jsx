@@ -13,7 +13,13 @@ export function useApp() {
 export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false); // initial silent-refresh done
-  const [city, setCity] = useState('Mumbai');
+  // Display city — 'Global' shows everything; picking a city filters the home
+  // rails to it. Persisted so the choice survives reloads.
+  const [city, setCityState] = useState(() => localStorage.getItem('obs.city') || 'Global');
+  const setCity = (c) => {
+    setCityState(c);
+    try { localStorage.setItem('obs.city', c); } catch { /* private mode */ }
+  };
   const [currency, setCurrencyState] = useState(detectDefaultCurrency); // display currency (UAE→AED else INR)
   const [toasts, setToasts] = useState([]);
   const [order, setOrder] = useState(null); // { id, evId, lines, sub, disc, fee, total }

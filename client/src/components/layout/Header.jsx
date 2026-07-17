@@ -24,8 +24,8 @@ const BROWSE_NAV = [
   ['Newsroom', '/news'],
 ];
 
-// Display-city choices for the header picker (a UI preference, not catalog data).
-const CITIES = ['Mumbai', 'Delhi NCR', 'Bengaluru', 'Hyderabad', 'Dubai', 'Singapore', 'London', 'New York'];
+// City picker is fully dynamic — every city with an upcoming published event,
+// fetched live; 'Global' (default) shows everything.
 
 // Deterministic gradient + monogram for suggestion thumbnails.
 const PALETTES = [
@@ -54,6 +54,13 @@ export default function Header({ onOpenAuth }) {
   const [sug, setSug] = useState({ events: [], chapters: [] });
   const [searching, setSearching] = useState(false);
   const [cityModal, setCityModal] = useState(false);
+  const [countries, setCountries] = useState([]); // all network country chapters
+  useEffect(() => {
+    if (!cityModal || countries.length) return;
+    api.chapters()
+      .then((rows) => setCountries((rows || []).filter((c) => c.type === 'GEO_COUNTRY').sort((a, b) => a.name.localeCompare(b.name))))
+      .catch(() => {});
+  }, [cityModal, countries.length]);
   const [curModal, setCurModal] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);
   const [mSearch, setMSearch] = useState(false);
@@ -265,11 +272,15 @@ export default function Header({ onOpenAuth }) {
       <PickerModal
         open={cityModal}
         onClose={() => setCityModal(false)}
-        title="Choose your city"
-        options={CITIES.map((c) => ({ value: c, label: c }))}
+        title="Choose your country"
+        subtitle="Every country in the OBS network. Pick one to focus the home page on it — Global shows everything."
+        options={[
+          { value: 'Global', label: 'Global — all countries', emoji: '🌍' },
+          ...countries.map((c) => ({ value: c.name, label: c.name, flagCode: c.countryCode })),
+        ]}
         value={city}
         onSelect={setCity}
-        columns={2}
+        wide
       />
 
       <Drawer open={drawer} onClose={() => setDrawer(false)} onOpenAuth={onOpenAuth} />

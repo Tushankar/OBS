@@ -389,6 +389,19 @@ export function publicEventCard(e) {
 
 const EMPTY_PAGE = (page, limit) => ({ events: [], total: 0, page, limit, pages: 0 });
 
+// GET /events/cities — every city that currently has an upcoming published
+// event (+ its country and event count), busiest first. Powers the header's
+// dynamic city picker.
+export async function listPublicCities() {
+  const rows = await Event.aggregate([
+    { $match: { status: 'PUBLISHED', endAt: { $gte: new Date() }, city: { $nin: [null, ''] } } },
+    { $group: { _id: { city: '$city', country: '$country' }, count: { $sum: 1 } } },
+    { $sort: { count: -1, '_id.city': 1 } },
+    { $limit: 100 },
+  ]);
+  return rows.map((r) => ({ city: r._id.city, country: r._id.country || null, count: r.count }));
+}
+
 // Min active ticket-type price (paise) per event → Map<eventIdStr, minPaise>.
 // Powers the card "from ₹X" hint (§10) and the free/paid filter. Events with no
 // active ticket type are absent from the map.
@@ -415,6 +428,21 @@ export async function listPublicEvents(q) {
     filter.$or = [{ title: rx }, { description: rx }, { city: rx }, { venueName: rx }];
   }
   if (q.city) filter.city = { $regex: `^${escapeRegex(q.city)}$`, $options: 'i' };
+  if (q.country) {
+    // Country selection: the hosting country CHAPTER is authoritative — an
+    // event linked to the Germany chapter belongs to Germany regardless of
+    // its venue text. Venue country only classifies chapterless events, so
+    // a country never leaks events that were assigned elsewhere.
+    const rx = { $regex: `^${escapeRegex(q.country)}$`, $options: 'i' };
+    const [countryChapters, geoChapters] = await Promise.all([
+      Chapter.find({ type: 'GEO_COUNTRY', name: rx }).select('_id'),
+      Chapter.find({ type: 'GEO_COUNTRY' }).select('_id'),
+    ]);
+    const or = [{ chapterId: { $nin: geoChapters.map((c) => c._id) }, country: rx }];
+    if (countryChapters.length) or.push({ chapterId: { $in: countryChapters.map((c) => c._id) } });
+    if (filter.$or) { filter.$and = [{ $or: filter.$or }, { $or: or }]; delete filter.$or; }
+    else filter.$or = or;
+  }
   if (q.mode === 'online') filter.isOnline = true;
   if (q.mode === 'venue') filter.isOnline = false;
   if (q.owner === 'obs') filter.ownership = 'OBS'; // §5.6 All/OBS/Partner tabs

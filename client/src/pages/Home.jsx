@@ -113,7 +113,7 @@ function Rail({ title, events, seeAllTo, navigate, empty, doodle = false }) {
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user } = useApp();
+  const { user, city } = useApp();
   const [memberFeed, setMemberFeed] = useState([]); // member perk — events from chapters the user joined
   const [mapEvents, setMapEvents] = useState([]); // upcoming events → globe marker sizes
   const [soon, setSoon] = useState(null);
@@ -132,10 +132,7 @@ export default function Home() {
   useEffect(() => {
     window.scrollTo(0, 0);
     api.heroSlides().then((d) => setHeroSlides(Array.isArray(d) ? d : [])).catch(() => setHeroSlides([]));
-    api.listEvents({ owner: 'obs', featured: 'true', limit: 8 }).then((d) => setFeatured(d.events || [])).catch(() => {});
-    api.listEvents({ sort: 'soonest', limit: 8 }).then((d) => setSoon(d.events)).catch(() => setSoon([]));
     api.launches('upcoming').then((d) => setLaunches((d || []).slice(0, 8))).catch(() => setLaunches([]));
-    api.listEvents({ sort: 'newest', limit: 8 }).then((d) => setRecent(d.events)).catch(() => setRecent([]));
     api.categories().then(setCats).catch(() => {});
     api.chapters().then(setChapters).catch(() => {});
     api.speakers().then((d) => setSpeakers((d || []).slice(0, 10))).catch(() => {});
@@ -145,6 +142,17 @@ export default function Home() {
     api.stats().then((s) => setStats(s || {})).catch(() => setStats({}));
     api.listEvents({ limit: 48 }).then((d) => setMapEvents(d.events || [])).catch(() => {});
   }, []);
+
+  // Event rails follow the header's country picker — 'Global' (default) shows
+  // everything; a chosen country refetches the rails scoped to it.
+  useEffect(() => {
+    const countryParam = city && city !== 'Global' ? city : undefined;
+    setSoon(null);
+    setRecent(null);
+    api.listEvents({ owner: 'obs', featured: 'true', limit: 8, country: countryParam }).then((d) => setFeatured(d.events || [])).catch(() => {});
+    api.listEvents({ sort: 'soonest', limit: 8, country: countryParam }).then((d) => setSoon(d.events)).catch(() => setSoon([]));
+    api.listEvents({ sort: 'newest', limit: 8, country: countryParam }).then((d) => setRecent(d.events)).catch(() => setRecent([]));
+  }, [city]);
 
   // Globe markers — ONLY chapters currently hosting upcoming events get a
   // gold dot (scaled by how many). Fully dynamic: link an event to a chapter
@@ -272,8 +280,8 @@ export default function Home() {
 
       {featured.length > 0 && <Rail title="Featured on OBS" events={featured} seeAllTo="/events?owner=obs&featured=true" navigate={navigate} />}
       {memberFeed.length > 0 && <Rail title="From your chapters" events={memberFeed} seeAllTo="/account/chapters" navigate={navigate} />}
-      <Rail title="Happening soon" events={soon} seeAllTo="/events" navigate={navigate} doodle />
-      <Rail title="Recently added" events={recent} seeAllTo="/events?sort=newest" navigate={navigate} empty="No new events yet." />
+      <Rail title={city !== 'Global' ? `Happening soon in ${city}` : 'Happening soon'} events={soon} seeAllTo="/events" navigate={navigate} empty={city !== 'Global' ? `No upcoming events in ${city} yet — switch to Global to see everything.` : undefined} doodle />
+      <Rail title={city !== 'Global' ? `Recently added in ${city}` : 'Recently added'} events={recent} seeAllTo="/events?sort=newest" navigate={navigate} empty={city !== 'Global' ? `No new events in ${city} yet.` : 'No new events yet.'} />
       {launches?.length > 0 && <Rail title="On the Launchpad" events={launches} seeAllTo="/launches" navigate={navigate} />}
 
       {/* Featured speakers rail (§5.2) */}
