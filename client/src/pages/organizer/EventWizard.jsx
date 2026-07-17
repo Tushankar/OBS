@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import api, { apiError, apiErrorCode } from '../../lib/api';
 import { fmtDateTime } from '../../lib/format';
 import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
+import { zonedInputToISO, isoToZonedInput, tzOffsetLabel, TIMEZONES, suggestTimezone } from '../../lib/timezones';
 import TicketTypesEditor from '../../components/organizer/TicketTypesEditor';
 import PromoCodesEditor from '../../components/organizer/PromoCodesEditor';
 import SponsorsEditor from '../../components/organizer/SponsorsEditor';
@@ -15,20 +16,17 @@ const STEPS = ['Basics', 'Banner', 'Venue', 'Tickets', 'Promos', 'Speakers & ext
 const EXTRAS_STEP = 6;
 const REVIEW_STEP = STEPS.length; // 7
 
-const pad = (n) => String(n).padStart(2, '0');
-function isoToLocalInput(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d)) return '';
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-const localInputToISO = (v) => (v && !isNaN(new Date(v)) ? new Date(v).toISOString() : undefined);
+// All schedule inputs are wall-clock times IN THE EVENT'S TIMEZONE (never the
+// creator's browser zone) — a Dubai organizer typing 19:00 for a London event
+// means 7 PM London. Conversions live in lib/timezones.
+const isoToLocalInput = (iso, tz) => isoToZonedInput(iso, tz || 'Asia/Dubai');
+const localInputToISO = (v, tz) => zonedInputToISO(v, tz || 'Asia/Dubai');
 
 const BLANK = {
   title: '', categoryId: '', chapterId: '', description: '',
   bannerUrl: '', images: [], isOnline: false, meetingLink: '',
   venueName: '', address: '', city: '', country: '', lat: null, lng: null, placeId: '',
-  startAt: '', endAt: '',
+  startAt: '', endAt: '', timezone: 'Asia/Dubai',
   speakerIds: [], programId: '', programDayNumber: '', isLaunch: false, launchAt: '',
   membersOnly: false,
   rejectionReason: '',
@@ -40,12 +38,13 @@ const eventToForm = (e) => ({
   isOnline: !!e.isOnline, meetingLink: e.meetingLink || '',
   venueName: e.venueName || '', address: e.address || '', city: e.city || '', country: e.country || '',
   lat: e.lat ?? null, lng: e.lng ?? null, placeId: e.placeId || '',
-  startAt: isoToLocalInput(e.startAt), endAt: isoToLocalInput(e.endAt),
+  timezone: e.timezone || 'Asia/Dubai',
+  startAt: isoToLocalInput(e.startAt, e.timezone), endAt: isoToLocalInput(e.endAt, e.timezone),
   speakerIds: (e.speakerIds || []).map(String),
   programId: e.programId ? String(e.programId) : '',
   programDayNumber: e.programDayNumber ?? '',
   isLaunch: !!e.isLaunch,
-  launchAt: isoToLocalInput(e.launchAt),
+  launchAt: isoToLocalInput(e.launchAt, e.timezone),
   membersOnly: !!e.membersOnly,
   rejectionReason: e.rejectionReason || '',
 });
@@ -127,6 +126,15 @@ export default function EventWizard() {
     }
   }, [routeId, chapters, searchParams]);
 
+  // Venue country → suggested event timezone, until the organizer picks one
+  // manually (their explicit choice always wins).
+  const tzTouched = useRef(false);
+  useEffect(() => {
+    if (tzTouched.current) return;
+    const s = suggestTimezone(form.country);
+    if (s && s !== form.timezone) setForm((f) => ({ ...f, timezone: s }));
+  }, [form.country]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ?program=<slug>&day=<n> pre-enables the 100 Days section on that day — only
   // when the slug matches the current season (stale links are ignored).
   useEffect(() => {
@@ -202,13 +210,14 @@ export default function EventWizard() {
   }, [form, eventId, pushToast]);
 
   const saveStep3 = useCallback(async () => {
-    const startAt = localInputToISO(form.startAt);
-    const endAt = localInputToISO(form.endAt);
+    // Wall-clock times are interpreted in the event's own timezone.
+    const startAt = localInputToISO(form.startAt, form.timezone);
+    const endAt = localInputToISO(form.endAt, form.timezone);
     if (startAt && endAt && new Date(endAt) <= new Date(startAt)) {
       pushToast('End time must be after the start time', false);
       return false;
     }
-    let payload = { isOnline: form.isOnline, startAt, endAt };
+    let payload = { isOnline: form.isOnline, startAt, endAt, timezone: form.timezone || 'Asia/Dubai' };
     if (form.isOnline) {
       payload.meetingLink = form.meetingLink.trim() || undefined;
     } else {
@@ -259,7 +268,7 @@ export default function EventWizard() {
         programId: f.programId || null,
         programDayNumber: f.programId && f.programDayNumber ? Number(f.programDayNumber) : null,
         isLaunch: f.isLaunch,
-        launchAt: f.isLaunch && f.launchAt ? localInputToISO(f.launchAt) : null,
+        launchAt: f.isLaunch && f.launchAt ? localInputToISO(f.launchAt, f.timezone) : null,
       });
       setStatus(ev.status);
       return true;
@@ -499,10 +508,18 @@ export default function EventWizard() {
               </div>
             )}
 
+            <Field label="Event timezone" hint="Times below are the local wall-clock at the event — attendees see them in this zone.">
+              <select className={inputCls} value={form.timezone} disabled={readOnly} onChange={(e) => { tzTouched.current = true; set('timezone', e.target.value); }}>
+                {TIMEZONES.map(([tz, label]) => <option key={tz} value={tz}>{label} — {tz} ({tzOffsetLabel(tz)})</option>)}
+              </select>
+            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Starts at"><input type="datetime-local" className={inputCls} value={form.startAt} disabled={readOnly} onChange={(e) => set('startAt', e.target.value)} /></Field>
-              <Field label="Ends at"><input type="datetime-local" className={inputCls} value={form.endAt} disabled={readOnly} onChange={(e) => set('endAt', e.target.value)} /></Field>
+              <Field label={`Starts at (${tzOffsetLabel(form.timezone)})`}><input type="datetime-local" className={inputCls} value={form.startAt} disabled={readOnly} onChange={(e) => set('startAt', e.target.value)} /></Field>
+              <Field label={`Ends at (${tzOffsetLabel(form.timezone)})`}><input type="datetime-local" className={inputCls} value={form.endAt} disabled={readOnly} onChange={(e) => set('endAt', e.target.value)} /></Field>
             </div>
+            <p className="mt-2 text-[12px] text-[#6B7280]">
+              Times are in <span className="font-semibold text-[#111827]">{form.timezone}</span> — not your computer's clock. Creating a London event from Dubai? Type the London time.
+            </p>
           </div>
         )}
 

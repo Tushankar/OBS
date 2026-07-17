@@ -40,11 +40,11 @@ export const env = {
   // Google Maps Platform server key — Geocoding API (§8.7 manual-address
   // fallback). Never sent to the client; the browser uses VITE_GOOGLE_MAPS_API_KEY.
   GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || '',
-  // Storage: AWS S3 (Phase 0.4)
-  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
-  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
-  AWS_REGION: process.env.AWS_REGION || 'ap-south-1',
-  S3_BUCKET: process.env.S3_BUCKET || 'obs-events',
+  // Storage: local disk only (no AWS/S3). Optionally point both at a
+  // persistent volume in production (survives redeploys):
+  //   UPLOAD_DIR=/var/obs/uploads  PRIVATE_UPLOAD_DIR=/var/obs/uploads-private
+  UPLOAD_DIR: process.env.UPLOAD_DIR || '',
+  PRIVATE_UPLOAD_DIR: process.env.PRIVATE_UPLOAD_DIR || '',
   // Checkout / payments (Phase 2). Money is integer paise; the fee percent is
   // applied to (subtotal − discount) and rounded.
   SERVICE_FEE_PERCENT: Number(process.env.SERVICE_FEE_PERCENT) || 0,

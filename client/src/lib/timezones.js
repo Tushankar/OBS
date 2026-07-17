@@ -42,7 +42,7 @@ export function isoToZonedInput(iso, timeZone) {
 // Current UTC offset label for a zone, e.g. "UTC+4" / "UTC+5:30".
 export function tzOffsetLabel(timeZone) {
   try {
-    const mins = tzOffset(Date.now(), timeZone) / 60000;
+    const mins = Math.round(tzOffset(Date.now(), timeZone) / 60000);
     const sign = mins >= 0 ? '+' : '-';
     const abs = Math.abs(mins);
     const h = Math.floor(abs / 60);

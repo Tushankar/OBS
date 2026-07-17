@@ -7,12 +7,14 @@ import { requireAuth } from '../../middleware/requireAuth.js';
 import { badRequest } from '../../utils/errors.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 
-// Local-disk image uploads (dev / single-server). Files land in server/uploads
-// and are served statically at /uploads/<name>; the API returns absolute URLs
-// so stored values render from any origin. Swap the storage layer for S3 when
-// AWS credentials are configured — the API contract stays the same.
+// Local-disk image uploads — the platform's storage IS the server (no S3, by
+// buyer directive). Files land in the public upload dir and are served
+// statically at /uploads/<name>; the API returns absolute URLs so stored
+// values render from any origin. In production set UPLOAD_DIR to a
+// persistent volume.
 
-export const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
+export { PUBLIC_DIR as UPLOADS_DIR } from '../../utils/s3.js';
+import { PUBLIC_DIR as UPLOADS_DIR } from '../../utils/s3.js';
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };

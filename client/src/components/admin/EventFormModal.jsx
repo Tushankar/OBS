@@ -7,17 +7,15 @@ import PromoCodesEditor from '../organizer/PromoCodesEditor';
 import EventAttendees from './EventAttendees';
 import ImagesUploader from '../common/ImagesUploader';
 import MapPicker from '../common/MapPicker';
+import { zonedInputToISO, isoToZonedInput, tzOffsetLabel, TIMEZONES, suggestTimezone } from '../../lib/timezones';
 
 // Admin create / edit of an OBS-platform event (ownership OBS). Publishes
 // directly — no organizer submit→approve loop. `initial` (an admin event row)
 // switches it to edit mode. Laid out as a step wizard (same flow as the
 // organizer's EventWizard) — all fields save together via one Save.
-const toLocal = (iso) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
-};
+// Schedule inputs are wall-clock times in the EVENT's timezone, never the
+// admin's browser zone.
+const toLocal = (iso, tz) => isoToZonedInput(iso, tz || 'Asia/Dubai');
 
 export default function EventFormModal({ initial, onClose, onSaved }) {
   const { pushToast } = useApp();
@@ -44,8 +42,9 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     address: initial?.address || '',
     city: initial?.city || '',
     country: initial?.country || 'United Arab Emirates',
-    startAt: toLocal(initial?.startAt),
-    endAt: toLocal(initial?.endAt),
+    timezone: initial?.timezone || 'Asia/Dubai',
+    startAt: toLocal(initial?.startAt, initial?.timezone),
+    endAt: toLocal(initial?.endAt, initial?.timezone),
     bannerUrl: initial?.bannerUrl || '',
     images: initial?.images || [],
     lat: initial?.lat ?? null,
@@ -56,7 +55,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     programId: initial?.programId ? String(initial.programId) : '',
     programDayNumber: initial?.programDayNumber ?? '',
     isLaunch: initial?.isLaunch ?? false,
-    launchAt: toLocal(initial?.launchAt),
+    launchAt: toLocal(initial?.launchAt, initial?.timezone),
     membersOnly: initial?.membersOnly ?? false,
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -91,8 +90,9 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
       address: e.address || '',
       city: e.city || '',
       country: e.country || 'United Arab Emirates',
-      startAt: toLocal(e.startAt),
-      endAt: toLocal(e.endAt),
+      timezone: e.timezone || 'Asia/Dubai',
+      startAt: toLocal(e.startAt, e.timezone),
+      endAt: toLocal(e.endAt, e.timezone),
       bannerUrl: e.bannerUrl || '',
       images: e.images || [],
       lat: e.lat ?? null,
@@ -103,10 +103,19 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
       programId: e.programId ? String(e.programId) : '',
       programDayNumber: e.programDayNumber ?? '',
       isLaunch: !!e.isLaunch,
-      launchAt: toLocal(e.launchAt),
+      launchAt: toLocal(e.launchAt, e.timezone),
       membersOnly: !!e.membersOnly,
     }))).catch(() => {});
   }, [editing, initial]);
+
+  // Venue country → suggested event timezone, until the admin picks one
+  // manually (their explicit choice always wins).
+  const tzTouched = useState(() => ({ current: false }))[0];
+  useEffect(() => {
+    if (tzTouched.current || editing) return;
+    const s = suggestTimezone(form.country);
+    if (s && s !== form.timezone) setForm((f) => ({ ...f, timezone: s }));
+  }, [form.country]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Day dropdown options come from the selected program's real generated days
   // (dates + any admin-set day titles) — no more typing a raw number.
@@ -146,8 +155,9 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     body.chapterId = form.chapterId || null;
     body.membersOnly = !!(form.chapterId && form.membersOnly); // meaningless without a chapter
     if (form.description.trim()) body.description = form.description.trim();
-    if (form.startAt) body.startAt = new Date(form.startAt).toISOString();
-    if (form.endAt) body.endAt = new Date(form.endAt).toISOString();
+    body.timezone = form.timezone || 'Asia/Dubai';
+    if (form.startAt) body.startAt = zonedInputToISO(form.startAt, form.timezone);
+    if (form.endAt) body.endAt = zonedInputToISO(form.endAt, form.timezone);
     body.images = form.images;
     if (form.images[0]) body.bannerUrl = form.images[0];
     else if (form.bannerUrl.trim()) body.bannerUrl = form.bannerUrl.trim();
@@ -164,7 +174,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     body.programId = form.programId || null;
     body.programDayNumber = form.programId && form.programDayNumber ? Number(form.programDayNumber) : null;
     body.isLaunch = form.isLaunch;
-    body.launchAt = form.isLaunch && form.launchAt ? new Date(form.launchAt).toISOString() : null;
+    body.launchAt = form.isLaunch && form.launchAt ? zonedInputToISO(form.launchAt, form.timezone) : null;
 
     setBusy(true);
     try {
@@ -306,8 +316,15 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
       {/* Step 3 — Schedule & media */}
       {step === 3 && (
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Starts"><input type="datetime-local" value={form.startAt} onChange={(e) => set('startAt', e.target.value)} className={inputCls} /></Field>
-          <Field label="Ends"><input type="datetime-local" value={form.endAt} onChange={(e) => set('endAt', e.target.value)} className={inputCls} /></Field>
+          <div className="sm:col-span-2">
+            <Field label="Event timezone" hint="Times below are the local wall-clock at the event — attendees see them in this zone, not your computer's clock.">
+              <select value={form.timezone} onChange={(e) => { tzTouched.current = true; set('timezone', e.target.value); }} className={`${selectCls} w-full`}>
+                {TIMEZONES.map(([tz, label]) => <option key={tz} value={tz}>{label} — {tz} ({tzOffsetLabel(tz)})</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label={`Starts (${tzOffsetLabel(form.timezone)})`}><input type="datetime-local" value={form.startAt} onChange={(e) => set('startAt', e.target.value)} className={inputCls} /></Field>
+          <Field label={`Ends (${tzOffsetLabel(form.timezone)})`}><input type="datetime-local" value={form.endAt} onChange={(e) => set('endAt', e.target.value)} className={inputCls} /></Field>
           <div className="sm:col-span-2">
             <Field label="Event images" hint="First image is the banner; the rest appear as a gallery on the public page.">
               <ImagesUploader value={form.images} onChange={(images) => setForm((f) => ({ ...f, images, bannerUrl: images[0] || f.bannerUrl }))} />

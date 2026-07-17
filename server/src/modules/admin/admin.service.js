@@ -173,7 +173,8 @@ export async function getEventAdmin(id) {
     images: e.images || [],
     lat: e.lat ?? null,
     lng: e.lng ?? null,
-    currency: e.currency || 'INR',
+    currency: e.currency || 'AED',
+    timezone: e.timezone || 'Asia/Dubai',
     // §5.1 community layer — speakers / 100 Days linkage / Launchpad flags.
     speakerIds: (e.speakerIds || []).map(String),
     programId: e.programId ? String(e.programId) : null,
@@ -199,7 +200,7 @@ async function platformOrganizer(adminId) {
   return profile;
 }
 
-const ADMIN_EVENT_FIELDS = ['title', 'description', 'categoryId', 'chapterId', 'isOnline', 'meetingLink', 'venueName', 'address', 'city', 'country', 'startAt', 'endAt', 'currency', 'bannerUrl', 'speakerIds', 'programId', 'programDayNumber', 'isLaunch', 'launchAt', 'membersOnly'];
+const ADMIN_EVENT_FIELDS = ['title', 'description', 'categoryId', 'chapterId', 'isOnline', 'meetingLink', 'venueName', 'address', 'city', 'country', 'startAt', 'endAt', 'timezone', 'currency', 'bannerUrl', 'speakerIds', 'programId', 'programDayNumber', 'isLaunch', 'launchAt', 'membersOnly'];
 
 async function assertEventRefs(body) {
   if (body.categoryId && !(await Category.exists({ _id: body.categoryId }))) throw conflict('INVALID_CATEGORY', 'Category not found');

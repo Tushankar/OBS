@@ -1,34 +1,79 @@
-import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { s3 } from '../config/s3.js';
-import { env, isProd } from '../config/env.js';
+// Local-disk file storage (S3 removed by buyer directive — everything lives
+// on the server). Same exported API as the old S3 util so call sites are
+// unchanged:
+//
+//   PUBLIC  (banners/images) → <UPLOAD_DIR>/…          served at GET /uploads/<key>
+//   PRIVATE (ticket/invoice PDFs) → <PRIVATE_UPLOAD_DIR>/…  streamed via
+//     GET /api/v1/files/<key>?e=…&t=…  — an HMAC-signed, expiring URL (the
+//     local equivalent of a presigned S3 GET, so links open in a plain
+//     browser tab with no auth header).
+//
+// Production: set UPLOAD_DIR / PRIVATE_UPLOAD_DIR to a persistent volume.
+import path from 'node:path';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import { env } from '../config/env.js';
 
-// True when we should attempt real uploads: explicit keys (dev/prod) or prod
-// (EC2 IAM role). In dev without keys we skip uploads (avoid an IMDS hang) and
-// rely on the emailed PDF attachments instead.
-export const isS3Configured = () => !!env.AWS_ACCESS_KEY_ID || isProd;
+export const PUBLIC_DIR = path.resolve(env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
+export const PRIVATE_DIR = path.resolve(env.PRIVATE_UPLOAD_DIR || path.join(process.cwd(), 'uploads-private'));
+fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+fs.mkdirSync(PRIVATE_DIR, { recursive: true });
 
-// Server-side upload (ticket/invoice PDFs). Returns the object URL.
-export async function putObject({ key, body, contentType }) {
-  await s3.send(new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Body: body, ContentType: contentType }));
-  return objectUrl(key);
+// Local storage is always available.
+export const isS3Configured = () => true;
+
+const SECRET = env.JWT_ACCESS_SECRET || 'obs-local-files';
+
+// Reject traversal and normalize a storage key ('invoices/OBS-2026-1.pdf').
+export function safeKey(key) {
+  const clean = String(key || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!clean || clean.split('/').some((p) => !p || p === '.' || p === '..')) return null;
+  return clean;
 }
 
-// Presigned PUT — client uploads directly to S3 (banners, ticket PDFs, avatars).
-export function presignPut({ key, contentType, expiresIn = 300 }) {
-  const cmd = new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: key, ContentType: contentType });
-  return getSignedUrl(s3, cmd, { expiresIn });
+export function signFileToken(scope, key, expiresAtSec) {
+  return crypto.createHmac('sha256', SECRET).update(`${scope}:${key}:${expiresAtSec}`).digest('hex');
 }
 
-// Presigned GET — short-lived read URL for private objects (ticket/invoice PDFs).
+export function verifyFileToken(scope, key, expiresAtSec, token) {
+  if (!expiresAtSec || Number(expiresAtSec) < Date.now() / 1000) return false;
+  const expected = signFileToken(scope, key, expiresAtSec);
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(String(token || '')));
+  } catch {
+    return false;
+  }
+}
+
+// Server-side write of a PRIVATE file (ticket/invoice PDFs). Returns the
+// app-controlled path clients reach it through (a fresh signed URL is minted
+// at download time by presignGet).
+export async function putObject({ key, body }) {
+  const k = safeKey(key);
+  if (!k) throw new Error(`invalid storage key: ${key}`);
+  const file = path.join(PRIVATE_DIR, k);
+  await fs.promises.mkdir(path.dirname(file), { recursive: true });
+  await fs.promises.writeFile(file, body);
+  return `${env.API_URL}/api/v1/files/${k}`;
+}
+
+// Expiring signed URL for a private file — the local "presigned GET".
 export function presignGet({ key, expiresIn = 300 }) {
-  const cmd = new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key });
-  return getSignedUrl(s3, cmd, { expiresIn });
+  const k = safeKey(key);
+  const exp = Math.floor(Date.now() / 1000) + expiresIn;
+  return `${env.API_URL}/api/v1/files/${k}?e=${exp}&t=${signFileToken('get', k, exp)}`;
 }
 
-// Canonical public object URL for a key (used for banners, which are shown on
-// public event pages). Serving these publicly is a bucket-policy / CloudFront
-// concern handled in the Phase 4 hardening + deploy tasks.
+// Expiring signed URL a client can raw-PUT a PUBLIC file to — the local
+// "presigned PUT" (used by the organizer banner flow). The uploaded file is
+// then publicly served from /uploads/<key> (objectUrl).
+export function presignPut({ key, expiresIn = 300 }) {
+  const k = safeKey(key);
+  const exp = Math.floor(Date.now() / 1000) + expiresIn;
+  return `${env.API_URL}/api/v1/files/put/${k}?e=${exp}&t=${signFileToken('put', k, exp)}`;
+}
+
+// Canonical public URL for a PUBLIC object key.
 export function objectUrl(key) {
-  return `https://${env.S3_BUCKET}.s3.${env.AWS_REGION}.amazonaws.com/${key}`;
+  return `${env.API_URL}/uploads/${safeKey(key)}`;
 }

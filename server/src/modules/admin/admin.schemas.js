@@ -64,6 +64,8 @@ const eventContentShape = {
   launchAt: z.coerce.date().nullable(),
   // Chapter-member perk: restrict booking to members of the event's chapter.
   membersOnly: z.boolean(),
+  // IANA zone the event's wall-clock times are in (e.g. Europe/London).
+  timezone: z.string().trim().max(64),
 };
 
 // POST /admin/events — admin creates an OBS event (title required; publish to go

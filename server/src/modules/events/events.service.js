@@ -42,7 +42,7 @@ function shapeEvent(e) {
     lat: e.lat ?? null,
     lng: e.lng ?? null,
     placeId: e.placeId || null,
-    timezone: e.timezone || 'Asia/Kolkata',
+    timezone: e.timezone || 'Asia/Dubai',
     currency: e.currency || 'INR',
     startAt: e.startAt || null,
     endAt: e.endAt || null,
@@ -264,7 +264,7 @@ export async function cancelEventCascade(event, { reason, actorId }) {
 
   // Tell every attendee. Transactional (not marketing), so no consent filter.
   const when = event.startAt
-    ? new Date(event.startAt).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: event.timezone || 'Asia/Kolkata' })
+    ? new Date(event.startAt).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: event.timezone || 'Asia/Dubai' })
     : null;
   const subject = `Cancelled: ${event.title}`;
   const refundNote = paidOrders.length
@@ -371,7 +371,7 @@ export function publicEventCard(e) {
     bannerUrl: e.bannerUrl || null,
     startAt: e.startAt || null,
     endAt: e.endAt || null,
-    timezone: e.timezone || 'Asia/Kolkata',
+    timezone: e.timezone || 'Asia/Dubai',
     currency: e.currency || 'INR',
     isOnline: !!e.isOnline,
     venueName: e.venueName || null,

@@ -58,7 +58,7 @@ export async function markPaidAndFulfil(orderId, { gateway } = {}) {
   }
   const tickets = await Ticket.insertMany(docs);
 
-  // QR + PDF per ticket → S3 (best-effort) + collect email attachments.
+  // QR + PDF per ticket → local storage (best-effort) + collect email attachments.
   const nameByType = new Map(order.items.map((i) => [String(i.ticketTypeId), i.name]));
   const ticketAttachments = [];
   for (const t of tickets) {
@@ -68,7 +68,7 @@ export async function markPaidAndFulfil(orderId, { gateway } = {}) {
       ticketAttachments.push({ filename: `${t.ticketNumber}.pdf`, content: pdf, contentType: 'application/pdf' });
       if (isS3Configured()) {
         const url = await putObject({ key: `tickets/${order.eventId}/${t.ticketNumber}.pdf`, body: pdf, contentType: 'application/pdf' }).catch((e) => {
-          console.error('[fulfilment] ticket S3 upload failed:', e.message);
+          console.error('[fulfilment] ticket file save failed:', e.message);
           return null;
         });
         if (url) await Ticket.updateOne({ _id: t._id }, { pdfUrl: url });
@@ -88,7 +88,7 @@ export async function markPaidAndFulfil(orderId, { gateway } = {}) {
       let pdfUrl = null;
       if (isS3Configured()) {
         pdfUrl = await putObject({ key: `invoices/${order.orderNumber}.pdf`, body: pdf, contentType: 'application/pdf' }).catch((e) => {
-          console.error('[fulfilment] invoice S3 upload failed:', e.message);
+          console.error('[fulfilment] invoice file save failed:', e.message);
           return null;
         });
       }
