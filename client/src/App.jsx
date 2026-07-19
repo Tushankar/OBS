@@ -89,6 +89,7 @@ import AdminSupport from './pages/admin/Support';
 import AdminPrograms from './pages/admin/Programs';
 import AdminArticles from './pages/admin/Articles';
 import AdminPromos from './pages/admin/Promos';
+import AdminCommissions from './pages/admin/Commissions';
 import AdminEmails from './pages/admin/Emails';
 import AdminCampaigns from './pages/admin/Campaigns';
 import AdminActivity from './pages/admin/Activity';
@@ -136,6 +137,7 @@ export default function App() {
           <Route path="/admin/events" element={<AdminEvents />} />
           <Route path="/admin/refunds" element={<AdminRefunds />} />
           <Route path="/admin/promos" element={<AdminPromos />} />
+          <Route path="/admin/commissions" element={<AdminCommissions />} />
           <Route path="/admin/transactions" element={<AdminTransactions />} />
           <Route path="/admin/emails" element={<AdminEmails />} />
           <Route path="/admin/campaigns" element={<AdminCampaigns />} />

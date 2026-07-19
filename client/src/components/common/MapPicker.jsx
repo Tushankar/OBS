@@ -3,13 +3,18 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api, { apiError } from '../../lib/api';
 
-// Leaflet's default marker icons 404 under bundlers — point them at the CDN'd
-// images once, module-wide.
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+// Leaflet's default marker icons 404 under bundlers. Rather than depend on a
+// third-party CDN (unpkg — a broken pin if it's blocked/down or under a strict
+// img-src CSP), use a self-contained inline-SVG divIcon: no network fetch at all.
+const PIN_ICON = L.divIcon({
+  className: 'obs-map-pin',
+  html:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">' +
+    '<path d="M14 0C6.3 0 0 6.3 0 14c0 9.8 14 26 14 26s14-16.2 14-26C28 6.3 21.7 0 14 0z" fill="#E5B700" stroke="#fff" stroke-width="2"/>' +
+    '<circle cx="14" cy="14" r="5.5" fill="#fff"/></svg>',
+  iconSize: [28, 40],
+  iconAnchor: [14, 40],
+  popupAnchor: [0, -36],
 });
 
 const OSM_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -57,7 +62,7 @@ export function MapPicker({ lat, lng, onPick }) {
     const start = lat != null && lng != null ? [lat, lng] : DEFAULT_CENTER;
     const map = L.map(boxRef.current).setView(start, lat != null ? 15 : 11);
     L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19 }).addTo(map);
-    const marker = L.marker(start, { draggable: true }).addTo(map);
+    const marker = L.marker(start, { draggable: true, icon: PIN_ICON }).addTo(map);
     marker.on('dragend', () => {
       const p = marker.getLatLng();
       pinned(+p.lat.toFixed(6), +p.lng.toFixed(6));
@@ -137,7 +142,7 @@ export function EventMap({ lat, lng, title, venueName }) {
     if (!boxRef.current || lat == null || lng == null) return undefined;
     const map = L.map(boxRef.current, { scrollWheelZoom: false }).setView([lat, lng], 15);
     L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19 }).addTo(map);
-    L.marker([lat, lng]).addTo(map).bindPopup(`<b>${title || 'Event venue'}</b>${venueName ? `<br/>${venueName}` : ''}`);
+    L.marker([lat, lng], { icon: PIN_ICON }).addTo(map).bindPopup(`<b>${title || 'Event venue'}</b>${venueName ? `<br/>${venueName}` : ''}`);
     setTimeout(() => map.invalidateSize(), 120);
     return () => map.remove();
   }, [lat, lng, title, venueName]);

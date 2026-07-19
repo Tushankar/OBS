@@ -21,6 +21,18 @@ export const listEventsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+// PATCH /admin/settings/commission — the platform fee policy.
+export const commissionSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  partnerPercent: z.number().min(0).max(100).optional(),
+  obsPercent: z.number().min(0).max(100).optional(),
+}).refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });
+
+// PATCH /admin/organizers/:id/commission — per-organizer override (null = default).
+export const organizerCommissionSchema = z.object({
+  commissionPercent: z.number().min(0).max(100).nullable(),
+});
+
 // GET /admin/chapters/:id/members — roster with name/email search.
 export const listChapterMembersQuery = z.object({
   q: z.string().trim().max(160).optional(),

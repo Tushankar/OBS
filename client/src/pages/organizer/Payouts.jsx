@@ -30,7 +30,13 @@ export default function Payouts() {
   }, [pushToast]);
 
   if (!data) return <Loading />;
-  const money = (v) => formatPrice(v, data.currency);
+  // Each event carries its own currency — format every figure in that event's
+  // currency, never a single platform-wide one (the totals are grouped per
+  // currency below), so nothing is mislabeled across currencies.
+  const money = (v, cur) => formatPrice(v, cur || data.currency);
+  // One totals strip per currency (multi-currency safe); fall back to the single
+  // primary totals for older responses / single-currency organizers.
+  const totalsRows = data.totalsByCurrency?.length ? data.totalsByCurrency : [{ currency: data.currency, ...data.totals }];
 
   const renderCell = (r, key) => {
     if (key === 'title') return (
@@ -40,9 +46,9 @@ export default function Payouts() {
       </div>
     );
     if (key === 'orders') return <span className="text-[#4B5563] [font-variant-numeric:tabular-nums]">{r.orders}</span>;
-    if (key === 'gross') return <span className="font-medium text-[#111827] [font-variant-numeric:tabular-nums]">{money(r.gross)}</span>;
-    if (key === 'refunded') return <span className={`[font-variant-numeric:tabular-nums] ${r.refunded > 0 ? 'text-[#B91C1C]' : 'text-ink-faint'}`}>{r.refunded > 0 ? `− ${money(r.refunded)}` : '—'}</span>;
-    if (key === 'net') return <span className="font-bold text-[#111827] [font-variant-numeric:tabular-nums]">{money(r.net)}</span>;
+    if (key === 'gross') return <span className="font-medium text-[#111827] [font-variant-numeric:tabular-nums]">{money(r.gross, r.currency)}</span>;
+    if (key === 'refunded') return <span className={`[font-variant-numeric:tabular-nums] ${r.refunded > 0 ? 'text-[#B91C1C]' : 'text-ink-faint'}`}>{r.refunded > 0 ? `− ${money(r.refunded, r.currency)}` : '—'}</span>;
+    if (key === 'net') return <span className="font-bold text-[#111827] [font-variant-numeric:tabular-nums]">{money(r.net, r.currency)}</span>;
     return null;
   };
 
@@ -53,21 +59,26 @@ export default function Payouts() {
         subtitle="Your per-event settlement statement — ticket revenue after refunds. Transfers are settled off-platform; the attendee-paid service fee never touches your line."
       />
 
-      {/* Totals — instrument strip */}
-      <Card className="mb-4 !p-0 overflow-hidden">
-        <dl className="grid grid-cols-3">
-          {[
-            ['Gross ticket revenue', data.totals.gross, 'text-[#111827]'],
-            ['Refunded', data.totals.refunded, data.totals.refunded > 0 ? 'text-[#B91C1C]' : 'text-[#111827]'],
-            ['Net earned', data.totals.net, 'text-[#047857]'],
-          ].map(([label, value, tone], i) => (
-            <div key={label} className={`px-5 py-4 ${i > 0 ? 'border-l border-[#EEF2F6]' : ''}`}>
-              <dt className="text-[11.5px] font-medium text-[#6B7280]">{label}</dt>
-              <dd className={`mt-1.5 text-[22px] ${figure} ${tone}`}>{money(value)}</dd>
-            </div>
-          ))}
-        </dl>
-      </Card>
+      {/* Totals — one instrument strip per currency (multi-currency safe) */}
+      {totalsRows.map((t) => (
+        <Card key={t.currency} className="mb-4 !p-0 overflow-hidden">
+          {totalsRows.length > 1 && (
+            <div className="border-b border-[#EEF2F6] px-5 pt-3 text-[11.5px] font-semibold uppercase tracking-wide text-[#6B7280]">{t.currency}</div>
+          )}
+          <dl className="grid grid-cols-3">
+            {[
+              ['Gross ticket revenue', t.gross, 'text-[#111827]'],
+              ['Refunded', t.refunded, t.refunded > 0 ? 'text-[#B91C1C]' : 'text-[#111827]'],
+              ['Net earned', t.net, 'text-[#047857]'],
+            ].map(([label, value, tone], i) => (
+              <div key={label} className={`px-5 py-4 ${i > 0 ? 'border-l border-[#EEF2F6]' : ''}`}>
+                <dt className="text-[11.5px] font-medium text-[#6B7280]">{label}</dt>
+                <dd className={`mt-1.5 text-[22px] ${figure} ${tone}`}>{money(value, t.currency)}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      ))}
 
       {data.rows.length === 0 ? (
         <EmptyState

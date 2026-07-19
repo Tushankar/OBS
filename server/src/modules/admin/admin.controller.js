@@ -1,4 +1,5 @@
 import * as adminService from './admin.service.js';
+import * as settingsService from '../settings/settings.service.js';
 import { adminSetChapterStatus } from '../chapters/chapters.service.js';
 
 export async function listOrganizers(req, res) {
@@ -133,6 +134,21 @@ export async function setChapterStatus(req, res) {
 export async function listChapterMembers(req, res) {
   const result = await adminService.listChapterMembers(req.params.id, req.query);
   res.status(200).json(result);
+}
+
+// ---- Commission policy (Admin → Commissions) ----
+export async function getCommission(req, res) {
+  const settings = await settingsService.getCommissionSettings({ fresh: true });
+  res.status(200).json({ settings });
+}
+export async function updateCommission(req, res) {
+  const settings = await settingsService.updateCommissionSettings(req.user.id, req.body);
+  res.status(200).json({ settings });
+}
+export async function setOrganizerCommission(req, res) {
+  const profile = await settingsService.setOrganizerCommission(req.user.id, req.params.id, req.body.commissionPercent);
+  if (!profile) return res.status(404).json({ error: { code: 'ORGANIZER_NOT_FOUND', message: 'Organizer not found' } });
+  res.status(200).json({ ok: true, commissionPercent: profile.commissionPercent });
 }
 
 // --- CMS pages ---

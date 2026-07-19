@@ -20,4 +20,10 @@ const sessionSchema = new Schema(
   { timestamps: true }
 );
 
+// TTL: let Mongo purge sessions once they pass expiresAt (a new row is written
+// on every login + refresh, so without this the collection grows unbounded).
+// Revoked-but-unexpired rows linger until their 30d expiry — fine, they're
+// already inert (reuse detection keys off revokedAt, not row presence).
+sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 export default mongoose.model('Session', sessionSchema);

@@ -23,6 +23,7 @@ export { default as Speaker } from './Speaker.js';
 export { default as Sponsor } from './Sponsor.js';
 export { default as PartnerApplication } from './PartnerApplication.js';
 export { default as SupportTicket } from './SupportTicket.js';
+export { default as PlatformSetting } from './PlatformSetting.js';
 export { default as Notification } from './Notification.js';
 export { default as PromoGrant } from './PromoGrant.js';
 export { default as Article } from './Article.js';

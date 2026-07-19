@@ -1,4 +1,5 @@
-import { Order, Ticket, PromoCode, User, Event } from '../../models/index.js';
+import mongoose from 'mongoose';
+import { Order, Ticket, User, Event } from '../../models/index.js';
 import { nextSeq, formatTicketNumber, formatInvoiceNumber } from '../../utils/counters.js';
 import { sendMail } from '../../utils/mailer.js';
 import { qrPng } from '../../utils/qr.js';
@@ -14,33 +15,11 @@ const money = (paise, currency = 'INR') => {
   return sym + (Number(paise) / 100).toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US');
 };
 
-// Confirm-and-fulfil an order (§8.3). Called by the free-order path (2.2) and
-// both payment webhooks (2.3/2.4). The atomic PENDING→PAID flip is the
-// idempotency gate: only the caller that flips it fulfils, so a re-delivered
-// webhook / double free submit is a no-op.
-export async function markPaidAndFulfil(orderId, { gateway } = {}) {
-  const flip = await Order.updateOne(
-    { _id: orderId, status: 'PENDING' },
-    { $set: { status: 'PAID', paidAt: new Date(), ...(gateway ? { gateway } : {}) } }
-  );
-  if (flip.modifiedCount !== 1) return { alreadyFulfilled: true };
-
-  const order = await Order.findById(orderId);
-  if (order.promoCodeId) await PromoCode.updateOne({ _id: order.promoCodeId }, { $inc: { usedCount: 1 } });
-
-  const [user, event] = await Promise.all([User.findById(order.userId), Event.findById(order.eventId)]);
-
-  // Admin bell — fires exactly once per booking (guarded by the PENDING→PAID flip above).
-  await notifyAdmins({
-    type: 'ORDER_PAID',
-    title: order.totalAmount > 0 ? `New booking — ${money(order.totalAmount, order.currency)}` : 'New free registration',
-    body: `${user?.name || 'A user'} · ${event?.title || 'Event'} (order ${order.orderNumber || order._id})`,
-    link: '/admin/transactions',
-    entityType: 'Order',
-    entityId: order._id,
-  });
-
-  // One Ticket per unit (ticketNumber via the atomic counter; qrToken uuid default).
+// Build the ticket documents for an order — one per unit. ticketNumber comes
+// from the atomic counter; qrToken from the schema uuid default. Numbers are
+// generated before the transaction so withTransaction retries reuse them (only
+// a genuine already-PAID abort wastes a sequence value, exactly like orderNumber).
+async function buildTicketDocs(order, user) {
   const docs = [];
   for (const item of order.items) {
     for (let i = 0; i < item.quantity; i++) {
@@ -56,7 +35,87 @@ export async function markPaidAndFulfil(orderId, { gateway } = {}) {
       });
     }
   }
+  return docs;
+}
+
+// Confirm-and-fulfil an order (§8.3). Called by the free-order path (2.2) and
+// both payment paths (webhook 2.4 + the verify fallback). The PENDING→PAID flip
+// and ticket creation commit in ONE transaction: if the insert fails, the flip
+// rolls back, the order stays PENDING, and a retry (webhook redelivery / verify /
+// the reconcile job) re-runs cleanly — a paid order can never be left ticketless.
+// The flip is also the idempotency gate: a re-delivered webhook or double free
+// submit finds the order already PAID and no-ops (no duplicate tickets).
+export async function markPaidAndFulfil(orderId, { gateway } = {}) {
+  const order0 = await Order.findById(orderId);
+  if (!order0) return { ignored: 'order_gone' };
+  if (order0.status === 'PAID') return { alreadyFulfilled: true };
+
+  const [user, event] = await Promise.all([User.findById(order0.userId), Event.findById(order0.eventId)]);
+  const docs = await buildTicketDocs(order0, user);
+
+  const session = await mongoose.startSession();
+  let fulfilled = false;
+  let tickets = [];
+  try {
+    await session.withTransaction(async () => {
+      const flip = await Order.updateOne(
+        { _id: orderId, status: 'PENDING' },
+        { $set: { status: 'PAID', paidAt: new Date(), ...(gateway ? { gateway } : {}) } },
+        { session }
+      );
+      if (flip.modifiedCount !== 1) { fulfilled = false; return; }
+      tickets = await Ticket.insertMany(docs, { session });
+      fulfilled = true;
+    });
+  } finally {
+    await session.endSession();
+  }
+  if (!fulfilled) return { alreadyFulfilled: true };
+
+  const order = await Order.findById(orderId);
+  await runFulfilmentSideEffects({ order, user, event, tickets });
+  return { fulfilled: true, ticketCount: tickets.length };
+}
+
+// Reconciliation safety-net (§8.3): complete a PAID order that somehow has no
+// tickets (a crash in legacy pre-transactional code, or a manual DB edit). The
+// transactional flip above prevents this for new orders; this exists so a
+// charged buyer is never permanently ticketless. Idempotent — skips orders that
+// are already fully ticketed, and refuses to touch partially-ticketed orders
+// (which the transactional flow can no longer produce) to avoid duplicates.
+export async function ensureFulfilment(orderId) {
+  const order = await Order.findById(orderId);
+  if (!order || order.status !== 'PAID') return { skipped: true };
+  const expected = order.items.reduce((s, i) => s + i.quantity, 0);
+  const existing = await Ticket.countDocuments({ orderId: order._id });
+  if (existing >= expected) return { ok: true };
+  if (existing > 0) {
+    console.error('[reconcile] order', order.orderNumber || String(order._id), `has ${existing}/${expected} tickets — needs manual review`);
+    return { partial: true, existing, expected };
+  }
+  const [user, event] = await Promise.all([User.findById(order.userId), Event.findById(order.eventId)]);
+  const docs = await buildTicketDocs(order, user);
   const tickets = await Ticket.insertMany(docs);
+  console.error('[reconcile] fulfilled paid-but-ticketless order', order.orderNumber || String(order._id));
+  await runFulfilmentSideEffects({ order, user, event, tickets });
+  return { reconciled: true, ticketCount: tickets.length };
+}
+
+// Side effects after the tickets are durably committed: admin bell, per-ticket
+// QR + PDF to local private disk, invoice (paid orders only), and the fulfilment
+// emails. All best-effort — a failure here never rolls back the tickets (PDFs
+// regenerate on the fly, failed mails persist as FAILED EmailLog rows).
+async function runFulfilmentSideEffects({ order, user, event, tickets }) {
+  // Admin bell — fires exactly once per booking (guarded by the PENDING→PAID flip
+  // that gates entry to this function).
+  await notifyAdmins({
+    type: 'ORDER_PAID',
+    title: order.totalAmount > 0 ? `New booking — ${money(order.totalAmount, order.currency)}` : 'New free registration',
+    body: `${user?.name || 'A user'} · ${event?.title || 'Event'} (order ${order.orderNumber || order._id})`,
+    link: '/admin/transactions',
+    entityType: 'Order',
+    entityId: order._id,
+  });
 
   // QR + PDF per ticket → local storage (best-effort) + collect email attachments.
   const nameByType = new Map(order.items.map((i) => [String(i.ticketTypeId), i.name]));
@@ -78,7 +137,7 @@ export async function markPaidAndFulfil(orderId, { gateway } = {}) {
     }
   }
 
-  // Invoice (paid orders only) → embedded order.invoice + S3 (best-effort).
+  // Invoice (paid orders only) → embedded order.invoice + local disk (best-effort).
   let invoiceAttachment = null;
   if (order.totalAmount > 0) {
     try {
@@ -99,7 +158,6 @@ export async function markPaidAndFulfil(orderId, { gateway } = {}) {
   }
 
   await sendFulfilmentEmails({ order, event, user, tickets, ticketAttachments, invoiceAttachment });
-  return { fulfilled: true, ticketCount: tickets.length };
 }
 
 // Free → REGISTRATION_CONFIRMATION (tickets attached). Paid → PAYMENT_SUCCESS

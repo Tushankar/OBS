@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
-import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, ChapterMember, CmsPage, Speaker, Program, EmailLog, AuditLog, Ticket } from '../../models/index.js';
+import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, ChapterMember, CmsPage, Speaker, Program, EmailLog, AuditLog, Ticket, Session } from '../../models/index.js';
 
 // User-supplied search terms go into $regex — escape metacharacters so a
 // search for "(" is a literal match, not a Mongo regex error (500).
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-import { cancelEventCascade } from '../events/events.service.js';
+import { cancelEventCascade, assertSubmittable } from '../events/events.service.js';
 import { notifyChapterMembersOfEvent } from '../chapters/chapters.service.js';
 import { notFoundError, conflict } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
@@ -31,6 +31,7 @@ function adminOrganizerRow(p) {
     registrationNo: p.registrationNo || null,
     status: p.status,
     rejectionReason: p.rejectionReason || null,
+    commissionPercent: typeof p.commissionPercent === 'number' ? p.commissionPercent : null,
     appliedAt: p.createdAt,
     approvedAt: p.approvedAt || null,
     user: u ? { id: String(u._id), name: u.name, email: u.email } : null,
@@ -253,8 +254,17 @@ export async function updateEventAdmin(adminId, id, body) {
   if (body.title !== undefined && body.title !== event.title) event.slug = await uniqueSlug(Event, body.title, { ignoreId: event._id });
   if (event.startAt && event.endAt && new Date(event.endAt) <= new Date(event.startAt)) throw conflict('INVALID_DATE_RANGE', 'End time must be after the start time');
 
+  // Publishing is only legal from a draft/pending/unpublished state, and only
+  // for a COMPLETE event — never resurrect a CANCELLED event (its tickets are
+  // voided and its buyers refunded) or push an incomplete draft live. This
+  // mirrors the guards on the organizer submit + approve paths.
+  const PUBLISHABLE_FROM = ['DRAFT', 'PENDING_APPROVAL'];
   let notifyMembers = false;
   if (publish === true && event.status !== 'PUBLISHED') {
+    if (!PUBLISHABLE_FROM.includes(event.status)) {
+      throw conflict('EVENT_NOT_PUBLISHABLE', `A ${event.status} event can't be published`);
+    }
+    await assertSubmittable(event, { requireFuture: false });
     notifyMembers = !event.publishedAt && !!event.chapterId; // republish cycles never re-email members
     event.status = 'PUBLISHED';
     if (!event.publishedAt) event.publishedAt = new Date();
@@ -514,20 +524,39 @@ export async function updateUser(adminId, id, { status, role }) {
   const prevRole = user.role;
 
   let profileAudit = null; // { action, profile } — written after commit
+  let eventsUnpublished = 0; // live events pulled from the catalog on suspend/demote
   if (statusChanged || roleChanged) {
     const updates = {};
     if (statusChanged) updates.status = status;
     if (roleChanged) updates.role = role;
     // Slug generated before the txn so a retry/abort doesn't re-query mid-txn.
     const newSlug = roleChanged && role === 'ORGANIZER' ? await uniqueSlug(OrganizerProfile, user.name) : null;
+    // A suspended user, or an organizer demoted to USER, must lose the ability to
+    // keep operating: cut their refresh sessions AND take their live events out
+    // of the public catalog.
+    const orgDisabled = (statusChanged && status === 'SUSPENDED') || (roleChanged && prevRole === 'ORGANIZER' && role === 'USER');
+    // Revoke refresh sessions only on suspension or a genuine privilege DROP —
+    // upgrades don't need a forced re-login (requireAuth reads the live role, so
+    // any role change already takes effect immediately on the next request).
+    const RANK = { VISITOR: 0, USER: 1, ORGANIZER: 2, ADMIN: 3 };
+    const demoted = roleChanged && (RANK[role] ?? 1) < (RANK[prevRole] ?? 1);
+    const revokeSessions = (statusChanged && status === 'SUSPENDED') || demoted;
 
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         profileAudit = null; // reset on txn retry
+        eventsUnpublished = 0;
         await User.updateOne({ _id: user._id }, { $set: updates }, { session });
-        if (!roleChanged) return;
-        if (role === 'ORGANIZER') {
+
+        // End the refresh chain on suspend/demote so it can't be outlived by a
+        // still-valid refresh token (the access token is already cut short by
+        // requireAuth's live status/role check).
+        if (revokeSessions) {
+          await Session.updateMany({ userId: user._id, revokedAt: null }, { $set: { revokedAt: new Date() } }, { session });
+        }
+
+        if (roleChanged && role === 'ORGANIZER') {
           let profile = await OrganizerProfile.findOne({ userId: user._id }).session(session);
           if (!profile) {
             [profile] = await OrganizerProfile.create(
@@ -543,11 +572,22 @@ export async function updateUser(adminId, id, { status, role }) {
             );
             profileAudit = { action: 'ORGANIZER_APPROVED', profile };
           }
-        } else if (prevRole === 'ORGANIZER' && role === 'USER') {
+        } else if (roleChanged && prevRole === 'ORGANIZER' && role === 'USER') {
           const profile = await OrganizerProfile.findOne({ userId: user._id }).session(session);
           if (profile && profile.status !== 'SUSPENDED') {
             await OrganizerProfile.updateOne({ _id: profile._id }, { $set: { status: 'SUSPENDED' } }, { session });
             profileAudit = { action: 'ORGANIZER_SUSPENDED', profile };
+          }
+        }
+
+        // Cascade: unpublish the (now-disabled) organizer's live events so no new
+        // bookings are taken. Existing tickets stay valid; no refunds are issued
+        // (a suspension may be temporary — an admin re-publishes to restore).
+        if (orgDisabled) {
+          const prof = await OrganizerProfile.findOne({ userId: user._id }).session(session);
+          if (prof) {
+            const r = await Event.updateMany({ organizerId: prof._id, status: 'PUBLISHED' }, { $set: { status: 'DRAFT' } }, { session });
+            eventsUnpublished = r.modifiedCount || 0;
           }
         }
       });
@@ -566,6 +606,9 @@ export async function updateUser(adminId, id, { status, role }) {
   }
   if (profileAudit) {
     await writeAudit({ actorId: adminId, action: profileAudit.action, entityType: 'OrganizerProfile', entityId: profileAudit.profile._id, meta: { orgName: profileAudit.profile.orgName, via: 'USER_ROLE_CHANGE' } });
+  }
+  if (eventsUnpublished) {
+    await writeAudit({ actorId: adminId, action: 'ORGANIZER_EVENTS_UNPUBLISHED', entityType: 'User', entityId: user._id, meta: { email: user.email, count: eventsUnpublished } });
   }
   return shapeUser(user);
 }

@@ -11,7 +11,7 @@ import { publicEventCard } from '../events/events.service.js';
 // happens off-platform.
 export async function getPayoutStatement(organizerId) {
   const events = await Event.find({ organizerId }).select('title slug startAt status currency');
-  if (!events.length) return { rows: [], totals: { gross: 0, refunded: 0, net: 0 }, currency: 'INR' };
+  if (!events.length) return { rows: [], totals: { gross: 0, refunded: 0, net: 0 }, totalsByCurrency: [], currency: 'INR' };
   const eventIds = events.map((e) => e._id);
 
   const agg = await Order.aggregate([
@@ -56,8 +56,22 @@ export async function getPayoutStatement(organizerId) {
     .filter((r) => r.orders > 0 || r.refunded > 0)
     .sort((a, b) => (b.startAt ? new Date(b.startAt) : 0) - (a.startAt ? new Date(a.startAt) : 0));
 
-  const totals = rows.reduce((t, r) => ({ gross: t.gross + r.gross, refunded: t.refunded + r.refunded, net: t.net + r.net }), { gross: 0, refunded: 0, net: 0 });
-  return { rows, totals, currency: rows[0]?.currency || 'INR' };
+  // Group totals BY CURRENCY — the platform is multi-currency, so summing paise
+  // across currencies (and labelling with one) would be meaningless. `totals` /
+  // `currency` are the primary (largest-gross) currency for the single-value
+  // strip; totalsByCurrency carries every currency for a correct breakdown.
+  const byCur = new Map();
+  for (const r of rows) {
+    const c = r.currency || 'INR';
+    const e = byCur.get(c) || { currency: c, gross: 0, refunded: 0, net: 0 };
+    e.gross += r.gross;
+    e.refunded += r.refunded;
+    e.net += r.net;
+    byCur.set(c, e);
+  }
+  const totalsByCurrency = [...byCur.values()].sort((a, b) => b.gross - a.gross);
+  const primary = totalsByCurrency[0] || { currency: 'INR', gross: 0, refunded: 0, net: 0 };
+  return { rows, totals: { gross: primary.gross, refunded: primary.refunded, net: primary.net }, totalsByCurrency, currency: primary.currency };
 }
 
 // GET /organizer/emails — the delivery audit for THIS organizer's events:
@@ -236,7 +250,7 @@ export async function getPublicProfile(slug) {
 
 // Organizer dashboard KPIs (§7): my events, tickets sold, gross revenue, next event.
 export async function getOrganizerDashboard(organizerId) {
-  const events = await Event.find({ organizerId }).select('_id status startAt title slug isOnline venueName city');
+  const events = await Event.find({ organizerId }).select('_id status startAt title slug isOnline venueName city currency');
   const eventIds = events.map((e) => e._id);
   const now = new Date();
 
@@ -244,9 +258,17 @@ export async function getOrganizerDashboard(organizerId) {
     Ticket.countDocuments({ eventId: { $in: eventIds }, status: { $in: ['VALID', 'USED'] } }),
     Order.aggregate([
       { $match: { eventId: { $in: eventIds }, status: 'PAID' } },
-      { $group: { _id: null, revenue: { $sum: '$totalAmount' }, orders: { $sum: 1 } } },
+      { $group: { _id: '$currency', revenue: { $sum: '$totalAmount' }, orders: { $sum: 1 } } },
+      { $sort: { revenue: -1 } },
     ]),
   ]);
+
+  // Group revenue BY CURRENCY (multi-currency platform): grossRevenue/currency
+  // are the primary (largest) currency for the single-value tile; the full
+  // breakdown ships in revenueByCurrency so nothing is summed across currencies.
+  const revenueByCurrency = revenueAgg.map((r) => ({ currency: r._id || 'INR', revenue: r.revenue, orders: r.orders }));
+  const primary = revenueByCurrency[0] || { currency: events[0]?.currency || 'INR', revenue: 0, orders: 0 };
+  const paidOrders = revenueByCurrency.reduce((s, r) => s + r.orders, 0);
 
   const next = events
     .filter((e) => e.status === 'PUBLISHED' && e.startAt && e.startAt >= now)
@@ -260,9 +282,10 @@ export async function getOrganizerDashboard(organizerId) {
       pending: events.filter((e) => e.status === 'PENDING_APPROVAL').length,
     },
     ticketsSold,
-    grossRevenue: revenueAgg[0]?.revenue || 0, // paise
-    paidOrders: revenueAgg[0]?.orders || 0,
-    currency: 'INR',
+    grossRevenue: primary.revenue, // paise, in `currency`
+    paidOrders,
+    currency: primary.currency,
+    revenueByCurrency,
     nextEvent: next
       ? { id: String(next._id), title: next.title, slug: next.slug, startAt: next.startAt, isOnline: !!next.isOnline, venueName: next.venueName || null, city: next.city || null }
       : null,

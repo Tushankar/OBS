@@ -38,7 +38,7 @@ export async function submit(req, res) {
 }
 
 export async function cancel(req, res) {
-  const result = await eventService.organizerCancelEvent(req.organizer._id, req.params.id, req.body);
+  const result = await eventService.organizerCancelEvent(req.organizer._id, req.params.id, req.body, req.user?.id);
   res.status(200).json(result);
 }
 

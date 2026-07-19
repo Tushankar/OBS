@@ -15,6 +15,10 @@ router.use(requireAuth, requireRole('ADMIN'));
 // --- Organizers (task 1.1) ---
 router.get('/organizers', validate({ query: schemas.listOrganizersQuery }), asyncHandler(c.listOrganizers));
 router.post('/organizers/:id/approve', validate({ params: schemas.idParam }), asyncHandler(c.approveOrganizer));
+router.patch('/organizers/:id/commission', validate({ params: schemas.idParam, body: schemas.organizerCommissionSchema }), asyncHandler(c.setOrganizerCommission));
+// --- Commission policy (Admin → Commissions) ---
+router.get('/settings/commission', asyncHandler(c.getCommission));
+router.patch('/settings/commission', validate({ body: schemas.commissionSettingsSchema }), asyncHandler(c.updateCommission));
 router.post(
   '/organizers/:id/reject',
   validate({ params: schemas.idParam, body: schemas.rejectOrganizerSchema }),

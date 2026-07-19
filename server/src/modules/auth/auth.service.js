@@ -64,6 +64,9 @@ export async function changePassword(userId, { currentPassword, newPassword }) {
   if (!ok) throw unauthorized('INVALID_CURRENT_PASSWORD', 'Your current password is incorrect');
   user.passwordHash = await bcrypt.hash(newPassword, BCRYPT_COST);
   await user.save();
+  // Force re-login everywhere (mirrors resetPassword): if the password was
+  // changed because the account was compromised, any attacker session is cut.
+  await Session.updateMany({ userId: user._id, revokedAt: null }, { revokedAt: new Date() });
   return { ok: true };
 }
 

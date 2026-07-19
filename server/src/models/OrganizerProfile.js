@@ -21,6 +21,9 @@ const organizerProfileSchema = new Schema(
     experience: { type: String, enum: ['FIRST_TIME', 'UPTO_5', 'UPTO_20', 'OVER_20'] },
     registrationNo: String,
     status: { type: String, enum: ORGANIZER_STATUS, default: 'PENDING' },
+    // Per-organizer service-fee override (percent). null = use the platform
+    // default from settings; 0 = commission-free organizer.
+    commissionPercent: { type: Number, default: null, min: 0, max: 100 },
     rejectionReason: String,
     approvedById: { type: Schema.Types.ObjectId, ref: 'User' },
     approvedAt: Date,

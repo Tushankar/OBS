@@ -1,10 +1,11 @@
 import { randomUUID } from 'crypto';
-import { Event, Category, Chapter, TicketType, Ticket, Speaker, Program, Article, Order, Payment, Refund } from '../../models/index.js';
+import { Event, Category, Chapter, TicketType, Ticket, Speaker, Program, Article, Order, Payment, Refund, OrganizerProfile } from '../../models/index.js';
 import { sponsorsForEvent } from '../sponsors/sponsors.service.js';
 import { approveRefund } from '../refunds/refunds.service.js';
 import { sendMail } from '../../utils/mailer.js';
 import { writeAudit } from '../../utils/audit.js';
 import { notifyAdmins } from '../notifications/notifications.service.js';
+import { effectiveServiceFeePercent } from '../settings/settings.service.js';
 import { registrationsWorkbook } from '../../utils/xlsx.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { presignPut, objectUrl } from '../../utils/s3.js';
@@ -161,16 +162,19 @@ export async function deleteEvent(organizerId, id) {
   return { ok: true, id: String(event._id) };
 }
 
-// Fields that must be present before an event can be submitted for approval
-// (the model relaxes these for draft-first; completeness is enforced here).
-async function assertSubmittable(e) {
+// Fields that must be present before an event can be submitted for approval /
+// published (the model relaxes these for draft-first; completeness is enforced
+// here). `requireFuture` is on for the organizer submit path (a brand-new event
+// must start in the future) but off for admin publish (an admin may legitimately
+// (re)publish an already-running or previously-unpublished event).
+export async function assertSubmittable(e, { requireFuture = true } = {}) {
   const missing = [];
   if (!e.categoryId) missing.push('category');
   if (!e.description || e.description.trim().length < 10) missing.push('description (min 10 characters)');
   if (!e.startAt) missing.push('start date & time');
   if (!e.endAt) missing.push('end date & time');
   if (e.startAt && e.endAt && e.endAt <= e.startAt) missing.push('end after start');
-  if (e.startAt && e.startAt <= new Date()) missing.push('a start time in the future');
+  if (requireFuture && e.startAt && e.startAt <= new Date()) missing.push('a start time in the future');
   if (e.isOnline) {
     if (!e.meetingLink) missing.push('meeting link');
   } else {
@@ -284,9 +288,11 @@ export async function cancelEventCascade(event, { reason, actorId }) {
 }
 
 // POST /organizer/events/:id/cancel — an organizer cancels their own live event.
-export async function organizerCancelEvent(organizerId, id, { reason }) {
+// actorUserId is the acting User id (audit/refund actorId must be a User ref,
+// not the OrganizerProfile id); it falls back to organizerId only if unset.
+export async function organizerCancelEvent(organizerId, id, { reason }, actorUserId) {
   const event = await loadOwnedEvent(organizerId, id);
-  return cancelEventCascade(event, { reason, actorId: organizerId });
+  return cancelEventCascade(event, { reason, actorId: actorUserId || organizerId });
 }
 
 // Presigned S3 PUT for the event banner. The client uploads the file directly,
@@ -425,7 +431,16 @@ export async function listPublicEvents(q) {
 
   if (q.q) {
     const rx = { $regex: escapeRegex(q.q), $options: 'i' };
-    filter.$or = [{ title: rx }, { description: rx }, { city: rx }, { venueName: rx }];
+    // Also match events by their CATEGORY or ORGANIZER name — not just the
+    // event's own text — so "summit" or an organizer's name surface their events.
+    const [cats, orgs] = await Promise.all([
+      Category.find({ name: rx }).select('_id'),
+      OrganizerProfile.find({ orgName: rx }).select('_id'),
+    ]);
+    const or = [{ title: rx }, { description: rx }, { city: rx }, { venueName: rx }];
+    if (cats.length) or.push({ categoryId: { $in: cats.map((c) => c._id) } });
+    if (orgs.length) or.push({ organizerId: { $in: orgs.map((o) => o._id) } });
+    filter.$or = or;
   }
   if (q.city) filter.city = { $regex: `^${escapeRegex(q.city)}$`, $options: 'i' };
   if (q.country) {
@@ -448,6 +463,7 @@ export async function listPublicEvents(q) {
   if (q.owner === 'obs') filter.ownership = 'OBS'; // §5.6 All/OBS/Partner tabs
   if (q.owner === 'partner') filter.ownership = 'PARTNER';
   if (q.featured === 'true' || q.featured === true) filter.isFeatured = true; // home Featured rail
+  if (q.membersOnly === 'true') filter.membersOnly = true; // chapter members-only events
 
   if (q.category) {
     const cat = await Category.findOne({ slug: q.category }).select('_id');
@@ -513,7 +529,6 @@ function publicEventFull(e) {
     lng: e.lng ?? null,
     placeId: e.placeId || null,
     viewsCount: e.viewsCount || 0,
-    serviceFeePercent: env.SERVICE_FEE_PERCENT, // for the booking-card fee estimate
     isOnline: !!e.isOnline,
     meetingLink: null, // revealed to ticket holders in Phase 2
     organizer: org
@@ -576,7 +591,10 @@ export async function getPublicEventBySlug(slug) {
   ).map((a) => ({ title: a.title, slug: a.slug, publishedAt: a.publishedAt || null }));
   const prog = event.programId && event.programId._id ? event.programId : null;
   const program = prog ? { name: prog.name, slug: prog.slug, dayNumber: event.programDayNumber ?? null } : null;
-  return { ...publicEventFull(event), program, speakers, sponsors, articles, ticketTypes: ticketTypes.map(publicTicketType) };
+  // Booking-card fee estimate — the same admin-managed policy checkout uses
+  // (platform-vs-own-event rates + per-organizer overrides).
+  const serviceFeePercent = await effectiveServiceFeePercent(event.organizerId?._id || event.organizerId);
+  return { ...publicEventFull(event), serviceFeePercent, program, speakers, sponsors, articles, ticketTypes: ticketTypes.map(publicTicketType) };
 }
 
 // Next 4 upcoming published events sharing the category or chapter.

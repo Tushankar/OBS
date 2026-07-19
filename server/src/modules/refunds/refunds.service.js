@@ -69,8 +69,13 @@ export async function adminListRefunds({ status } = {}) {
   return rows.map(shapeRefund);
 }
 
-// Admin approve → call the gateway refund API. Order stays REFUND_REQUESTED
-// until the gateway webhook confirms (finalizeRefund).
+// Admin approve → call the gateway refund API, then complete the reversal
+// (void tickets + restore inventory) IMMEDIATELY rather than waiting on the
+// charge.refunded webhook. finalizeRefund is idempotent (gated by a conditional
+// REFUND_REQUESTED→REFUNDED order flip), so the webhook — if it later arrives —
+// and the reconcileRefunds cron are harmless no-ops. This means refunds resolve
+// fully even when the webhook can't reach us (webhook secret unset / dropped
+// delivery), closing the "money returned but ticket still valid" gap.
 export async function approveRefund(adminId, refundId) {
   const refund = await Refund.findById(refundId).populate('paymentId');
   if (!refund) throw notFoundError('REFUND_NOT_FOUND', 'Refund not found');
@@ -90,7 +95,17 @@ export async function approveRefund(adminId, refundId) {
   refund.gatewayRefundId = gatewayRefundId;
   await refund.save();
   await writeAudit({ actorId: adminId, action: 'REFUND_APPROVED', entityType: 'Refund', entityId: refund._id, meta: { orderId: String(refund.orderId), amount: refund.amount, gatewayRefundId } });
-  return shapeRefund(refund);
+
+  // Complete the reversal now. Best-effort: the money has already moved at the
+  // gateway, so a transient failure here must NOT fail the request — the
+  // reconcileRefunds cron (and the webhook) will finish it.
+  try {
+    await finalizeRefund(refund);
+  } catch (e) {
+    console.error('[refund] inline finalize failed (reconcile/webhook will retry):', e.message);
+  }
+  const fresh = await Refund.findById(refund._id);
+  return shapeRefund(fresh || refund);
 }
 
 export async function rejectRefund(adminId, refundId, notes) {
@@ -163,4 +178,24 @@ export async function completeRefundByOrderId(orderId) {
   const refund = await Refund.findOne({ orderId, status: { $in: ['APPROVED', 'REQUESTED'] } }).sort({ createdAt: -1 });
   if (!refund) return { ignored: 'no_refund' };
   return finalizeRefund(refund);
+}
+
+// Safety-net cron: finalize any refund that was APPROVED (money moved) but whose
+// order reversal never completed — i.e. the rare case where approveRefund's
+// inline finalize failed and no charge.refunded webhook arrived. Idempotent.
+export async function reconcileRefunds() {
+  const stuck = await Refund.find({ status: 'APPROVED' }).select('_id orderId gatewayRefundId amount');
+  let fixed = 0;
+  for (const refund of stuck) {
+    const order = await Order.findById(refund.orderId).select('status');
+    if (!order || order.status !== 'REFUND_REQUESTED') continue; // already finalized (or not awaiting)
+    try {
+      const r = await finalizeRefund(refund);
+      if (r.refunded) fixed += 1;
+    } catch (e) {
+      console.error('[reconcileRefunds] failed for refund', String(refund._id), e.message);
+    }
+  }
+  if (fixed) console.log(`[reconcileRefunds] finalized ${fixed} refund(s)`);
+  return { fixed };
 }

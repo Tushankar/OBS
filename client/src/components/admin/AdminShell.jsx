@@ -39,6 +39,7 @@ const NAV = [
       { to: '/admin/support', label: 'Support', icon: 'Comment' },
       { to: '/admin/refunds', label: 'Refunds', icon: 'Refunds' },
       { to: '/admin/promos', label: 'Promo codes', icon: 'Percent' },
+      { to: '/admin/commissions', label: 'Commissions', icon: 'Wallet' },
       { to: '/admin/campaigns', label: 'Campaigns', icon: 'Megaphone' },
       { to: '/admin/emails', label: 'Email log', icon: 'Mail' },
       { to: '/admin/reports', label: 'Reports', icon: 'Reports' },

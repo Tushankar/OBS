@@ -29,7 +29,14 @@ export default function Dashboard() {
 
   if (!data) return <Loading />;
   const next = data.nextEvent;
+  // Money is per-currency (the platform is multi-currency). `data.currency` is
+  // the primary revenue currency; `payCur` the primary payout currency. Never
+  // sum across currencies — surface the others as a note instead.
+  const payCur = payouts?.currency || data.currency;
   const money = (v) => formatPrice(v, data.currency);
+  const payMoney = (v) => formatPrice(v, payCur);
+  const otherRevCurrencies = (data.revenueByCurrency || []).map((c) => c.currency).filter((c) => c !== data.currency);
+  const revHint = otherRevCurrencies.length ? `+ revenue in ${otherRevCurrencies.join(', ')}` : undefined;
 
   const pipeline = [
     { label: 'Live', value: data.events.published || 0, color: '#E5B700' },
@@ -37,7 +44,11 @@ export default function Dashboard() {
     { label: 'Pending approval', value: data.events.pending || 0, color: '#F4A920' },
   ].filter((s) => s.value > 0);
 
-  const revenueByEvent = (payouts?.rows || []).slice(0, 8).map((r) => ({ label: r.title, value: r.net }));
+  // Bars share one axis, so restrict the ranking to the primary payout currency
+  // (mixing currencies on one scale would be meaningless); note any others.
+  const payRows = (payouts?.rows || []).filter((r) => (r.currency || payCur) === payCur);
+  const revenueByEvent = payRows.slice(0, 8).map((r) => ({ label: r.title, value: r.net }));
+  const otherPayCurrencies = (payouts?.totalsByCurrency || []).map((c) => c.currency).filter((c) => c !== payCur);
 
   const quickActions = [
     ['Create a new event', 'Step-by-step wizard with tickets & promos', () => navigate('/organizer/events/new'), 'Events', true],
@@ -62,12 +73,12 @@ export default function Dashboard() {
         <StatCard icon={<AdminIcon.Events size={18} />} label="Total events" value={num(data.events.total)} hint={`${num(data.events.published)} live · ${num(data.events.draft)} draft · ${num(data.events.pending)} pending`} />
         <StatCard icon={<AdminIcon.Ticket size={18} />} label="Tickets sold" value={num(data.ticketsSold)} />
         <StatCard icon={<AdminIcon.Transactions size={18} />} label="Paid orders" value={num(data.paidOrders)} />
-        <StatCard icon={<AdminIcon.Rupee size={18} />} label="Gross revenue" value={money(data.grossRevenue)} />
+        <StatCard icon={<AdminIcon.Rupee size={18} />} label="Gross revenue" value={money(data.grossRevenue)} hint={revHint} />
         <StatCard
           icon={<AdminIcon.Wallet size={18} />}
           label="Net after refunds"
-          value={payouts ? money(payouts.totals.net) : '—'}
-          hint={payouts && payouts.totals.refunded > 0 ? `${money(payouts.totals.refunded)} refunded` : 'from your settlement statement'}
+          value={payouts ? payMoney(payouts.totals.net) : '—'}
+          hint={payouts && payouts.totals.refunded > 0 ? `${payMoney(payouts.totals.refunded)} refunded` : (otherPayCurrencies.length ? `+ ${otherPayCurrencies.join(', ')} — see Payouts` : 'from your settlement statement')}
         />
         <StatCard icon={<AdminIcon.Star size={18} />} label="Live events" value={num(data.events.published)} />
       </div>
@@ -79,14 +90,17 @@ export default function Dashboard() {
           <Card className="!p-4 sm:!p-6">
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <h2 className="text-base font-semibold text-gray-800 sm:text-lg">Revenue by event</h2>
-              {payouts && <span className="text-sm text-gray-500">{money(payouts.totals.net)} net total</span>}
+              {payouts && <span className="text-sm text-gray-500">{payMoney(payouts.totals.net)} net total{otherPayCurrencies.length ? ` (${payCur})` : ''}</span>}
             </div>
             <p className="mb-4 border-b border-gray-200 pb-3 text-sm text-gray-500">
               Net ticket revenue after refunds — full statement under <button onClick={() => navigate('/organizer/payouts')} className="font-medium text-[#E5B700] transition-opacity hover:opacity-80">Payouts</button>.
             </p>
             {payouts === null
               ? <div className="h-[180px] animate-pulse rounded-lg bg-gray-100" />
-              : <BarList items={revenueByEvent} format={money} empty="No ticket revenue yet — it appears here after your first paid booking." />}
+              : <BarList items={revenueByEvent} format={payMoney} empty="No ticket revenue yet — it appears here after your first paid booking." />}
+            {otherPayCurrencies.length > 0 && (
+              <p className="mt-3 text-xs text-gray-400">Showing {payCur}. You also have revenue in {otherPayCurrencies.join(', ')} — see the full breakdown under Payouts.</p>
+            )}
           </Card>
 
           <Card className="!p-4 sm:!p-6">

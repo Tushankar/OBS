@@ -89,6 +89,7 @@ export const publicListQuery = z.object({
   price: z.enum(['free', 'paid']).optional(),
   owner: z.enum(['all', 'obs', 'partner']).optional(),
   featured: z.enum(['true', 'false']).optional(),
+  membersOnly: z.enum(['true', 'false']).optional(),
   program: z.string().trim().max(160).optional(),
 });
 

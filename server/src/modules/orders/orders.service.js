@@ -4,12 +4,16 @@ import { nextSeq, formatOrderNumber } from '../../utils/counters.js';
 import { env } from '../../config/env.js';
 import { badRequest, conflict, forbidden, notFoundError } from '../../utils/errors.js';
 import { markPaidAndFulfil } from '../fulfillment/fulfillment.service.js';
+import { effectiveServiceFeePercent } from '../settings/settings.service.js';
 import { presignGet, isS3Configured } from '../../utils/s3.js';
 import { writeAudit } from '../../utils/audit.js';
 
 // ---- pricing (all integer paise; recomputed server-side, never trust client) ----
 
-async function resolvePromo(eventId, code, subtotal) {
+const fmtMoney = (paise, currency = 'INR') =>
+  (currency === 'INR' ? '₹' : `${currency} `) + (Number(paise) / 100).toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US');
+
+async function resolvePromo(eventId, code, subtotal, currency = 'INR') {
   if (!code) return null;
   const c = code.trim().toUpperCase();
   // Prefer a code scoped to THIS event; fall back to a platform-wide code.
@@ -19,9 +23,12 @@ async function resolvePromo(eventId, code, subtotal) {
   const now = new Date();
   if (promo.validFrom && now < promo.validFrom) throw badRequest('PROMO_NOT_STARTED', 'This promo code is not active yet');
   if (promo.validUntil && now > promo.validUntil) throw badRequest('PROMO_EXPIRED', 'This promo code has expired');
+  // Fast early check (the authoritative cap is enforced atomically inside the
+  // order transaction — see createOrder — so concurrent/multiple pending orders
+  // can't push usedCount past maxUses).
   if (promo.maxUses != null && promo.usedCount >= promo.maxUses) throw badRequest('PROMO_EXHAUSTED', 'This promo code has reached its usage limit');
   if (promo.minOrderAmount != null && subtotal < promo.minOrderAmount) {
-    throw badRequest('PROMO_MIN_ORDER', `This code requires a minimum order of ₹${(promo.minOrderAmount / 100).toLocaleString('en-IN')}`);
+    throw badRequest('PROMO_MIN_ORDER', `This code requires a minimum order of ${fmtMoney(promo.minOrderAmount, currency)}`);
   }
   return promo;
 }
@@ -113,9 +120,12 @@ export async function createOrder(userId, { eventId, items, promoCode }) {
     orderItems.push({ ticketTypeId: tt._id, name: tt.name, quantity: it.quantity, unitPrice: tt.price, totalPrice });
   }
 
-  const promo = await resolvePromo(eventId, promoCode, subtotal);
+  const promo = await resolvePromo(eventId, promoCode, subtotal, event.currency || 'INR');
   const discountAmount = discountFor(promo, subtotal);
-  const serviceFee = Math.round(((subtotal - discountAmount) * env.SERVICE_FEE_PERCENT) / 100);
+  // Commission policy is admin-managed (Admin → Commissions): master switch,
+  // platform-vs-own-event rates and per-organizer overrides all resolve here.
+  const feePercent = await effectiveServiceFeePercent(event.organizerId);
+  const serviceFee = Math.round(((subtotal - discountAmount) * feePercent) / 100);
   const totalAmount = subtotal - discountAmount + serviceFee;
   const currency = event.currency || 'INR';
   // Payments are Stripe-only (all currencies, incl. INR); free orders skip the gateway.
@@ -139,6 +149,15 @@ export async function createOrder(userId, { eventId, items, promoCode }) {
           const tt = ttById.get(it.ticketTypeId);
           throw conflict('SOLD_OUT', `"${tt?.name || 'Ticket'}" doesn't have enough tickets left`);
         }
+      }
+      // Reserve the promo use ATOMICALLY here (not at fulfilment) with a cap
+      // guard, so concurrent/multiple pending orders can't over-redeem a limited
+      // code. Released again if the hold is cancelled/expired (releaseHeldOrder).
+      if (promo) {
+        const promoFilter = { _id: promo._id };
+        if (promo.maxUses != null) promoFilter.$expr = { $lt: ['$usedCount', '$maxUses'] };
+        const pr = await PromoCode.updateOne(promoFilter, { $inc: { usedCount: 1 } }, { session });
+        if (pr.modifiedCount !== 1) throw conflict('PROMO_EXHAUSTED', 'This promo code has reached its usage limit');
       }
       const [created] = await Order.create(
         [{ orderNumber, userId, eventId, promoCodeId: promo?._id, items: orderItems, subtotal, discountAmount, serviceFee, totalAmount, currency, status: 'PENDING', gateway, expiresAt }],
@@ -171,6 +190,11 @@ export async function releaseHeldOrder(orderId, toStatus) {
       await Order.updateOne({ _id: orderId }, { $set: { status: toStatus } }, { session });
       for (const item of order.items) {
         await TicketType.updateOne({ _id: item.ticketTypeId }, { $inc: { quantitySold: -item.quantity } }, { session });
+      }
+      // Give the reserved promo use back (mirrors the reservation in createOrder)
+      // — a hold that never became PAID must not consume a redemption slot.
+      if (order.promoCodeId) {
+        await PromoCode.updateOne({ _id: order.promoCodeId }, { $inc: { usedCount: -1 } }, { session });
       }
       released = true;
     });
