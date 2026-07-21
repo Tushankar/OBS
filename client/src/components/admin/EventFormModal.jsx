@@ -7,6 +7,7 @@ import PromoCodesEditor from '../organizer/PromoCodesEditor';
 import EventAttendees from './EventAttendees';
 import ImagesUploader from '../common/ImagesUploader';
 import MapPicker from '../common/MapPicker';
+import CountryField from '../common/CountryField';
 import { zonedInputToISO, isoToZonedInput, tzOffsetLabel, TIMEZONES, suggestTimezone } from '../../lib/timezones';
 
 // Admin create / edit of an OBS-platform event (ownership OBS). Publishes
@@ -264,7 +265,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
             </select>
           </Field>
           <Field label="Country">
-            <input value={form.country} onChange={(e) => set('country', e.target.value)} className={inputCls} />
+            <CountryField value={form.country} onChange={(v) => set('country', v)} />
           </Field>
           <div className="sm:col-span-2">
             <Field label="Description"><textarea value={form.description} onChange={(e) => set('description', e.target.value)} rows={4} placeholder="What's the event about?" className={`${inputCls} resize-y`} /></Field>

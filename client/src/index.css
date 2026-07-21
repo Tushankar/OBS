@@ -172,3 +172,46 @@
   background-position: right center;
   box-shadow: 0 4px 15px rgba(201, 158, 37, 0.4);
 }
+
+/* ── Article Markdown editor (@uiw/react-md-editor) — OBS gold theme ────────
+ * Scoped under .obs-md-editor so it never affects any other markdown render.
+ * We hide the library's own preview and use the app's Markdown component for an
+ * accurate live preview, so only the editor chrome is themed here. */
+.obs-md-editor .w-md-editor {
+  border: 1px solid #E8ECF2;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  background: #fff;
+  --md-editor-font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+}
+.obs-md-editor .w-md-editor-toolbar {
+  border-radius: 12px 12px 0 0;
+  background: #FAFBFC;
+  border-bottom: 1px solid #EEF2F6;
+  padding: 6px 8px;
+}
+.obs-md-editor .w-md-editor-toolbar li > button {
+  color: #4B5563;
+  border-radius: 6px;
+  height: 26px;
+}
+.obs-md-editor .w-md-editor-toolbar li > button:hover,
+.obs-md-editor .w-md-editor-toolbar li.active > button {
+  color: #B58C1F;
+  background: #FAF4E3;
+}
+.obs-md-editor .w-md-editor-text-input,
+.obs-md-editor .w-md-editor-text-pre,
+.obs-md-editor .w-md-editor-text-pre > code {
+  font-size: 13.5px !important;
+  line-height: 1.75 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+}
+/* Tint the syntax highlighting to the brand so structure reads at a glance. */
+.obs-md-editor .w-md-editor-text-pre .token.title,
+.obs-md-editor .w-md-editor-text-pre .token.title .punctuation { color: #B58C1F !important; font-weight: 700; }
+.obs-md-editor .w-md-editor-text-pre .token.bold { color: #111827 !important; }
+.obs-md-editor .w-md-editor-text-pre .token.url,
+.obs-md-editor .w-md-editor-text-pre .token.link { color: #C99E25 !important; }
+.obs-md-editor .w-md-editor-text-pre .token.quote { color: #6B7280 !important; }
+.obs-md-editor .w-md-editor-bar svg { color: #C6D0DE; }

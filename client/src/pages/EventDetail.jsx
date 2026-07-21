@@ -84,6 +84,13 @@ export default function EventDetail() {
     );
   }
 
+  // An event is "ended" once it's COMPLETED (flipped by the completeEvents job)
+  // or its end time has simply passed. Ended events aren't bookable, so the page
+  // drops the booking CTA/card for a clear "this has ended" state — distinct
+  // from CANCELLED, which is handled separately below.
+  const ended = event.status !== 'CANCELLED' &&
+    (event.status === 'COMPLETED' || (event.endAt && new Date(event.endAt) < new Date()));
+
   const url = typeof window !== 'undefined' ? window.location.href : '';
   const shareText = `${event.title} — on OBS Events`;
   const copy = () => { try { navigator.clipboard.writeText(url); pushToast('Link copied'); } catch { pushToast('Could not copy', false); } };
@@ -194,13 +201,18 @@ export default function EventDetail() {
                 )}
               </div>
 
-              {event.status !== 'CANCELLED' && (
+              {event.status !== 'CANCELLED' && !ended && (
                 <button
                   onClick={() => document.getElementById('booking-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                   className="mt-7 rounded-lg bg-gold-gradient px-12 py-3.5 text-[15px] font-extrabold text-black shadow-card transition hover:brightness-110"
                 >
                   Book tickets
                 </button>
+              )}
+              {ended && (
+                <span className="mt-7 inline-flex items-center gap-2 rounded-lg bg-white/15 px-5 py-3 text-[13px] font-bold text-white/90 backdrop-blur-sm">
+                  This event has ended
+                </span>
               )}
             </div>
           </div>
@@ -347,6 +359,13 @@ export default function EventDetail() {
               <div className="mb-2 text-base font-bold text-ink">Bookings closed</div>
               <p className="text-[13px] text-ink-mute">This event was cancelled — tickets are no longer on sale.</p>
               <button onClick={() => navigate('/events')} className="mt-4 h-10 w-full rounded-full border border-line text-sm font-semibold text-ink-soft transition hover:border-brand hover:text-brand">Browse other events</button>
+            </div>
+          ) : ended ? (
+            <div className="rounded-2xl border border-line bg-white p-5 shadow-panel">
+              <div className="mb-2 text-base font-bold text-ink">This event has ended</div>
+              <p className="text-[13px] text-ink-mute">Bookings are closed. Explore what’s coming up next.</p>
+              <button onClick={() => navigate('/events')} className="mt-4 h-10 w-full rounded-full bg-brand text-sm font-semibold text-white transition hover:bg-brand-dark">Browse upcoming events</button>
+              <button onClick={() => navigate('/events/past')} className="mt-2 h-10 w-full rounded-full border border-line text-sm font-semibold text-ink-soft transition hover:border-brand hover:text-brand">See past events</button>
             </div>
           ) : (
             <div className="rounded-2xl bg-white shadow-panel">

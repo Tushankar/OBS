@@ -43,13 +43,13 @@ export default function Emails() {
   const renderCell = (row, key) => {
     if (key === 'sentAt') return <span className="whitespace-nowrap text-[#6B7280]">{fmtWhen(row.sentAt)}</span>;
     if (key === 'type') return <span className="text-[12px] font-medium text-[#4B5563]">{typeLabel(row.type)}</span>;
-    if (key === 'to') return <span className="text-[#111827]">{row.to}</span>;
-    if (key === 'subject') return <span className="block max-w-[280px] truncate text-[#4B5563]" title={row.subject}>{row.subject}</span>;
-    if (key === 'event') return <span className="block max-w-[180px] truncate text-[#6B7280]" title={row.event || ''}>{row.event || '—'}</span>;
+    if (key === 'to') return <span className="block max-w-[160px] truncate text-[#111827]" title={row.to}>{row.to}</span>;
+    if (key === 'subject') return <span className="block max-w-[210px] truncate text-[#4B5563]" title={row.subject}>{row.subject}</span>;
+    if (key === 'event') return <span className="block max-w-[140px] truncate text-[#6B7280]" title={row.event || ''}>{row.event || '—'}</span>;
     if (key === 'status') return (
       <span title={row.error || undefined}>
         <Pill tone={statusTone(row.status === 'SENT' ? 'SENT' : row.status === 'FAILED' ? 'FAILED' : 'QUEUED')}>{row.status}</Pill>
-        {row.error && <span className="mt-0.5 block max-w-[200px] truncate text-[11px] text-[#B91C1C]" title={row.error}>{row.error}</span>}
+        {row.error && <span className="mt-0.5 block max-w-[150px] truncate text-[11px] text-[#B91C1C]" title={row.error}>{row.error}</span>}
       </span>
     );
     return row[key];

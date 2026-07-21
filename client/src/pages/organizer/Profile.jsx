@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
 import { PageHead, Card, Btn, Field, inputCls, Loading } from '../../components/portal/Kit';
+import ImageField from '../../components/common/ImageField';
 
 export default function OrganizerProfile() {
   const { pushToast } = useApp();
@@ -64,8 +65,8 @@ export default function OrganizerProfile() {
               )}
             </div>
             <div className="flex-1">
-              <Field label="Logo URL" hint="Square works best — shown on your public page and event listings.">
-                <input value={form.logoUrl} onChange={set('logoUrl')} placeholder="https://…/logo.png" className={inputCls} />
+              <Field label="Logo" hint="Paste a URL or upload — square works best; shown on your public page and listings.">
+                <ImageField value={form.logoUrl} onChange={(v) => setForm((f) => ({ ...f, logoUrl: v }))} fit="contain" showPreview={false} />
               </Field>
             </div>
           </div>

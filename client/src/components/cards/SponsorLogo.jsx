@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 // is a real connection on every surface it appears, not a dead tile.
 export default function SponsorLogo({ sponsor, large = false }) {
   const size = large ? 'w-[240px] h-[108px]' : 'w-[160px] h-[72px]';
-  const cls = `group relative block overflow-hidden rounded-xl border border-line bg-white transition-all duration-200 hover:border-[#C99E25] hover:shadow-panel ${size}`;
+  const cls = `group relative block overflow-hidden rounded-xl bg-white transition-all duration-200 hover:shadow-panel ${size}`;
 
   const inner = (
     <div className="absolute inset-2">

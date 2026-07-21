@@ -12,6 +12,7 @@ import RouteProgress from './components/common/RouteProgress';
 // Existing pages
 import Home from './pages/Home';
 import EventsListing from './pages/EventsListing';
+import PastEvents from './pages/PastEvents';
 import EventDetail from './pages/EventDetail';
 import Checkout from './pages/Checkout';
 import Success from './pages/Success';
@@ -88,6 +89,7 @@ import AdminPartnerLeads from './pages/admin/PartnerLeads';
 import AdminSupport from './pages/admin/Support';
 import AdminPrograms from './pages/admin/Programs';
 import AdminArticles from './pages/admin/Articles';
+import AdminArticleEditor from './pages/admin/ArticleEditor';
 import AdminPromos from './pages/admin/Promos';
 import AdminCommissions from './pages/admin/Commissions';
 import AdminEmails from './pages/admin/Emails';
@@ -153,6 +155,8 @@ export default function App() {
           <Route path="/admin/sponsors" element={<AdminSponsors />} />
           <Route path="/admin/programs" element={<AdminPrograms />} />
           <Route path="/admin/articles" element={<AdminArticles />} />
+          <Route path="/admin/articles/new" element={<AdminArticleEditor />} />
+          <Route path="/admin/articles/:id/edit" element={<AdminArticleEditor />} />
           <Route path="/admin/reports" element={<AdminReports />} />
         </Route>
 
@@ -165,6 +169,7 @@ export default function App() {
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/events" element={<EventsListing />} />
+                  <Route path="/events/past" element={<PastEvents />} />
                   <Route path="/event/:slug" element={<EventDetail />} />
                   <Route path="/checkout/:orderId" element={<RequireAuth><Checkout /></RequireAuth>} />
                   <Route path="/checkout/:orderId/success" element={<RequireAuth><Success /></RequireAuth>} />

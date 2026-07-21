@@ -86,6 +86,7 @@ export const publicListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(48).default(12),
   includePast: z.string().optional(),
+  past: z.string().optional(), // "1"/"true" → past-only listing (ended events, most-recent first)
   price: z.enum(['free', 'paid']).optional(),
   owner: z.enum(['all', 'obs', 'partner']).optional(),
   featured: z.enum(['true', 'false']).optional(),

@@ -7,6 +7,11 @@ export async function listOrganizers(req, res) {
   res.status(200).json({ organizers });
 }
 
+export async function createOrganizer(req, res) {
+  const organizer = await adminService.createOrganizer(req.user.id, req.body);
+  res.status(201).json({ organizer });
+}
+
 export async function approveOrganizer(req, res) {
   const organizer = await adminService.approveOrganizer(req.user.id, req.params.id);
   res.status(200).json({ organizer });

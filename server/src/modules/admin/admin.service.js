@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, ChapterMember, CmsPage, Speaker, Program, EmailLog, AuditLog, Ticket, Session } from '../../models/index.js';
 
 // User-supplied search terms go into $regex — escape metacharacters so a
@@ -50,6 +52,78 @@ async function loadProfileWithUser(id) {
   const profile = await OrganizerProfile.findById(id).populate('userId', 'name email');
   if (!profile) throw notFoundError('ORGANIZER_NOT_FOUND', 'Organizer application not found');
   return profile;
+}
+
+const BCRYPT_COST = 12;
+
+// Temporary password: 12 chars, no ambiguous 0/O/1/l/I so it's easy to read
+// from the email and retype.
+function generatePassword() {
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.randomBytes(12);
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
+}
+
+// POST /admin/organizers — admin creates an organizer + its login account
+// directly. Same fields as the public application, but the account is created
+// APPROVED (the admin vouches for it) and a generated password is emailed to
+// the organizer's address. Throws EMAIL_TAKEN if the email is already in use.
+export async function createOrganizer(adminId, body) {
+  const email = body.email.trim().toLowerCase();
+  if (await User.findOne({ email })) throw conflict('EMAIL_TAKEN', 'An account with this email already exists');
+
+  const password = generatePassword();
+  const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+  const user = await User.create({
+    name: body.contactName,
+    email,
+    passwordHash,
+    role: 'ORGANIZER',
+    status: 'ACTIVE',
+    emailVerifiedAt: new Date(), // admin-created & trusted — skip the signup OTP
+  });
+
+  const slug = await uniqueSlug(OrganizerProfile, body.orgName);
+  const profile = await OrganizerProfile.create({
+    userId: user._id,
+    orgName: body.orgName,
+    slug,
+    bio: body.bio,
+    website: body.website,
+    contactName: body.contactName,
+    phone: body.phone,
+    orgType: body.orgType,
+    city: body.city,
+    socialUrl: body.socialUrl,
+    experience: body.experience,
+    registrationNo: body.registrationNo,
+    status: 'APPROVED',
+    approvedById: adminId,
+    approvedAt: new Date(),
+  });
+
+  await writeAudit({
+    actorId: adminId,
+    action: 'ORGANIZER_CREATED',
+    entityType: 'OrganizerProfile',
+    entityId: profile._id,
+    meta: { orgName: profile.orgName, email },
+  });
+
+  const loginUrl = `${env.APP_URL}/organizer`;
+  await trySendMail({
+    to: email,
+    subject: 'Your OBS Events organizer account is ready',
+    type: 'ORGANIZER_INVITE',
+    userId: user._id,
+    text: `Hi ${user.name},\n\nAn organizer account for "${profile.orgName}" has been created for you on OBS Events.\n\nSign in with:\nEmail: ${email}\nTemporary password: ${password}\n\nSign in and open your organizer portal here: ${loginUrl}\n\nFor your security, please change this password after your first sign-in (Account → Security).\n\n— OBS Events`,
+    html: `<p>Hi ${user.name},</p><p>An organizer account for <strong>${profile.orgName}</strong> has been created for you on OBS Events.</p><p><strong>Sign in with:</strong><br>Email: ${email}<br>Temporary password: <code>${password}</code></p><p><a href="${loginUrl}">Sign in to your organizer portal</a></p><p>For your security, please change this password after your first sign-in (Account &rarr; Security).</p><p>&mdash; OBS Events</p>`,
+  });
+
+  const populated = await OrganizerProfile.findById(profile._id).populate('userId', 'name email');
+  return adminOrganizerRow(populated);
 }
 
 // Best-effort mail send — never blocks the admin action.

@@ -62,6 +62,10 @@ export default function Events() {
 
   if (!data) return <Loading />;
 
+  // Surface approved (PUBLISHED) events first; everything else keeps its
+  // existing (server) order below. Array.sort is stable, so the rest is intact.
+  const rows = [...data.events].sort((a, b) => (a.status === 'PUBLISHED' ? 0 : 1) - (b.status === 'PUBLISHED' ? 0 : 1));
+
   const columns = [
     { key: 'title', label: 'Event' },
     { key: 'when', label: 'When' },
@@ -129,7 +133,7 @@ export default function Events() {
           action={<Btn onClick={() => navigate('/organizer/events/new')}><AdminIcon.Plus size={15} /> Create event</Btn>}
         />
       ) : (
-        <Table columns={columns} rows={data.events} renderCell={renderCell} />
+        <Table columns={columns} rows={rows} renderCell={renderCell} />
       )}
 
       <ConfirmDialog

@@ -11,6 +11,7 @@ import PromoCodesEditor from '../../components/organizer/PromoCodesEditor';
 import SponsorsEditor from '../../components/organizer/SponsorsEditor';
 import ImagesUploader from '../../components/common/ImagesUploader';
 import MapPicker from '../../components/common/MapPicker';
+import CountryField from '../../components/common/CountryField';
 
 const STEPS = ['Basics', 'Banner', 'Venue', 'Tickets', 'Promos', 'Speakers & extras', 'Review'];
 const EXTRAS_STEP = 6;
@@ -485,7 +486,7 @@ export default function EventWizard() {
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="City"><input className={inputCls} value={form.city} disabled={readOnly} onChange={(e) => set('city', e.target.value)} /></Field>
-                  <Field label="Country"><input className={inputCls} value={form.country} disabled={readOnly} onChange={(e) => set('country', e.target.value)} /></Field>
+                  <Field label="Country"><CountryField value={form.country} disabled={readOnly} onChange={(v) => set('country', v)} /></Field>
                 </div>
                 {!readOnly && (
                   <Field label="Pin the venue on the map" hint="Attendees see this exact spot with a directions link on the event page.">

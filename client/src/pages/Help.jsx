@@ -5,6 +5,10 @@ import EvImage from '../components/common/EvImage';
 import api from '../lib/api';
 import { HELP_CATS } from '../data/events';
 
+// Slug a category title the same way the FAQ page ids its sections, so Help can
+// deep-link straight to a FAQ category via /faqs?cat=<slug>.
+const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
 // Help topics are managed in Admin → Site pages (page `help`) as markdown:
 // `## 🎫 Category title` starts a topic (optional leading emoji), the next
 // paragraph is its subtitle, and `- Article name` bullets are its articles.
@@ -33,7 +37,14 @@ function parseHelpCats(md) {
   return clean.length ? clean : null;
 }
 
-const POPULAR = ['Book a ticket', 'Apply a promo code', 'Request a refund', 'Find your QR code', 'Transfer a ticket'];
+// [label, target FAQ category] — clicking jumps to that FAQ section.
+const POPULAR = [
+  ['Book a ticket', 'Buying tickets'],
+  ['Apply a promo code', 'Buying tickets'],
+  ['Request a refund', 'Refunds & changes'],
+  ['Find your QR code', 'Using your tickets'],
+  ['Transfer a ticket', 'Using your tickets'],
+];
 
 /* Category icons keyed by title — professional line icons instead of emoji. */
 const CAT_ICONS = {
@@ -46,7 +57,7 @@ const CAT_ICONS = {
       <path d="M12 8v4l3 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
-  Chapters: (p) => (
+  'Chapters & membership': (p) => (
     <svg viewBox="0 0 24 24" fill="none" width="24" height="24" {...p}>
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" />
@@ -89,6 +100,10 @@ export default function Help() {
   const q = query.trim().toLowerCase();
   const matches = q ? allArticles.filter((r) => (r.article + ' ' + r.cat).toLowerCase().includes(q)).slice(0, 6) : [];
 
+  // Deep links into the FAQ page: jump to a category section, or pre-fill search.
+  const faqCat = (title) => navigate(`/faqs?cat=${slug(title)}`);
+  const faqSearch = (term) => navigate(term.trim() ? `/faqs?q=${encodeURIComponent(term.trim())}` : '/faqs');
+
   return (
     <div className="pb-16">
       {/* ── Hero ─────────────────────────────────────────── */}
@@ -107,7 +122,7 @@ export default function Help() {
           <p className="mx-auto mt-3 max-w-[480px] text-[15px] leading-relaxed text-white/60">{page?.meta?.heroSubtitle || 'Search our knowledge base or browse topics below — most answers take less than a minute to find.'}</p>
 
           <div className="relative mx-auto mt-8 max-w-[620px]">
-            <form onSubmit={(e) => { e.preventDefault(); navigate('/faqs'); }} className="flex items-center gap-2 rounded-full bg-white p-2 shadow-pop">
+            <form onSubmit={(e) => { e.preventDefault(); faqSearch(query); }} className="flex items-center gap-2 rounded-full bg-white p-2 shadow-pop">
               <span className="pl-4 text-ink-mute"><Icon.Search width={18} height={18} /></span>
               <input
                 value={query}
@@ -122,7 +137,7 @@ export default function Help() {
               <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-line bg-white text-left shadow-pop">
                 {matches.length ? (
                   matches.map((m) => (
-                    <button key={m.cat + m.article} onClick={() => navigate('/faqs')} className="flex w-full items-center justify-between gap-3 border-t border-line px-4 py-3 text-left transition first:border-t-0 hover:bg-brand-soft">
+                    <button key={m.cat + m.article} onClick={() => faqCat(m.cat)} className="flex w-full items-center justify-between gap-3 border-t border-line px-4 py-3 text-left transition first:border-t-0 hover:bg-brand-soft">
                       <span>
                         <span className="block text-sm font-semibold text-ink">{m.article}</span>
                         <span className="mt-0.5 block text-xs text-ink-mute">{m.cat}</span>
@@ -131,7 +146,7 @@ export default function Help() {
                     </button>
                   ))
                 ) : (
-                  <div className="px-4 py-4 text-sm text-ink-mute">No results for “{query}”. <button onClick={() => navigate('/faqs')} className="font-semibold text-brand hover:underline">Browse all FAQs</button></div>
+                  <div className="px-4 py-4 text-sm text-ink-mute">No results for “{query}”. <button onClick={() => faqSearch(query)} className="font-semibold text-brand hover:underline">Browse all FAQs</button></div>
                 )}
               </div>
             )}
@@ -139,8 +154,8 @@ export default function Help() {
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-x-2 gap-y-2 text-[13px]">
             <span className="text-white/45">Popular:</span>
-            {POPULAR.map((p) => (
-              <button key={p} onClick={() => navigate('/faqs')} className="rounded-full border border-white/15 bg-white/[0.07] px-3.5 py-1.5 font-medium text-white/85 transition hover:border-brand-light/60 hover:bg-white/15 hover:text-white">{p}</button>
+            {POPULAR.map(([label, cat]) => (
+              <button key={label} onClick={() => faqCat(cat)} className="rounded-full border border-white/15 bg-white/[0.07] px-3.5 py-1.5 font-medium text-white/85 transition hover:border-brand-light/60 hover:bg-white/15 hover:text-white">{label}</button>
             ))}
           </div>
         </div>
@@ -184,19 +199,19 @@ export default function Help() {
                     <CatIcon width={22} height={22} />
                   </span>
                   <div>
-                    <button onClick={() => navigate('/faqs')} className="block text-left text-[16px] font-bold text-ink transition hover:text-brand">{title}</button>
+                    <button onClick={() => faqCat(title)} className="block text-left text-[16px] font-bold text-ink transition hover:text-brand">{title}</button>
                     <div className="mt-0.5 text-[13px] text-ink-mute">{sub}</div>
                   </div>
                 </div>
                 <div className="mt-5 flex flex-1 flex-col divide-y divide-line/70 border-t border-line/70">
                   {articles.map((a) => (
-                    <button key={a} onClick={() => navigate('/faqs')} className="group/link flex items-center justify-between gap-3 py-2.5 text-left text-[13.5px] font-medium text-ink-soft transition hover:text-brand">
+                    <button key={a} onClick={() => faqCat(title)} className="group/link flex items-center justify-between gap-3 py-2.5 text-left text-[13.5px] font-medium text-ink-soft transition hover:text-brand">
                       {a}
                       <Icon.ChevronRight width={12} height={12} className="shrink-0 text-ink-faint transition group-hover/link:translate-x-0.5 group-hover/link:text-brand" />
                     </button>
                   ))}
                 </div>
-                <button onClick={() => navigate('/faqs')} className="mt-4 self-start text-[13px] font-semibold text-brand transition hover:text-brand-dark">View all articles ›</button>
+                <button onClick={() => faqCat(title)} className="mt-4 self-start text-[13px] font-semibold text-brand transition hover:text-brand-dark">View all articles ›</button>
               </div>
             );
           })}

@@ -108,9 +108,10 @@ export default function Reports() {
             columns={[{ key: 'title', label: 'Event' }, { key: 'revenue', label: 'Revenue', align: 'right' }]}
             rows={top}
             empty="No revenue recorded yet."
+            minWidth={0}
             renderCell={(row, key) => key === 'revenue'
-              ? <span className="font-semibold text-[#111827] [font-variant-numeric:tabular-nums]">{formatPrice(row.revenue)}</span>
-              : <span className="font-medium text-[#111827]">{row.title}</span>}
+              ? <span className="whitespace-nowrap font-semibold text-[#111827] [font-variant-numeric:tabular-nums]">{formatPrice(row.revenue)}</span>
+              : <span className="block max-w-[260px] truncate font-medium text-[#111827]" title={row.title}>{row.title}</span>}
           />
         </div>
       </div>

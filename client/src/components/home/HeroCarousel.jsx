@@ -30,10 +30,30 @@ export default function HeroCarousel({ slides, autoplay = true }) {
 
   useEffect(() => {
     if (!autoplay || n <= 1) return undefined;
-    timer.current = setInterval(() => {
-      if (!hovering.current) setIndex((prev) => prev + 1);
-    }, 5000);
-    return () => clearInterval(timer.current);
+    const start = () => {
+      if (timer.current) return;
+      timer.current = setInterval(() => {
+        if (!hovering.current) setIndex((prev) => prev + 1);
+      }, 5000);
+    };
+    const stop = () => { clearInterval(timer.current); timer.current = null; };
+    // While the tab is hidden, CSS transitions and requestAnimationFrame are
+    // frozen, so the infinite-loop wrap (which runs on transitionend) can't fire
+    // — a ticking interval would then push `index` past the slide range and the
+    // track would translate into empty space. So pause when hidden, and on
+    // return snap `index` back into the real range before resuming.
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        setIsTransitioning(false);
+        setIndex((prev) => buffer + (((prev - buffer) % n) + n) % n);
+        start();
+      }
+    };
+    start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
   }, [autoplay, n]);
 
   const handleNext = () => setIndex((prev) => prev + 1);

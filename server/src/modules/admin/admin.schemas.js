@@ -1,8 +1,16 @@
 import { z } from 'zod';
 import { ORGANIZER_STATUS, EVENT_STATUS, ROLE, USER_STATUS, GATEWAY, PAYMENT_STATUS, CHAPTER_TYPE, CHAPTER_STATUS, PAGE_STATUS, EVENT_OWNERSHIP, EMAIL_TYPE, EMAIL_STATUS } from '../../constants.js';
+import { applySchema } from '../organizers/organizers.schemas.js';
 
 export const listOrganizersQuery = z.object({
   status: z.enum(ORGANIZER_STATUS).optional(),
+});
+
+// POST /admin/organizers — admin creates an organizer directly. Same fields as
+// the public application form (applySchema) plus the login email; the account
+// is created APPROVED and its generated password is emailed to that address.
+export const createOrganizerSchema = applySchema.extend({
+  email: z.string().trim().toLowerCase().email('Enter a valid email address').max(160),
 });
 
 export const idParam = z.object({

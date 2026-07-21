@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageHead, Card, Btn, Loading, EmptyState, Pill, Modal, ConfirmDialog, Field, inputCls } from '../../components/portal/Kit';
+import ImageField from '../../components/common/ImageField';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
@@ -66,7 +67,7 @@ function SpeakerEditor({ initial, onClose, onSaved }) {
     >
       <div className="grid gap-3.5 sm:grid-cols-2">
         <Field label="Full name"><input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Aisha Rahman" autoFocus className={inputCls} /></Field>
-        <Field label="Photo URL" hint="Square image works best"><input value={form.photoUrl} onChange={(e) => set('photoUrl', e.target.value)} placeholder="https://…" className={inputCls} /></Field>
+        <Field label="Photo" hint="Paste a URL or upload — square works best"><ImageField value={form.photoUrl} onChange={(v) => set('photoUrl', v)} aspect="aspect-square" /></Field>
         <Field label="Title / role"><input value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Managing Partner" className={inputCls} /></Field>
         <Field label="Company"><input value={form.company} onChange={(e) => set('company', e.target.value)} placeholder="e.g. Meridian Capital" className={inputCls} /></Field>
         <div className="sm:col-span-2">

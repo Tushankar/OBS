@@ -26,7 +26,7 @@ const COLUMNS = [
 
 export default function Refunds() {
   const { pushToast } = useApp();
-  const [tab, setTab] = useState('REQUESTED');
+  const [tab, setTab] = useState('');
   const [rows, setRows] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [rejecting, setRejecting] = useState(null); // refund pending rejection

@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-import { PageHead, Table, Pill, statusTone, Btn, Tabs, Loading, Modal, Avatar } from '../../components/portal/Kit';
+import { PageHead, Table, Pill, statusTone, Btn, Tabs, Loading, Modal, Avatar, Field, inputCls, selectCls } from '../../components/portal/Kit';
 import ReasonDialog from '../../components/admin/ReasonDialog';
+import { AdminIcon } from '../../components/admin/AdminIcons';
 
 const TABS = [
   ['PENDING', 'Pending'],
@@ -104,6 +105,86 @@ function ApplicationModal({ org, busy, onClose, onApprove, onReject }) {
   );
 }
 
+const EMPTY_ORG = { orgName: '', contactName: '', email: '', phone: '', orgType: 'COMPANY', city: '', experience: 'FIRST_TIME', website: '', socialUrl: '', registrationNo: '', bio: '' };
+
+// Admin-created organizer. Same fields as the public application form, plus the
+// login email — the account is created approved and its password is emailed.
+function CreateOrganizerModal({ onClose, onCreated }) {
+  const { pushToast } = useApp();
+  const [form, setForm] = useState(EMPTY_ORG);
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const submit = async () => {
+    // Light client checks; the server enforces the full application rules.
+    if (form.orgName.trim().length < 2) return pushToast('Organization name is required', false);
+    if (form.contactName.trim().length < 2) return pushToast('Contact person is required', false);
+    if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) return pushToast('Enter a valid login email', false);
+    if (form.city.trim().length < 2) return pushToast('City is required', false);
+    if (form.bio.trim().length < 30) return pushToast('Add a short description (at least 30 characters)', false);
+    setBusy(true);
+    try {
+      const org = await api.adminCreateOrganizer({
+        orgName: form.orgName.trim(),
+        contactName: form.contactName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        orgType: form.orgType,
+        city: form.city.trim(),
+        experience: form.experience,
+        bio: form.bio.trim(),
+        website: form.website.trim() || undefined,
+        socialUrl: form.socialUrl.trim() || undefined,
+        registrationNo: form.registrationNo.trim() || undefined,
+      });
+      pushToast(`Created ${org.orgName} — login details emailed to ${org.user?.email || form.email.trim()}`);
+      onCreated();
+    } catch (e) {
+      pushToast(apiError(e, 'Could not create organizer'), false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Add organizer"
+      subtitle="Creates an approved organizer account and emails the login details."
+      width="max-w-2xl"
+      footer={
+        <>
+          <Btn variant="ghost" onClick={onClose} disabled={busy}>Cancel</Btn>
+          <Btn onClick={submit} disabled={busy}>{busy ? 'Creating…' : 'Create & email login'}</Btn>
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+        <div className="sm:col-span-2"><Field label="Organization name"><input className={inputCls} value={form.orgName} onChange={(e) => set('orgName', e.target.value)} placeholder="e.g. Skyline Events Co." /></Field></div>
+        <Field label="Contact person"><input className={inputCls} value={form.contactName} onChange={(e) => set('contactName', e.target.value)} placeholder="Full name" /></Field>
+        <Field label="Login email"><input type="email" className={inputCls} value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="organizer@company.com" /></Field>
+        <Field label="Phone"><input className={inputCls} value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+971 50 123 4567" /></Field>
+        <Field label="City"><input className={inputCls} value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="Dubai" /></Field>
+        <Field label="Organization type">
+          <select className={`${selectCls} w-full`} value={form.orgType} onChange={(e) => set('orgType', e.target.value)}>
+            {Object.entries(ORG_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </Field>
+        <Field label="Event experience">
+          <select className={`${selectCls} w-full`} value={form.experience} onChange={(e) => set('experience', e.target.value)}>
+            {Object.entries(EXPERIENCE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </Field>
+        <Field label="Website (optional)"><input className={inputCls} value={form.website} onChange={(e) => set('website', e.target.value)} placeholder="company.com" /></Field>
+        <Field label="LinkedIn / Instagram (optional)"><input className={inputCls} value={form.socialUrl} onChange={(e) => set('socialUrl', e.target.value)} placeholder="linkedin.com/company/…" /></Field>
+        <div className="sm:col-span-2"><Field label="Registration / GST no. (optional)"><input className={inputCls} value={form.registrationNo} onChange={(e) => set('registrationNo', e.target.value)} /></Field></div>
+        <div className="sm:col-span-2"><Field label="About their events"><textarea rows={4} className={`${inputCls} resize-y`} value={form.bio} onChange={(e) => set('bio', e.target.value)} placeholder="What kind of events do they run? (min 30 characters)" /></Field></div>
+      </div>
+    </Modal>
+  );
+}
+
 export default function Organizers() {
   const { pushToast } = useApp();
   const [tab, setTab] = useState('PENDING');
@@ -111,6 +192,7 @@ export default function Organizers() {
   const [busyId, setBusyId] = useState(null);
   const [rejecting, setRejecting] = useState(null); // organizer pending rejection
   const [detail, setDetail] = useState(null); // application drill-down
+  const [creating, setCreating] = useState(false); // admin add-organizer modal
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
@@ -212,12 +294,20 @@ export default function Organizers() {
       <PageHead
         title="Organizers"
         subtitle={orgs ? `${orgs.length} ${tab === 'ALL' ? 'total' : tab.toLowerCase()}` : 'Review organizer applications.'}
+        actions={<Btn onClick={() => setCreating(true)}><AdminIcon.Plus size={15} /> Add organizer</Btn>}
       />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
       {orgs === null ? (
         <Loading />
       ) : (
         <Table columns={columns} rows={orgs} renderCell={renderCell} empty="No organizer applications here." />
+      )}
+
+      {creating && (
+        <CreateOrganizerModal
+          onClose={() => setCreating(false)}
+          onCreated={() => { setCreating(false); if (tab === 'APPROVED') load(); else setTab('APPROVED'); }}
+        />
       )}
 
       {detail && (

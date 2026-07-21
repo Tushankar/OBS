@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../../context/AppContext';
 import { AdminIcon } from '../admin/AdminIcons';
@@ -36,31 +36,20 @@ function pageTitle(pathname) {
 const itemActive = 'bg-gradient-to-r from-[#E5B700] to-[#F7931E] text-white shadow-md';
 const itemIdle = 'text-gray-700 hover:bg-gray-100 hover:text-[#E5B700]';
 
-export default function OrganizerShell({ orgName = 'Organizer', children }) {
-  const { user, logout, pushToast } = useApp();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [drawer, setDrawer] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('obs.org.sidebar') === 'collapsed');
-
-  const initials = (user?.name || 'O').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-
-  useEffect(() => { localStorage.setItem('obs.org.sidebar', collapsed ? 'collapsed' : 'open'); }, [collapsed]);
-
-  const signOut = async () => {
-    await logout();
-    pushToast('Signed out');
-    navigate('/');
-  };
-
-  const SidebarExpanded = ({ onNavigate }) => (
+// Sidebars hoisted to module scope so their component identity stays stable
+// across OrganizerShell's re-renders. Defined inline, each route change would
+// create a new function type and remount the sidebar — resetting the nav's
+// scroll position on every navigation.
+function SidebarExpanded({ onNavigate, onCollapse, orgName, initials, user, navigate, onSignOut }) {
+  return (
     <div className="font-portal flex h-full flex-col">
       <div className="relative px-8 py-6">
-        <h1 className="whitespace-nowrap text-center text-[22px] font-bold leading-none text-brand" style={{ fontFamily: 'Georgia, serif' }}>OBS Events</h1>
+        <Link to="/" title="Go to homepage" className="block transition-opacity hover:opacity-80">
+          <h1 className="whitespace-nowrap text-center text-[22px] font-bold leading-none text-brand" style={{ fontFamily: 'Georgia, serif' }}>OBS Events</h1>
+        </Link>
         <p className="mt-0.5 truncate text-center text-[11px] font-bold uppercase tracking-widest text-gray-800" title={orgName}>{orgName}</p>
         <button
-          onClick={() => setCollapsed(true)}
+          onClick={onCollapse}
           title="Collapse sidebar"
           className="absolute right-3 top-4 hidden h-8 w-8 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:grid"
         >
@@ -110,7 +99,7 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
           </div>
         </div>
         <button
-          onClick={signOut}
+          onClick={onSignOut}
           className="flex w-full items-center justify-center rounded-xl border border-gray-200 p-3.5 font-medium text-gray-600 transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
         >
           <AdminIcon.Logout size={18} />
@@ -119,13 +108,15 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
       </div>
     </div>
   );
+}
 
-  const SidebarCollapsed = () => (
+function SidebarCollapsed({ onExpand, initials, navigate, onSignOut }) {
+  return (
     <div className="font-portal flex h-full flex-col items-center">
       <div className="flex flex-col items-center gap-2 py-6">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-[#E5B700] to-[#F7931E] text-lg font-bold text-white">O</span>
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand text-base font-bold text-white">O</span>
         <button
-          onClick={() => setCollapsed(false)}
+          onClick={onExpand}
           title="Expand sidebar"
           className="grid h-8 w-8 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
         >
@@ -161,19 +152,42 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
       </nav>
       <div className="flex flex-col items-center gap-2 border-t border-gray-100 py-4">
         <span className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-[#E5B700] to-[#F7931E] text-xs font-semibold text-white ring-2 ring-[#E5B700]/20">{initials}</span>
-        <button onClick={signOut} title="Logout" className="grid h-10 w-10 place-items-center rounded-xl border border-gray-200 text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600">
+        <button onClick={onSignOut} title="Logout" className="grid h-10 w-10 place-items-center rounded-xl border border-gray-200 text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600">
           <AdminIcon.Logout size={17} />
         </button>
       </div>
     </div>
   );
+}
+
+export default function OrganizerShell({ orgName = 'Organizer', children }) {
+  const { user, logout, pushToast } = useApp();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [drawer, setDrawer] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('obs.org.sidebar') === 'collapsed');
+
+  const initials = (user?.name || 'O').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+
+  useEffect(() => { localStorage.setItem('obs.org.sidebar', collapsed ? 'collapsed' : 'open'); }, [collapsed]);
+
+  const signOut = async () => {
+    await logout();
+    pushToast('Signed out');
+    navigate('/');
+  };
 
   return (
     <div className="font-portal min-h-screen bg-gray-100 text-gray-900">
       <aside
         className={`fixed inset-y-0 left-0 z-40 hidden border-r border-gray-200 bg-white shadow-lg transition-[width] duration-300 ease-in-out lg:block ${collapsed ? 'w-[80px]' : 'w-[300px]'}`}
       >
-        {collapsed ? <SidebarCollapsed /> : <SidebarExpanded />}
+        {collapsed ? (
+          <SidebarCollapsed onExpand={() => setCollapsed(false)} initials={initials} navigate={navigate} onSignOut={signOut} />
+        ) : (
+          <SidebarExpanded onCollapse={() => setCollapsed(true)} orgName={orgName} initials={initials} user={user} navigate={navigate} onSignOut={signOut} />
+        )}
       </aside>
 
       <AnimatePresence>
@@ -196,7 +210,7 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
             transition={{ duration: 0.26, ease: 'easeInOut' }}
             className="fixed inset-y-0 left-0 z-[81] w-[300px] border-r border-gray-200 bg-white shadow-lg lg:hidden"
           >
-            <SidebarExpanded onNavigate={() => setDrawer(false)} />
+            <SidebarExpanded onNavigate={() => setDrawer(false)} onCollapse={() => setCollapsed(true)} orgName={orgName} initials={initials} user={user} navigate={navigate} onSignOut={signOut} />
           </motion.aside>
         )}
       </AnimatePresence>

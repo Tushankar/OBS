@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Btn, Field, inputCls, Loading, Pill, statusTone } from '../portal/Kit';
+import ImageField from '../common/ImageField';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { SPONSOR_TIER_LABELS, sponsorTierLabel } from '../../lib/labels';
@@ -112,7 +113,7 @@ export default function SponsorsEditor({ eventId }) {
               </select>
             </Field>
             <Field label="Website (optional)"><input className={inputCls} value={form.website} onChange={(e) => set('website', e.target.value)} placeholder="https://acme.com" /></Field>
-            <Field label="Logo URL (optional)"><input className={inputCls} value={form.logoUrl} onChange={(e) => set('logoUrl', e.target.value)} placeholder="https://…/logo.png" /></Field>
+            <Field label="Logo (optional)"><ImageField value={form.logoUrl} onChange={(v) => set('logoUrl', v)} fit="contain" /></Field>
             <div className="sm:col-span-2">
               <Field label="Short blurb (optional)"><input className={inputCls} value={form.blurb} onChange={(e) => set('blurb', e.target.value)} placeholder="One line about this sponsor" /></Field>
             </div>

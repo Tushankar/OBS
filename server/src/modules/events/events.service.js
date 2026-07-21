@@ -424,10 +424,20 @@ async function minPricesByEvent(eventIds) {
 // to an indexed field (status/startAt, city, categoryId, chapterId).
 export async function listPublicEvents(q) {
   const { page, limit, sort } = q;
-  const filter = { status: 'PUBLISHED' };
 
+  // Past-only listing (the public "Past events" archive): ended events, which
+  // the hourly completeEvents job flips PUBLISHED → COMPLETED, so both statuses
+  // count. Everything else is the default upcoming, PUBLISHED-only view.
+  const past = q.past === '1' || q.past === 'true';
   const includePast = q.includePast === '1' || q.includePast === 'true';
-  if (!includePast) filter.endAt = { $gte: new Date() };
+  const filter = {};
+  if (past) {
+    filter.status = { $in: ['PUBLISHED', 'COMPLETED'] };
+    filter.endAt = { $lt: new Date() };
+  } else {
+    filter.status = 'PUBLISHED';
+    if (!includePast) filter.endAt = { $gte: new Date() };
+  }
 
   if (q.q) {
     const rx = { $regex: escapeRegex(q.q), $options: 'i' };
@@ -494,10 +504,12 @@ export async function listPublicEvents(q) {
     filter._id = { $in: keep };
   }
 
+  // Past archive reads most-recent-first; upcoming reads soonest-first.
+  const chrono = past ? -1 : 1;
   const sortSpec =
     sort === 'newest' ? { publishedAt: -1, createdAt: -1 } :
-    sort === 'popular' ? { viewsCount: -1, startAt: 1 } :
-    { startAt: 1 };
+    sort === 'popular' ? { viewsCount: -1, startAt: chrono } :
+    { startAt: chrono };
 
   const [rows, total] = await Promise.all([
     Event.find(filter)

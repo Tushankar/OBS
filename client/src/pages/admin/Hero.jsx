@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
 import { PageHead, Card, Btn, Pill, Loading, EmptyState, Modal, ConfirmDialog, Field, inputCls } from '../../components/portal/Kit';
+import ImageField from '../../components/common/ImageField';
 import { AdminIcon } from '../../components/admin/AdminIcons';
 
 const EMPTY = { title: '', subtitle: '', imageUrl: '', ctaText: '', ctaLink: '', sortOrder: 0, isActive: true };
@@ -63,14 +64,9 @@ function SlideEditor({ initial, onClose, onSaved }) {
           </Field>
         </div>
         <div className="sm:col-span-2">
-          <Field label="Image URL" hint="Site-relative (/hero-summit.png) or an absolute https URL. Wide images (≥1600px) look best.">
-            <input value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} placeholder="/hero-summit.png" className={inputCls} />
+          <Field label="Image" hint="Paste a URL (site-relative /hero-summit.png or https) or upload. Wide images (≥1600px) look best.">
+            <ImageField value={form.imageUrl} onChange={(v) => set('imageUrl', v)} placeholder="/hero-summit.png or upload →" aspect="aspect-[16/6]" />
           </Field>
-          {form.imageUrl.trim() && (
-            <div className="mt-2 overflow-hidden rounded-md border border-[#E8ECF2]">
-              <img src={form.imageUrl} alt="Slide preview" className="max-h-40 w-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-            </div>
-          )}
         </div>
         <Field label="Button text">
           <input value={form.ctaText} onChange={(e) => set('ctaText', e.target.value)} placeholder="Browse events" className={inputCls} />

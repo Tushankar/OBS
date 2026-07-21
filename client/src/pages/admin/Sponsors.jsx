@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PageHead, Card, Btn, Loading, EmptyState, Pill, Modal, ConfirmDialog, Field, inputCls, selectCls, statusTone } from '../../components/portal/Kit';
+import ImageField from '../../components/common/ImageField';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
@@ -177,7 +178,7 @@ function SponsorEditor({ initial, onClose, onSaved }) {
     >
       <div className="grid gap-3.5 sm:grid-cols-2">
         <Field label="Name"><input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Meridian Capital" autoFocus className={inputCls} /></Field>
-        <Field label="Logo URL"><input value={form.logoUrl} onChange={(e) => set('logoUrl', e.target.value)} placeholder="https://…" className={inputCls} /></Field>
+        <Field label="Logo" hint="Paste a URL or upload"><ImageField value={form.logoUrl} onChange={(v) => set('logoUrl', v)} fit="contain" /></Field>
         <Field label="Tier" hint="Benefit level — sets the group on the public showcase">
           <select value={form.tier} onChange={(e) => set('tier', e.target.value)} className={`${selectCls} w-full`}>
             {TIERS.map((t) => <option key={t} value={t}>{SPONSOR_TIER_LABELS[t]}</option>)}

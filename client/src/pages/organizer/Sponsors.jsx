@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHead, Card, Btn, Loading, EmptyState, Pill, Modal, ConfirmDialog, Field, inputCls, selectCls } from '../../components/portal/Kit';
+import ImageField from '../../components/common/ImageField';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
@@ -69,7 +70,7 @@ function SponsorEditor({ initial, onClose, onSaved }) {
           </select>
         </Field>
         <Field label="Website"><input value={form.website} onChange={(e) => set('website', e.target.value)} placeholder="https://acme.com" className={inputCls} /></Field>
-        <Field label="Logo URL"><input value={form.logoUrl} onChange={(e) => set('logoUrl', e.target.value)} placeholder="https://…/logo.png" className={inputCls} /></Field>
+        <Field label="Logo" hint="Paste a URL or upload"><ImageField value={form.logoUrl} onChange={(v) => set('logoUrl', v)} fit="contain" /></Field>
         <div className="sm:col-span-2">
           <Field label="Short blurb" hint="One line about this sponsor"><input value={form.blurb} onChange={(e) => set('blurb', e.target.value)} placeholder="e.g. India’s leading fintech platform" className={inputCls} /></Field>
         </div>

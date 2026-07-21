@@ -10,6 +10,7 @@ const TABS = [
   ['PENDING_APPROVAL', 'Pending'],
   ['DRAFT', 'Drafts'],
   ['PUBLISHED', 'Published'],
+  ['COMPLETED', 'Completed'], // events whose endAt has passed (flipped by the hourly completeEvents job)
   ['REJECTED', 'Rejected'],
   ['', 'All'],
 ];
@@ -20,7 +21,7 @@ const fmtDate = (d) =>
 // Admin event moderation queue (task 1.4). The feature toggle is Phase 3.
 export default function Events() {
   const { pushToast } = useApp();
-  const [tab, setTab] = useState('PENDING_APPROVAL');
+  const [tab, setTab] = useState('PUBLISHED');
   const [data, setData] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [rejecting, setRejecting] = useState(null); // event pending rejection

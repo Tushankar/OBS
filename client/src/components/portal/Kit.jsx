@@ -134,17 +134,21 @@ export function Avatar({ name = '?', src, size = 32, className = '' }) {
 }
 
 // ---------- Table ----------
-export function Table({ columns, rows, renderCell, empty = 'Nothing to show yet.' }) {
+// `minWidth` is the table's horizontal floor (px) — it keeps wide, many-column
+// tables readable on mobile by allowing horizontal scroll. Narrow tables (e.g.
+// a 2-column panel inside a half-width grid cell) should pass a smaller value
+// (or 0) so they adapt to their container instead of forcing a scrollbar.
+export function Table({ columns, rows, renderCell, empty = 'Nothing to show yet.', minWidth = 560 }) {
   return (
     <div className="overflow-hidden rounded-lg bg-white shadow">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] table-auto text-left">
+        <table className="w-full table-auto text-left" style={{ minWidth }}>
           <thead>
             <tr className="border-b bg-gray-50">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`whitespace-nowrap px-6 py-4 text-xs font-medium uppercase tracking-wider text-gray-500 ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                  className={`whitespace-nowrap px-4 py-4 text-xs font-medium uppercase tracking-wider text-gray-500 ${col.align === 'right' ? 'text-right' : 'text-left'} ${col.className || ''}`}
                 >
                   {col.label}
                 </th>
@@ -162,7 +166,7 @@ export function Table({ columns, rows, renderCell, empty = 'Nothing to show yet.
               rows.map((row, i) => (
                 <tr key={row.id || row._id || i} className="transition-colors duration-100 hover:bg-gray-50">
                   {columns.map((col) => (
-                    <td key={col.key} className={`px-6 py-4 align-middle text-sm text-gray-900 ${col.align === 'right' ? 'text-right' : ''}`}>
+                    <td key={col.key} className={`px-4 py-4 align-middle text-sm text-gray-900 ${col.align === 'right' ? 'text-right' : ''} ${col.className || ''}`}>
                       {renderCell(row, col.key)}
                     </td>
                   ))}

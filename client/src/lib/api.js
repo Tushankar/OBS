@@ -90,6 +90,7 @@ api.updateOrganizerProfile = (body) => unwrap(api.patch('/organizer/me', body)).
 
 // Admin — organizers (Phase 1.1)
 api.adminOrganizers = (params) => unwrap(api.get('/admin/organizers', { params })).then((d) => d.organizers);
+api.adminCreateOrganizer = (body) => unwrap(api.post('/admin/organizers', body)).then((d) => d.organizer);
 api.adminCommission = () => unwrap(api.get('/admin/settings/commission')).then((d) => d.settings);
 api.adminUpdateCommission = (body) => unwrap(api.patch('/admin/settings/commission', body)).then((d) => d.settings);
 api.adminSetOrganizerCommission = (id, commissionPercent) => unwrap(api.patch(`/admin/organizers/${id}/commission`, { commissionPercent }));

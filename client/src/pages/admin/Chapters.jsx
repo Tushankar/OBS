@@ -14,13 +14,16 @@ const humanType = (t) => TYPE_LABEL[t] || t || '—';
 const inputCls = 'h-10 w-full rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-sm text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
 const selectCls = 'h-9 rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
 
+// `className` drives responsive visibility: low-priority columns (Ecosystem,
+// Flagship) are hidden on laptops and reappear on wide monitors (2xl+), so the
+// essential columns always fit without the table overflowing off-screen.
 const COLUMNS = [
   { key: 'chapter', label: 'Chapter' },
   { key: 'type', label: 'Type' },
   { key: 'status', label: 'Status' },
-  { key: 'tier', label: 'Tier' },
-  { key: 'ecosystem', label: 'Ecosystem' },
-  { key: 'flagship', label: 'Flagship' },
+  { key: 'tier', label: 'Tier', className: 'hidden xl:table-cell' },
+  { key: 'ecosystem', label: 'Ecosystem', className: 'hidden 2xl:table-cell' },
+  { key: 'flagship', label: 'Flagship', className: 'hidden 2xl:table-cell' },
   { key: 'events', label: 'Events', align: 'right' },
   { key: 'members', label: 'Members', align: 'right' },
   { key: 'actions', label: '', align: 'right' },
@@ -238,9 +241,9 @@ export default function Chapters() {
 
   const renderCell = (c, key) => {
     if (key === 'chapter') return (
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <ChapterMark chapter={c} size="sm" />
-        <span className="font-semibold text-[#111827]">{c.name}</span>
+        <span className="min-w-0 max-w-[180px] truncate font-semibold text-[#111827]" title={c.name}>{c.name}</span>
         {!c.isActive && <Pill tone="gray">Hidden</Pill>}
       </div>
     );

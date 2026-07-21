@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { PageHead, Card, Pill, statusTone, Btn, Loading, EmptyState, Modal, ConfirmDialog, Field, inputCls } from '../../components/portal/Kit';
 import { AdminIcon } from '../../components/admin/AdminIcons';
 import Markdown from '../../components/common/Markdown';
+import ImageField from '../../components/common/ImageField';
 import { getPageDefaults } from '../../lib/cmsDefaults';
 
 // Admin → Site pages. Edits every public CMS page — content (markdown) plus
@@ -431,11 +432,8 @@ export default function Cms() {
                 <div className="mb-3 text-sm font-semibold text-gray-800">Page settings</div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="sm:col-span-2">
-                    <Field label="Hero image URL" hint="Wide image (1800px+). Leave blank for the default.">
-                      <div className="flex items-center gap-3">
-                        <input value={meta.heroImageUrl || ''} onChange={(e) => setMeta('heroImageUrl', e.target.value)} placeholder="https://…" className={inputCls} />
-                        {meta.heroImageUrl && <img src={meta.heroImageUrl} alt="" className="h-10 w-16 shrink-0 rounded-md border border-gray-200 object-cover" onError={(e) => { e.target.style.display = 'none'; }} />}
-                      </div>
+                    <Field label="Hero image" hint="Paste a URL or upload — wide (1800px+). Leave blank for the default.">
+                      <ImageField value={meta.heroImageUrl} onChange={(v) => setMeta('heroImageUrl', v)} />
                     </Field>
                   </div>
                   <Field label="Hero eyebrow" hint="Small label above the title.">
@@ -475,10 +473,7 @@ export default function Cms() {
                           <input value={meta.mission?.heading || ''} onChange={(e) => setMissionField('heading', e.target.value)} placeholder="Heading" className={`${inputCls} !py-1.5 !text-xs`} />
                           <textarea value={meta.mission?.body1 || ''} onChange={(e) => setMissionField('body1', e.target.value)} rows={2} placeholder="First paragraph" className={`${inputCls} resize-y !py-1.5 !text-xs`} />
                           <textarea value={meta.mission?.body2 || ''} onChange={(e) => setMissionField('body2', e.target.value)} rows={2} placeholder="Second paragraph (optional)" className={`${inputCls} resize-y !py-1.5 !text-xs`} />
-                          <div className="flex items-center gap-3">
-                            <input value={meta.mission?.imageUrl || ''} onChange={(e) => setMissionField('imageUrl', e.target.value)} placeholder="Side image URL (4:3)" className={`${inputCls} !py-1.5 !text-xs`} />
-                            {meta.mission?.imageUrl && <img src={meta.mission.imageUrl} alt="" className="h-10 w-14 shrink-0 rounded-md border border-gray-200 object-cover" onError={(e) => { e.target.style.display = 'none'; }} />}
-                          </div>
+                          <ImageField value={meta.mission?.imageUrl} onChange={(v) => setMissionField('imageUrl', v)} placeholder="Side image (4:3) — URL or upload" aspect="aspect-[4/3]" />
                         </div>
                       </div>
                     )}

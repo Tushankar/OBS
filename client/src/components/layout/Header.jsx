@@ -48,6 +48,10 @@ export default function Header({ onOpenAuth }) {
   const navigate = useNavigate();
   const { user, signOut, city, setCity, currency, setCurrency, pushToast } = useApp();
 
+  // Logo → home. Also scrolls to top so it works even when you're already on the
+  // home page and scrolled to the bottom (a same-route navigate wouldn't move).
+  const goHome = () => { navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
   const [q, setQ] = useState('');
   const [focus, setFocus] = useState(false);
   const [hl, setHl] = useState(-1);
@@ -135,7 +139,7 @@ export default function Header({ onOpenAuth }) {
     <header className="sticky top-0 z-50 bg-white shadow-sm">
       {/* Desktop bar */}
       <div className="mx-auto hidden h-16 max-w-container items-center border-b border-[#F2F2F3] px-6 lg:flex">
-        <button onClick={() => navigate('/')} className="flex shrink-0 items-center">
+        <button onClick={goHome} className="flex shrink-0 items-center">
           <span className="font-serif text-[38px] font-bold tracking-tight text-brand leading-none" style={{ fontFamily: 'Georgia, serif' }}>OBS</span>
         </button>
 
@@ -215,7 +219,7 @@ export default function Header({ onOpenAuth }) {
       {/* Mobile bar */}
       <div className="flex flex-col lg:hidden">
         <div className="mx-auto flex h-14 w-full max-w-container items-center justify-between px-4">
-          <button onClick={() => navigate('/')} className="flex items-center">
+          <button onClick={goHome} className="flex items-center">
             <span className="font-serif text-[30px] font-bold tracking-tight text-brand leading-none" style={{ fontFamily: 'Georgia, serif' }}>OBS</span>
           </button>
           <div className="flex items-center gap-3.5 text-ink">

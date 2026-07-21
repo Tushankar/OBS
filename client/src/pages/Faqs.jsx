@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Icon } from '../components/common/Icon';
 import api from '../lib/api';
 import { FAQ_GROUPS } from '../data/events';
@@ -32,13 +32,36 @@ function parseFaqGroups(md) {
 
 export default function Faqs() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
+  const [params] = useSearchParams();
+  // Deep links from the Help center: `?q=` pre-fills the search; `?cat=` jumps
+  // to a category section once it's rendered.
+  const catParam = params.get('cat') || '';
+  const [query, setQuery] = useState(params.get('q') || '');
   const [open, setOpen] = useState('0-0');
   const [page, setPage] = useState(null); // CMS page `faqs` (content + hero copy)
-  useEffect(() => { window.scrollTo(0, 0); document.title = 'FAQs — OBS Events'; }, []);
+  const jumpedRef = useRef(false);
+  useEffect(() => { document.title = 'FAQs — OBS Events'; if (!catParam) window.scrollTo(0, 0); }, [catParam]);
   useEffect(() => { api.publicPage('faqs').then(setPage).catch(() => {}); }, []);
 
   const sourceGroups = useMemo(() => parseFaqGroups(page?.content) || FAQ_GROUPS, [page]);
+
+  // Jump to the ?cat= section after content (built-in or CMS) is available.
+  // Tolerant match: exact slug, else the group slug starts with / contains the
+  // requested one (handles small naming differences between Help and FAQ).
+  useEffect(() => {
+    if (jumpedRef.current || !catParam) return;
+    const target = sourceGroups.find((g) => {
+      const id = slug(g.cat);
+      return id === catParam || id.startsWith(catParam) || id.includes(catParam) || catParam.startsWith(id);
+    });
+    if (target) {
+      jumpedRef.current = true;
+      setTimeout(() => {
+        const el = document.getElementById(slug(target.cat));
+        if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 96, behavior: 'smooth' });
+      }, 60);
+    }
+  }, [sourceGroups, catParam]);
 
   const q = query.trim().toLowerCase();
   const groups = useMemo(

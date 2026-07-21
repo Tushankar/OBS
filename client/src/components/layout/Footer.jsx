@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 
 const COLS = [
-  ['Events', [['Browse events', '/events'], ['Webinars', '/webinars'], ['Summits', '/summits'], ['List your event', '/list-your-event']]],
+  ['Events', [['Browse events', '/events'], ['Past events', '/events/past'], ['Webinars', '/webinars'], ['Summits', '/summits'], ['List your event', '/list-your-event']]],
   ['Discover', [['Speakers', '/speakers'], ['Organizers', '/organizers'], ['Sponsors', '/sponsors'], ['100 Days program', '/program'], ['Launchpad', '/launches'], ['Newsroom', '/news']]],
   ['Chapters', [['All chapters', '/chapters'], ['Start a chapter', '/chapters/create'], ['Chapter leaders', '/help'], ['Tier benefits', '/help']]],
   ['Company', [['About OBS', '/about'], ['Careers', '/careers'], ['Partner with us', '/become-a-sponsor']]],
