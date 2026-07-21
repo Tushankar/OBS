@@ -36,7 +36,7 @@ export async function adminEventRemove(req, res) {
 
 // ---- Admin (platform-wide) ----
 export async function adminList(req, res) {
-  res.status(200).json({ promoCodes: await svc.adminListPromos() });
+  res.status(200).json(await svc.adminListPromos(req.query));
 }
 export async function adminCreate(req, res) {
   res.status(201).json({ promoCode: await svc.adminCreatePromo(req.user.id, req.body) });

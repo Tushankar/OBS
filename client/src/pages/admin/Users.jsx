@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { PageHead, Card, Pill, statusTone, Table, SearchInput, Btn, Loading, ConfirmDialog, Modal, Field, Tabs, Avatar, selectCls, inputCls, formatPrice } from '../../components/portal/Kit';
+import { PageHead, Card, Pill, statusTone, Table, SearchInput, Btn, Loading, ConfirmDialog, Modal, Field, Tabs, Avatar, selectCls, filterSelectCls, inputCls, formatPrice } from '../../components/portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
@@ -157,14 +157,14 @@ function TopBookers() {
       <Card className="mb-5">
         <div className="flex flex-wrap items-center gap-3">
           <SearchInput value={q} onChange={setQ} placeholder="Search name or email…" className="max-w-xs" />
-          <select value={minTickets} onChange={(e) => setMinTickets(e.target.value)} className={selectCls} aria-label="Minimum tickets">
+          <select value={minTickets} onChange={(e) => setMinTickets(e.target.value)} className={filterSelectCls} aria-label="Minimum tickets">
             <option value="">Any tickets</option>
             <option value="2">2+ tickets</option>
             <option value="3">3+ tickets</option>
             <option value="5">5+ tickets</option>
             <option value="10">10+ tickets</option>
           </select>
-          <select value={days} onChange={(e) => setDays(e.target.value)} className={selectCls} aria-label="Booking period">
+          <select value={days} onChange={(e) => setDays(e.target.value)} className={filterSelectCls} aria-label="Booking period">
             <option value="">All time</option>
             <option value="30">Booked in last 30 days</option>
             <option value="90">Booked in last 90 days</option>
@@ -360,10 +360,10 @@ export default function Users() {
           <Card className="mb-5">
             <div className="flex flex-wrap items-center gap-3">
               <SearchInput value={query} onChange={setQuery} placeholder="Search name or email…" className="max-w-xs" />
-              <select value={role} onChange={(e) => setRole(e.target.value)} className={selectCls} aria-label="Filter by role">
+              <select value={role} onChange={(e) => setRole(e.target.value)} className={filterSelectCls} aria-label="Filter by role">
                 {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r || 'All roles'}</option>)}
               </select>
-              <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls} aria-label="Filter by status">
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className={filterSelectCls} aria-label="Filter by status">
                 {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || 'All statuses'}</option>)}
               </select>
             </div>

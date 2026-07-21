@@ -88,8 +88,11 @@ api.applyOrganizer = (body) => unwrap(api.post('/organizer/apply', body)).then((
 api.myOrganizerProfile = () => unwrap(api.get('/organizer/me')).then((d) => d.organizer);
 api.updateOrganizerProfile = (body) => unwrap(api.patch('/organizer/me', body)).then((d) => d.organizer);
 
+// Admin — attention counts (sidebar badges / pending-tab labels)
+api.adminCounts = () => unwrap(api.get('/admin/counts')); // { pendingOrganizers, pendingEvents, refundRequests, openSupport, newPartnerLeads, pendingSponsors, pendingChapters }
+
 // Admin — organizers (Phase 1.1)
-api.adminOrganizers = (params) => unwrap(api.get('/admin/organizers', { params })).then((d) => d.organizers);
+api.adminOrganizers = (params) => unwrap(api.get('/admin/organizers', { params })); // { organizers, total, page, pages, counts }
 api.adminCreateOrganizer = (body) => unwrap(api.post('/admin/organizers', body)).then((d) => d.organizer);
 api.adminCommission = () => unwrap(api.get('/admin/settings/commission')).then((d) => d.settings);
 api.adminUpdateCommission = (body) => unwrap(api.patch('/admin/settings/commission', body)).then((d) => d.settings);
@@ -170,7 +173,7 @@ api.manualCheckin = (ticketId) => unwrap(api.post(`/organizer/tickets/${ticketId
 api.adminCheckin = (body) => unwrap(api.post('/admin/checkin', body)); // admin scan / code entry
 api.adminManualCheckin = (ticketId) => unwrap(api.post(`/admin/tickets/${ticketId}/checkin`)); // admin manual verify (attendee row)
 api.requestRefund = (orderId, reason) => unwrap(api.post(`/orders/${orderId}/refund-request`, { reason })).then((d) => d.refund);
-api.adminRefunds = (params) => unwrap(api.get('/admin/refunds', { params })).then((d) => d.refunds);
+api.adminRefunds = (params) => unwrap(api.get('/admin/refunds', { params })); // { refunds, total, page, pages, counts }
 api.approveRefund = (id) => unwrap(api.post(`/admin/refunds/${id}/approve`)).then((d) => d.refund);
 api.rejectRefund = (id, notes) => unwrap(api.post(`/admin/refunds/${id}/reject`, { notes })).then((d) => d.refund);
 
@@ -191,7 +194,7 @@ api.updatePromoCode = (eventId, id, body) => unwrap(api.patch(`/organizer/events
 api.deletePromoCode = (eventId, id) => unwrap(api.delete(`/organizer/events/${eventId}/promo-codes/${id}`));
 
 // Admin — platform-wide promo campaigns (apply across every event).
-api.adminPromos = () => unwrap(api.get('/admin/promos')).then((d) => d.promoCodes);
+api.adminPromos = (params) => unwrap(api.get('/admin/promos', { params })); // { promoCodes, total, page, pages }
 api.createPromo = (body) => unwrap(api.post('/admin/promos', body)).then((d) => d.promoCode);
 api.updatePromo = (id, body) => unwrap(api.patch(`/admin/promos/${id}`, body)).then((d) => d.promoCode);
 api.deletePromo = (id) => unwrap(api.delete(`/admin/promos/${id}`));
@@ -292,7 +295,7 @@ api.deleteHeroSlide = (id) => unwrap(api.delete(`/admin/hero-slides/${id}`));
 api.speakers = (params) => unwrap(api.get('/speakers', { params })).then((d) => d.speakers);
 api.speakersWithMeta = (params) => unwrap(api.get('/speakers', { params })); // { speakers, topics }
 api.speaker = (slug) => unwrap(api.get(`/speakers/${slug}`)); // { speaker, upcoming, past }
-api.adminSpeakers = () => unwrap(api.get('/admin/speakers')).then((d) => d.speakers);
+api.adminSpeakers = (params) => unwrap(api.get('/admin/speakers', { params })); // { speakers, total, page, pages }
 
 // Organizer speaker library — the organizer's own speakers (separate from the
 // platform directory) — and reusable sponsor library.
@@ -313,7 +316,7 @@ api.sponsors = (params) => unwrap(api.get('/sponsors', { params })).then((d) => 
 api.sponsor = (slug) => unwrap(api.get(`/sponsors/${slug}`)); // { sponsor, events }
 api.eventSponsors = (slug) => unwrap(api.get(`/events/${slug}/sponsors`)).then((d) => d.sponsors);
 api.submitPartnerApplication = (body) => unwrap(api.post('/partner-applications', body)).then((d) => d.application);
-api.adminSponsors = () => unwrap(api.get('/admin/sponsors')).then((d) => d.sponsors);
+api.adminSponsors = (params) => unwrap(api.get('/admin/sponsors', { params })); // { sponsors, total, page, pages }
 api.createSponsor = (body) => unwrap(api.post('/admin/sponsors', body)).then((d) => d.sponsor);
 api.updateSponsor = (id, body) => unwrap(api.patch(`/admin/sponsors/${id}`, body)).then((d) => d.sponsor);
 api.deleteSponsor = (id) => unwrap(api.delete(`/admin/sponsors/${id}`));
@@ -343,7 +346,8 @@ api.organizerReadAllNotifications = () => unwrap(api.post('/organizer/notificati
 api.articles = (params) => unwrap(api.get('/articles', { params })).then((d) => d.articles);
 api.articlesPaged = (params) => unwrap(api.get('/articles', { params })); // { articles, total, page, limit, pages }
 api.article = (slug) => unwrap(api.get(`/articles/${slug}`)).then((d) => d.article);
-api.adminArticles = () => unwrap(api.get('/admin/articles')).then((d) => d.articles);
+api.adminArticles = (params) => unwrap(api.get('/admin/articles', { params })); // { articles, total, page, pages }
+api.adminArticle = (id) => unwrap(api.get(`/admin/articles/${id}`)).then((d) => d.article);
 api.createArticle = (body) => unwrap(api.post('/admin/articles', body)).then((d) => d.article);
 api.updateArticle = (id, body) => unwrap(api.patch(`/admin/articles/${id}`, body)).then((d) => d.article);
 api.deleteArticle = (id) => unwrap(api.delete(`/admin/articles/${id}`));

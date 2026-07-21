@@ -240,11 +240,19 @@ export function EmptyState({ icon, title, subtitle, description, action }) {
 }
 
 // ---------- Inputs ----------
+// Inputs & selects use a soft, moderate radius (rounded-lg) — professional and
+// consistent with cards; full-pill controls read as oversized in dense rows.
 export const inputCls =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-[#E5B700] focus:ring-2 focus:ring-[#E5B700]/40';
+  'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-[#E5B700] focus:ring-2 focus:ring-[#E5B700]/40';
 
 export const selectCls =
-  'h-9 rounded-md border border-gray-300 bg-white px-2.5 text-sm text-gray-900 shadow-sm outline-none transition-all duration-150 focus:border-[#E5B700] focus:ring-2 focus:ring-[#E5B700]/40';
+  'h-9 rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-900 shadow-sm outline-none transition-all duration-150 focus:border-[#E5B700] focus:ring-2 focus:ring-[#E5B700]/40';
+
+// Pill variant for FILTER-BAR selects (sit next to the pill search box). The
+// dense in-row/table selects keep `selectCls` (rounded-lg) so they don't look
+// oversized — full-pill only reads well on standalone filter controls.
+export const filterSelectCls =
+  'h-9 rounded-full border border-gray-300 bg-white px-4 text-sm text-gray-900 shadow-sm outline-none transition-all duration-150 focus:border-[#E5B700] focus:ring-2 focus:ring-[#E5B700]/40';
 
 export function SearchInput({ value, onChange, placeholder = 'Search…', className = '' }) {
   return (
@@ -257,7 +265,7 @@ export function SearchInput({ value, onChange, placeholder = 'Search…', classN
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`${inputCls} pl-9`}
+        className={`${inputCls} pl-9 !rounded-full`}
       />
     </div>
   );

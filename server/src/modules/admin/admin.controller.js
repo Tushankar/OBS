@@ -15,8 +15,12 @@ export async function adminManualCheckin(req, res) {
 }
 
 export async function listOrganizers(req, res) {
-  const organizers = await adminService.listOrganizers(req.query);
-  res.status(200).json({ organizers });
+  const result = await adminService.listOrganizers(req.query);
+  res.status(200).json(result);
+}
+
+export async function attentionCounts(req, res) {
+  res.status(200).json(await adminService.getAttentionCounts());
 }
 
 export async function createOrganizer(req, res) {

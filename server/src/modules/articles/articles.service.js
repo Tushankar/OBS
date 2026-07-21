@@ -64,10 +64,27 @@ export async function getArticleBySlug(slug) {
 }
 
 // ---- Admin CRUD ----
-export async function adminListArticles() {
-  return (await Article.find({}).sort({ updatedAt: -1 })
-    .populate('eventId', 'title slug')
-    .populate('chapterId', 'name slug')).map(shapeFull);
+// Paginated: the newsroom archive only grows.
+export async function adminListArticles({ page, limit } = {}) {
+  const p = Math.max(1, parseInt(page, 10) || 1);
+  const l = Math.min(100, Math.max(1, parseInt(limit, 10) || 24));
+  const [rows, total] = await Promise.all([
+    Article.find({}).sort({ updatedAt: -1 })
+      .populate('eventId', 'title slug')
+      .populate('chapterId', 'name slug')
+      .skip((p - 1) * l)
+      .limit(l),
+    Article.countDocuments({}),
+  ]);
+  return { articles: rows.map(shapeFull), total, page: p, limit: l, pages: Math.ceil(total / l) || 0 };
+}
+
+// Single article by id — the editor loads its edit target directly instead of
+// scanning the (now paginated) list.
+export async function adminGetArticle(id) {
+  const a = await Article.findById(id).populate('eventId', 'title slug').populate('chapterId', 'name slug');
+  if (!a) throw notFoundError('ARTICLE_NOT_FOUND', 'Article not found');
+  return shapeFull(a);
 }
 export async function createArticle(adminId, body) {
   const slug = await uniqueSlug(Article, body.slug || body.title);

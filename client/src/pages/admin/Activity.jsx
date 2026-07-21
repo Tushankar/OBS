@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-import { PageHead, Table, SearchInput, Card, Loading, Pill } from '../../components/portal/Kit';
+import { PageHead, Table, SearchInput, Card, Loading, Pill, filterSelectCls } from '../../components/portal/Kit';
 
 const COLUMNS = [
   { key: 'at', label: 'When' },
@@ -76,7 +76,7 @@ export default function Activity() {
       <Card className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <SearchInput value={query} onChange={setQuery} placeholder="Search actions (e.g. refund, cancel)…" className="max-w-xs" />
-          <select value={entityType} onChange={(e) => setEntityType(e.target.value)} className={selectCls} aria-label="Filter by entity">
+          <select value={entityType} onChange={(e) => setEntityType(e.target.value)} className={filterSelectCls} aria-label="Filter by entity">
             {ENTITY_TYPES.map((t) => <option key={t} value={t}>{t || 'All entities'}</option>)}
           </select>
         </div>

@@ -11,8 +11,8 @@ const TYPE_LABEL = {
   BUSINESS_CAPITAL: 'Business', INDUSTRY_PROFESSIONAL: 'Industry', STRATEGIC_EXPANSION: 'Strategic',
 };
 const humanType = (t) => TYPE_LABEL[t] || t || '—';
-const inputCls = 'h-10 w-full rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-sm text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
-const selectCls = 'h-9 rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
+const inputCls = 'h-10 w-full rounded-full border border-[#DCE3EC] bg-white px-3 text-sm text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
+const selectCls = 'h-9 rounded-full border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
 
 // `className` drives responsive visibility: low-priority columns (Ecosystem,
 // Flagship) are hidden on laptops and reappear on wide monitors (2xl+), so the
@@ -94,7 +94,7 @@ function Editor({ initial, onClose, onSaved, pushToast }) {
           <label className="col-span-2 block">
             <span className="mb-1 block text-[12px] font-semibold text-[#4B5563]">Description</span>
             <textarea value={form.description} onChange={(e) => set('description', e.target.value)} rows={2}
-              className="w-full resize-y rounded-[10px] border border-[#DCE3EC] bg-white px-3.5 py-2.5 text-sm text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10" />
+              className="w-full resize-y rounded-full border border-[#DCE3EC] bg-white px-3.5 py-2.5 text-sm text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10" />
           </label>
           <label className="flex items-center gap-2 text-sm text-[#4B5563]">
             <input type="checkbox" checked={form.isFlagship} onChange={(e) => set('isFlagship', e.target.checked)} /> Flagship

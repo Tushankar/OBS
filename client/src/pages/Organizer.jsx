@@ -29,6 +29,18 @@ export default function Organizer() {
 
   const { organizer, events } = data;
   const website = organizer.website ? (organizer.website.startsWith('http') ? organizer.website : `https://${organizer.website}`) : null;
+  const social = organizer.socialUrl ? (organizer.socialUrl.startsWith('http') ? organizer.socialUrl : `https://${organizer.socialUrl}`) : null;
+
+  // Public-safe details supplied at application time (labels match the form).
+  const ORG_TYPE_LABELS = { COMPANY: 'Company / Agency', NONPROFIT: 'Non-profit / NGO', COMMUNITY: 'Community / Club', EDUCATION: 'Education / Institute', INDIVIDUAL: 'Individual organizer' };
+  const EXPERIENCE_LABELS = { FIRST_TIME: 'New organizer', UPTO_5: '1–5 events organized', UPTO_20: '6–20 events organized', OVER_20: '20+ events organized' };
+  const since = organizer.memberSince ? new Date(organizer.memberSince).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : null;
+  const chips = [
+    organizer.city && { icon: '📍', label: organizer.city },
+    organizer.orgType && { icon: '🏢', label: ORG_TYPE_LABELS[organizer.orgType] || organizer.orgType },
+    organizer.experience && { icon: '🎟️', label: EXPERIENCE_LABELS[organizer.experience] || organizer.experience },
+    since && { icon: '🗓️', label: `On OBS since ${since}` },
+  ].filter(Boolean);
 
   return (
     <div className="pb-12">
@@ -41,13 +53,30 @@ export default function Organizer() {
           </div>
           <div className="pb-1">
             <h1 className="text-[22px] font-bold leading-tight text-ink">{organizer.orgName}</h1>
-            {website && (
-              <a href={website} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[13px] font-medium text-brand hover:underline">
-                {organizer.website}
-              </a>
-            )}
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+              {website && (
+                <a href={website} target="_blank" rel="noreferrer" className="text-[13px] font-medium text-brand hover:underline">
+                  {organizer.website.replace(/^https?:\/\//i, '')}
+                </a>
+              )}
+              {social && (
+                <a href={social} target="_blank" rel="noreferrer" className="text-[13px] font-medium text-brand hover:underline">
+                  {/linkedin/i.test(social) ? 'LinkedIn' : /instagram/i.test(social) ? 'Instagram' : 'Social'} ↗
+                </a>
+              )}
+            </div>
           </div>
         </div>
+
+        {chips.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {chips.map((c) => (
+              <span key={c.label} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-medium text-ink-soft">
+                <span aria-hidden="true">{c.icon}</span> {c.label}
+              </span>
+            ))}
+          </div>
+        )}
 
         {organizer.bio && <p className="mt-4 max-w-[640px] text-sm leading-relaxed text-ink-soft">{organizer.bio}</p>}
 

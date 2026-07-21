@@ -68,11 +68,25 @@ export async function getSponsorBySlug(slug) {
 }
 
 // ---- Admin sponsor CRUD ----
-export async function adminListSponsors() {
+// Paginated: sponsors accumulate per event, so admins page through them.
+export async function adminListSponsors({ page, limit } = {}) {
+  const p = Math.max(1, parseInt(page, 10) || 1);
+  const l = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
   // Excludes organizer library templates (scope EVENT with no eventId) — those
-  // only become reviewable once attached to an event.
+  // only become reviewable once attached to an event. PENDING first: the queue
+  // an admin actually needs to act on surfaces at the top.
   const filter = { $nor: [{ scope: 'EVENT', eventId: null, organizerId: { $ne: null } }] };
-  return (await Sponsor.find(filter).sort({ scope: 1, sortOrder: 1, name: 1 })).map(shapeSponsor);
+  const [rows, total] = await Promise.all([
+    Sponsor.aggregate([
+      { $match: filter },
+      { $addFields: { statusRank: { $cond: [{ $eq: ['$status', 'PENDING'] }, 0, 1] } } },
+      { $sort: { statusRank: 1, scope: 1, sortOrder: 1, name: 1 } },
+      { $skip: (p - 1) * l },
+      { $limit: l },
+    ]),
+    Sponsor.countDocuments(filter),
+  ]);
+  return { sponsors: rows.map(shapeSponsor), total, page: p, limit: l, pages: Math.ceil(total / l) || 0 };
 }
 export async function createSponsor(adminId, body) {
   const slug = await uniqueSlug(Sponsor, body.name);

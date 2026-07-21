@@ -13,6 +13,9 @@ const router = Router();
 // transactions, …) mount here in later tasks/phases.
 router.use(requireAuth, requireRole('ADMIN'));
 
+// --- Attention counts (sidebar badges / pending-tab labels) ---
+router.get('/counts', asyncHandler(c.attentionCounts));
+
 // --- Ticket verification (admin check-in, mirrors the organizer scanner) ---
 router.post('/checkin', validate({ body: checkinSchema }), asyncHandler(c.adminCheckin));
 router.post('/tickets/:id/checkin', validate({ params: schemas.idParam }), asyncHandler(c.adminManualCheckin));

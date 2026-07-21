@@ -11,6 +11,7 @@ const router = Router();
 router.use(requireAuth, requireRole('ADMIN'));
 
 router.get('/', asyncHandler(c.adminList));
+router.get('/:id', validate({ params: schemas.idParam }), asyncHandler(c.adminGetOne));
 router.post('/', validate({ body: schemas.createArticleSchema }), asyncHandler(c.create));
 router.patch('/:id', validate({ params: schemas.idParam, body: schemas.updateArticleSchema }), asyncHandler(c.update));
 router.delete('/:id', validate({ params: schemas.idParam }), asyncHandler(c.remove));

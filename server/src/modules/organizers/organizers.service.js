@@ -243,6 +243,12 @@ export async function getPublicProfile(slug) {
       logoUrl: profile.logoUrl || null,
       bio: profile.bio || null,
       website: profile.website || null,
+      // Public-safe application details (phone/registrationNo stay private).
+      city: profile.city || null,
+      orgType: profile.orgType || null,
+      experience: profile.experience || null,
+      socialUrl: profile.socialUrl || null,
+      memberSince: profile.approvedAt || profile.createdAt || null,
     },
     events: events.map(publicEventCard),
   };

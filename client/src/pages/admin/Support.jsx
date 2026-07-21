@@ -6,7 +6,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-import { PageHead, Card, Table, Pill, Btn, Modal, Field, Loading, SearchInput, selectCls, statusTone } from '../../components/portal/Kit';
+import { PageHead, Card, Table, Pill, Btn, Modal, Field, Loading, SearchInput, selectCls, filterSelectCls, statusTone } from '../../components/portal/Kit';
 import { AdminIcon } from '../../components/admin/AdminIcons';
 
 const STATUS_OPTIONS = ['', 'OPEN', 'IN_PROGRESS', 'RESOLVED'];
@@ -160,10 +160,10 @@ export default function Support() {
       <Card className="mb-5">
         <div className="flex flex-wrap items-center gap-3">
           <SearchInput value={query} onChange={setQuery} placeholder="Search subject, message or reporter…" className="max-w-xs" />
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls} aria-label="Filter by status">
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={filterSelectCls} aria-label="Filter by status">
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s ? statusLabel(s) : 'All statuses'}</option>)}
           </select>
-          <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectCls} aria-label="Filter by category">
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className={filterSelectCls} aria-label="Filter by category">
             <option value="">All categories</option>
             {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>

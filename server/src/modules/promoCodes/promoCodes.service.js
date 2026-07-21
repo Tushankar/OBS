@@ -146,9 +146,15 @@ export async function adminDeleteEventPromo(eventId, id) {
 
 // All codes (platform + every event's), newest first, with the event title
 // resolved for event-scoped rows so the admin table reads clearly.
-export async function adminListPromos() {
-  const rows = await PromoCode.find({}).sort({ createdAt: -1 }).populate('eventId', 'title');
-  return rows.map(shapePromoCode);
+// Paginated: codes accumulate across campaigns and events.
+export async function adminListPromos({ page, limit } = {}) {
+  const p = Math.max(1, parseInt(page, 10) || 1);
+  const l = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+  const [rows, total] = await Promise.all([
+    PromoCode.find({}).sort({ createdAt: -1 }).populate('eventId', 'title').skip((p - 1) * l).limit(l),
+    PromoCode.countDocuments({}),
+  ]);
+  return { promoCodes: rows.map(shapePromoCode), total, page: p, limit: l, pages: Math.ceil(total / l) || 0 };
 }
 
 export async function adminCreatePromo(adminId, body) {

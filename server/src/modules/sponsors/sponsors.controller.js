@@ -17,7 +17,7 @@ export async function apply(req, res) {
 
 // admin — sponsors
 export async function adminList(req, res) {
-  res.status(200).json({ sponsors: await svc.adminListSponsors() });
+  res.status(200).json(await svc.adminListSponsors(req.query));
 }
 export async function create(req, res) {
   res.status(201).json({ sponsor: await svc.createSponsor(req.user.id, req.body) });

@@ -9,7 +9,10 @@ export async function getBySlug(req, res) {
 
 // admin
 export async function adminList(req, res) {
-  res.status(200).json({ articles: await svc.adminListArticles() });
+  res.status(200).json(await svc.adminListArticles(req.query));
+}
+export async function adminGetOne(req, res) {
+  res.status(200).json({ article: await svc.adminGetArticle(req.params.id) });
 }
 export async function create(req, res) {
   res.status(201).json({ article: await svc.createArticle(req.user.id, req.body) });

@@ -8,8 +8,8 @@ export async function request(req, res) {
 
 // admin
 export async function adminList(req, res) {
-  const refunds = await svc.adminListRefunds(req.query);
-  res.status(200).json({ refunds });
+  const result = await svc.adminListRefunds(req.query);
+  res.status(200).json(result);
 }
 export async function approve(req, res) {
   const refund = await svc.approveRefund(req.user.id, req.params.id);

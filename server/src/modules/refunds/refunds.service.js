@@ -73,13 +73,22 @@ export async function requestRefund(userId, orderId, reason) {
 }
 
 // ---- ADMIN ----
-export async function adminListRefunds({ status } = {}) {
+// Paginated + per-status counts (tab labels show "Pending (n)" without loading
+// every historic refund — this list only grows).
+export async function adminListRefunds({ status, page = 1, limit = 25 } = {}) {
   const filter = status ? { status } : {};
-  const rows = await Refund.find(filter)
-    .populate({ path: 'orderId', select: 'orderNumber totalAmount currency gateway eventId', populate: { path: 'eventId', select: 'title' } })
-    .populate('requestedById', 'name email')
-    .sort({ createdAt: -1 });
-  return rows.map(shapeRefund);
+  const [rows, total, countsAgg] = await Promise.all([
+    Refund.find(filter)
+      .populate({ path: 'orderId', select: 'orderNumber totalAmount currency gateway eventId', populate: { path: 'eventId', select: 'title' } })
+      .populate('requestedById', 'name email')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    Refund.countDocuments(filter),
+    Refund.aggregate([{ $group: { _id: '$status', n: { $sum: 1 } } }]),
+  ]);
+  const counts = Object.fromEntries(countsAgg.map((c) => [c._id, c.n]));
+  return { refunds: rows.map(shapeRefund), total, page, limit, pages: Math.ceil(total / limit) || 0, counts };
 }
 
 // Admin approve → call the gateway refund API, then complete the reversal

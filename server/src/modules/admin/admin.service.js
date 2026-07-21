@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, ChapterMember, CmsPage, Speaker, Program, EmailLog, AuditLog, Ticket, Session } from '../../models/index.js';
+import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, ChapterMember, CmsPage, Speaker, Program, EmailLog, AuditLog, Ticket, Session, Refund, SupportTicket, PartnerApplication, Sponsor } from '../../models/index.js';
 
 // User-supplied search terms go into $regex — escape metacharacters so a
 // search for "(" is a literal match, not a Mongo regex error (500).
@@ -41,12 +41,41 @@ function adminOrganizerRow(p) {
   };
 }
 
-export async function listOrganizers({ status } = {}) {
-  const filter = status ? { status } : {};
-  const rows = await OrganizerProfile.find(filter)
-    .populate('userId', 'name email')
-    .sort({ createdAt: -1 });
-  return rows.map(adminOrganizerRow);
+// Attention counts — everything waiting on an admin, in one cheap call. Powers
+// the sidebar badges and the "Pending (n)" tab labels; the shell polls it.
+export async function getAttentionCounts() {
+  const [pendingOrganizers, pendingEvents, refundRequests, openSupport, newPartnerLeads, pendingSponsors, pendingChapters] = await Promise.all([
+    OrganizerProfile.countDocuments({ status: 'PENDING' }),
+    Event.countDocuments({ status: 'PENDING_APPROVAL' }),
+    Refund.countDocuments({ status: 'REQUESTED' }),
+    SupportTicket.countDocuments({ status: 'OPEN' }),
+    PartnerApplication.countDocuments({ status: 'NEW' }),
+    Sponsor.countDocuments({ status: 'PENDING', eventId: { $ne: null } }), // event-attached submissions await review
+    Chapter.countDocuments({ status: 'PENDING' }),
+  ]);
+  return { pendingOrganizers, pendingEvents, refundRequests, openSupport, newPartnerLeads, pendingSponsors, pendingChapters };
+}
+
+// Paginated + searchable (name/contact/city) + per-status counts so the tab
+// labels can show "Pending (n)" without loading every row.
+export async function listOrganizers({ status, q, page = 1, limit = 25 } = {}) {
+  const filter = {};
+  if (status) filter.status = status;
+  if (q) {
+    const rx = { $regex: escapeRegex(q), $options: 'i' };
+    filter.$or = [{ orgName: rx }, { contactName: rx }, { city: rx }];
+  }
+  const [rows, total, countsAgg] = await Promise.all([
+    OrganizerProfile.find(filter)
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    OrganizerProfile.countDocuments(filter),
+    OrganizerProfile.aggregate([{ $group: { _id: '$status', n: { $sum: 1 } } }]),
+  ]);
+  const counts = Object.fromEntries(countsAgg.map((c) => [c._id, c.n]));
+  return { organizers: rows.map(adminOrganizerRow), total, page, limit, pages: Math.ceil(total / limit) || 0, counts };
 }
 
 async function loadProfileWithUser(id) {

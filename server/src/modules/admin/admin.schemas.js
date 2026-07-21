@@ -4,6 +4,9 @@ import { applySchema } from '../organizers/organizers.schemas.js';
 
 export const listOrganizersQuery = z.object({
   status: z.enum(ORGANIZER_STATUS).optional(),
+  q: z.string().trim().max(160).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 // POST /admin/organizers — admin creates an organizer directly. Same fields as

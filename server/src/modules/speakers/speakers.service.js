@@ -60,9 +60,17 @@ export async function getSpeakerBySlug(slug) {
 }
 
 // ---- Admin CRUD ----
-export async function adminListSpeakers() {
+// Paginated: the directory grows unbounded, so admins page through it.
+export async function adminListSpeakers({ page, limit } = {}) {
+  const p = Math.max(1, parseInt(page, 10) || 1);
+  const l = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
   // Platform directory only — organizer-owned speakers live in their portals.
-  return (await Speaker.find({ organizerId: null }).sort({ sortOrder: 1, name: 1 })).map(shapeSpeaker);
+  const filter = { organizerId: null };
+  const [rows, total] = await Promise.all([
+    Speaker.find(filter).sort({ sortOrder: 1, name: 1 }).skip((p - 1) * l).limit(l),
+    Speaker.countDocuments(filter),
+  ]);
+  return { speakers: rows.map(shapeSpeaker), total, page: p, limit: l, pages: Math.ceil(total / l) || 0 };
 }
 
 export async function createSpeaker(adminId, body) {

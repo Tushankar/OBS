@@ -128,9 +128,30 @@ export default function Apply() {
     );
   }
 
-  // No application yet, or a previously REJECTED one → show the form.
+  // No application yet, or a previously REJECTED one → show the form beside a
+  // full-height visual panel (stage imagery + the pitch) on desktop.
   return (
-    <div className="mx-auto max-w-[640px] px-4 pb-16 pt-10 sm:px-6">
+    <div className="mx-auto max-w-[1100px] px-4 pb-16 pt-10 sm:px-6">
+      <div className="grid items-stretch gap-8 lg:grid-cols-[420px_1fr]">
+        {/* ── Left — visual panel ── */}
+        <div className="relative hidden overflow-hidden rounded-2xl shadow-card lg:block">
+          <img src="/org-apply.jpg" alt="Event stage" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/20" />
+          <div className="absolute inset-x-0 bottom-0 p-7">
+            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#F3CD70] backdrop-blur-sm">
+              Host with OBS
+            </span>
+            <h2 className="mt-3 text-[24px] font-extrabold leading-snug text-white">Your events, in front of a global business network.</h2>
+            <ul className="mt-4 space-y-2 text-[13px] text-white/85">
+              <li className="flex items-start gap-2"><span className="mt-0.5 text-[#F3CD70]">✓</span> Sell tickets in your own currency — cards via Stripe</li>
+              <li className="flex items-start gap-2"><span className="mt-0.5 text-[#F3CD70]">✓</span> QR check-in, registrations and payout statements built in</li>
+              <li className="flex items-start gap-2"><span className="mt-0.5 text-[#F3CD70]">✓</span> A public organizer page attendees can follow</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* ── Right — the application ── */}
+        <div>
       <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Become an organizer</h1>
       <p className="mt-1 text-sm text-gray-500">
         Tell us about your organization — complete details help us review and approve faster.
@@ -237,6 +258,8 @@ export default function Apply() {
           </div>
         </form>
       </Card>
+        </div>
+      </div>
     </div>
   );
 }

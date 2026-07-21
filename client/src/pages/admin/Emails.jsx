@@ -18,7 +18,7 @@ const COLUMNS = [
 
 const TYPES = ['', 'CAMPAIGN', 'TICKET_DELIVERY', 'EVENT_REMINDER', 'PAYMENT_SUCCESS', 'REGISTRATION_CONFIRMATION', 'REFUND_PROCESSED', 'REFUND_REJECTED', 'EVENT_APPROVED', 'EVENT_REJECTED', 'ORGANIZER_APPROVED', 'ORGANIZER_REJECTED', 'PASSWORD_RESET'];
 const STATUSES = ['', 'SENT', 'FAILED', 'QUEUED'];
-const selectCls = 'h-9 rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
+const selectCls = 'h-9 rounded-full border border-[#DCE3EC] bg-white px-3 text-[13px] text-[#111827] outline-none transition-all duration-150 hover:border-[#C6D0DE] focus:border-[#C99E25] focus:ring-4 focus:ring-[#C99E25]/10';
 const fmtWhen = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 const typeLabel = (t) => t.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 

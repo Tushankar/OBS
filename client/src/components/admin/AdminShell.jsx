@@ -6,6 +6,7 @@ import api from '../../lib/api';
 import { AdminIcon } from './AdminIcons';
 import { NavIcon } from './NavIcons';
 import NotificationsBell from '../common/NotificationsBell';
+import { AdminCountsProvider, useAdminCounts, BADGE_BY_PATH, CountBadge } from './AdminCounts';
 
 // Admin chrome — SPECTRUM design language: 300px white sidebar (shadow-lg)
 // with centered gold wordmark, 44px rounded-2xl nav items whose active state
@@ -69,6 +70,7 @@ const itemIdle = 'text-gray-700 hover:bg-gray-100 hover:text-[#E5B700]';
 function NavItems({ onNavigate }) {
   const location = useLocation();
   const [open, setOpen] = useState(() => location.pathname);
+  const { counts } = useAdminCounts(); // attention badges (pending queues)
 
   return (
     <nav className="no-scrollbar flex-1 space-y-1 overflow-y-auto px-4 py-2">
@@ -81,6 +83,7 @@ function NavItems({ onNavigate }) {
               if (n.children) {
                 const active = n.children.some((c) => location.pathname.startsWith(c.to));
                 const expanded = open === n.label || active;
+                const childTotal = n.children.reduce((s, c) => s + (counts[BADGE_BY_PATH[c.to]] || 0), 0);
                 return (
                   <div key={n.label}>
                     <button
@@ -89,6 +92,7 @@ function NavItems({ onNavigate }) {
                     >
                       <span className={`shrink-0 ${active ? 'text-white' : 'text-[#484C52]'}`}><Ic size={19} /></span>
                       <span className="flex-1 truncate text-left">{n.label}</span>
+                      {!expanded && <CountBadge n={childTotal} />}
                       <AdminIcon.ChevronDown size={14} className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''} ${active ? 'text-white/80' : 'text-gray-400'}`} />
                     </button>
                     <AnimatePresence initial={false}>
@@ -107,12 +111,13 @@ function NavItems({ onNavigate }) {
                                 to={c.to}
                                 onClick={onNavigate}
                                 className={({ isActive }) =>
-                                  `block rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                                  `flex items-center justify-between rounded-lg px-3 py-1.5 text-sm transition-colors ${
                                     isActive ? 'font-semibold text-[#E5B700]' : 'font-medium text-gray-500 hover:text-gray-800'
                                   }`
                                 }
                               >
                                 {c.label}
+                                <CountBadge n={counts[BADGE_BY_PATH[c.to]]} />
                               </NavLink>
                             ))}
                           </div>
@@ -134,7 +139,8 @@ function NavItems({ onNavigate }) {
                   {({ isActive }) => (
                     <>
                       <span className={`shrink-0 ${isActive ? 'text-white' : 'text-[#484C52]'}`}><Ic size={19} /></span>
-                      <span className="truncate">{n.label}</span>
+                      <span className="flex-1 truncate text-left">{n.label}</span>
+                      <CountBadge n={counts[BADGE_BY_PATH[n.to]]} className={isActive ? '!bg-white !text-[#B45309]' : ''} />
                     </>
                   )}
                 </NavLink>
@@ -150,10 +156,14 @@ function NavItems({ onNavigate }) {
 // ── Sidebar nav (collapsed → icon rail) ───────────────────────────────────
 function NavRail({ onExpandRequest }) {
   const location = useLocation();
+  const { counts } = useAdminCounts(); // attention badges (pending queues)
   const tile = (active) =>
     `grid h-11 w-11 place-items-center rounded-2xl transition-all duration-200 ${
       active ? itemActive : 'text-[#484C52] hover:bg-gray-100 hover:text-[#E5B700]'
     }`;
+  const railBadge = (n) => (
+    <CountBadge n={n} className="absolute -right-1 -top-1 !h-4 !min-w-[16px] !text-[9px] ring-2 ring-white" />
+  );
   return (
     <nav className="no-scrollbar flex-1 overflow-y-auto pb-3">
       {NAV.map((group, gi) => (
@@ -162,15 +172,18 @@ function NavRail({ onExpandRequest }) {
             const Ic = NavIcon[n.icon] || AdminIcon[n.icon];
             if (n.children) {
               const active = n.children.some((c) => location.pathname.startsWith(c.to));
+              const childTotal = n.children.reduce((s, c) => s + (counts[BADGE_BY_PATH[c.to]] || 0), 0);
               return (
-                <button key={n.label} onClick={onExpandRequest} title={n.label} className={tile(active)}>
+                <button key={n.label} onClick={onExpandRequest} title={n.label} className={`relative ${tile(active)}`}>
                   <Ic size={19} />
+                  {railBadge(childTotal)}
                 </button>
               );
             }
             return (
-              <NavLink key={n.to} to={n.to} title={n.label} className={({ isActive }) => tile(isActive)}>
+              <NavLink key={n.to} to={n.to} title={n.label} className={({ isActive }) => `relative ${tile(isActive)}`}>
                 <Ic size={19} />
+                {railBadge(counts[BADGE_BY_PATH[n.to]])}
               </NavLink>
             );
           })}
@@ -378,6 +391,7 @@ export default function AdminShell({ children }) {
   };
 
   return (
+    <AdminCountsProvider>
     <div className="font-portal min-h-screen bg-gray-100 text-gray-900">
       {/* Fixed sidebar (desktop) */}
       <aside

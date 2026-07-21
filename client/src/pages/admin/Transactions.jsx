@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-import { PageHead, Table, Pill, statusTone, SearchInput, Card, Loading, formatPrice } from '../../components/portal/Kit';
+import { PageHead, Table, Pill, statusTone, SearchInput, Card, Loading, formatPrice, filterSelectCls } from '../../components/portal/Kit';
 
 const COLUMNS = [
   { key: 'orderNumber', label: 'Order' },
@@ -58,10 +58,10 @@ export default function Transactions() {
       <Card className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <SearchInput value={query} onChange={setQuery} placeholder="Search order, name or email…" className="max-w-xs" />
-          <select value={gateway} onChange={(e) => setGateway(e.target.value)} className={selectCls} aria-label="Filter by gateway">
+          <select value={gateway} onChange={(e) => setGateway(e.target.value)} className={filterSelectCls} aria-label="Filter by gateway">
             {GATEWAYS.map((g) => <option key={g} value={g}>{g || 'All gateways'}</option>)}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls} aria-label="Filter by status">
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={filterSelectCls} aria-label="Filter by status">
             {STATUSES.map((s) => <option key={s} value={s}>{s || 'All statuses'}</option>)}
           </select>
         </div>

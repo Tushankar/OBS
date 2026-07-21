@@ -174,8 +174,11 @@ export default function App() {
                 {/* Cross-fade between public pages. Opacity-only on purpose:
                     a transform here would re-anchor position:fixed children.
                     `location` is pinned so the outgoing page keeps rendering
-                    its own route while it fades out. */}
-                <AnimatePresence mode="wait" initial={false}>
+                    its own route while it fades out. onExitComplete resets
+                    scroll in the gap between fade-out and fade-in, so every
+                    navigation (footer links included) opens the new page at
+                    the top — no per-page scrollTo needed. */}
+                <AnimatePresence mode="wait" initial={false} onExitComplete={() => window.scrollTo(0, 0)}>
                 <motion.div
                   key={location.pathname}
                   initial={{ opacity: 0 }}

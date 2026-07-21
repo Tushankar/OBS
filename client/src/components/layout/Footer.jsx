@@ -4,7 +4,7 @@ const COLS = [
   ['Events', [['Browse events', '/events'], ['Past events', '/events/past'], ['Webinars', '/webinars'], ['Summits', '/summits'], ['List your event', '/list-your-event']]],
   ['Discover', [['Speakers', '/speakers'], ['Organizers', '/organizers'], ['Sponsors', '/sponsors'], ['100 Days program', '/program'], ['Launchpad', '/launches'], ['Newsroom', '/news']]],
   ['Chapters', [['All chapters', '/chapters'], ['Start a chapter', '/chapters/create'], ['Chapter leaders', '/help'], ['Tier benefits', '/help']]],
-  ['Company', [['About OBS', '/about'], ['Careers', '/careers'], ['Partner with us', '/become-a-sponsor']]],
+  ['Company', [['About OBS', '/about'], ['Careers', '/careers'], ['Become an organizer', '/organizer/apply'], ['Partner with us', '/become-a-sponsor']]],
   // Terms & privacy render from the admin-managed CMS (Admin → Site pages).
   ['Help', [['Help center', '/help'], ['Report an issue', '/report-issue'], ['FAQs', '/faqs'], ['Refund policy', '/refund-policy'], ['Community guidelines', '/pages/community-guidelines']]],
   ['Legal', [['Terms of use', '/terms'], ['Privacy policy', '/privacy'], ['Cookie policy', '/pages/cookie-policy']]],
