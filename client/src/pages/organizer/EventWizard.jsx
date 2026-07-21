@@ -5,7 +5,8 @@ import { useApp } from '../../context/AppContext';
 import api, { apiError, apiErrorCode } from '../../lib/api';
 import { fmtDateTime } from '../../lib/format';
 import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
-import { zonedInputToISO, isoToZonedInput, tzOffsetLabel, TIMEZONES, suggestTimezone } from '../../lib/timezones';
+import { zonedInputToISO, isoToZonedInput, tzOffsetLabel, TIMEZONES, suggestTimezone, timezoneForCoords } from '../../lib/timezones';
+import { CURRENCIES, CURRENCY_LABEL } from '../../lib/currency';
 import TicketTypesEditor from '../../components/organizer/TicketTypesEditor';
 import PromoCodesEditor from '../../components/organizer/PromoCodesEditor';
 import SponsorsEditor from '../../components/organizer/SponsorsEditor';
@@ -27,7 +28,7 @@ const BLANK = {
   title: '', categoryId: '', chapterId: '', description: '',
   bannerUrl: '', images: [], isOnline: false, meetingLink: '',
   venueName: '', address: '', city: '', country: '', lat: null, lng: null, placeId: '',
-  startAt: '', endAt: '', timezone: 'Asia/Dubai',
+  startAt: '', endAt: '', timezone: 'Asia/Dubai', currency: 'AED',
   speakerIds: [], programId: '', programDayNumber: '', isLaunch: false, launchAt: '',
   membersOnly: false,
   rejectionReason: '',
@@ -39,7 +40,7 @@ const eventToForm = (e) => ({
   isOnline: !!e.isOnline, meetingLink: e.meetingLink || '',
   venueName: e.venueName || '', address: e.address || '', city: e.city || '', country: e.country || '',
   lat: e.lat ?? null, lng: e.lng ?? null, placeId: e.placeId || '',
-  timezone: e.timezone || 'Asia/Dubai',
+  timezone: e.timezone || 'Asia/Dubai', currency: e.currency || 'AED',
   startAt: isoToLocalInput(e.startAt, e.timezone), endAt: isoToLocalInput(e.endAt, e.timezone),
   speakerIds: (e.speakerIds || []).map(String),
   programId: e.programId ? String(e.programId) : '',
@@ -161,14 +162,19 @@ export default function EventWizard() {
           if (!place.geometry) return;
           const comps = place.address_components || [];
           const get = (t) => comps.find((c) => c.types.includes(t))?.long_name;
+          const la = place.geometry.location.lat();
+          const ln = place.geometry.location.lng();
           setForm((f) => ({
             ...f,
             address: place.formatted_address || f.address,
-            lat: place.geometry.location.lat(),
-            lng: place.geometry.location.lng(),
+            lat: la,
+            lng: ln,
             placeId: place.place_id || '',
             city: get('locality') || get('postal_town') || get('administrative_area_level_2') || f.city,
             country: get('country') || f.country,
+            // The selected venue decides the timezone — unless the organizer
+            // has explicitly chosen one themselves.
+            timezone: tzTouched.current ? f.timezone : (timezoneForCoords(la, ln) || f.timezone),
           }));
         });
       })
@@ -218,7 +224,7 @@ export default function EventWizard() {
       pushToast('End time must be after the start time', false);
       return false;
     }
-    let payload = { isOnline: form.isOnline, startAt, endAt, timezone: form.timezone || 'Asia/Dubai' };
+    let payload = { isOnline: form.isOnline, startAt, endAt, timezone: form.timezone || 'Asia/Dubai', currency: form.currency || 'AED' };
     if (form.isOnline) {
       payload.meetingLink = form.meetingLink.trim() || undefined;
     } else {
@@ -229,7 +235,11 @@ export default function EventWizard() {
           const g = await api.geocode(address);
           lat = g.lat; lng = g.lng; placeId = g.placeId;
           city = city || g.city; country = country || g.country;
-          setForm((f) => ({ ...f, lat, lng, placeId, city, country }));
+          // Newly discovered coordinates decide the timezone (unless the
+          // organizer chose one) — and this save must carry it too.
+          const tz = !tzTouched.current && timezoneForCoords(lat, lng);
+          if (tz) payload.timezone = tz;
+          setForm((f) => ({ ...f, lat, lng, placeId, city, country, timezone: tz || f.timezone }));
           pushToast('Location found');
         } catch {
           pushToast('Saved address only — map unavailable', true);
@@ -472,7 +482,7 @@ export default function EventWizard() {
             ) : (
               <div className="grid gap-4">
                 <Field label="Venue name">
-                  <input className={inputCls} value={form.venueName} disabled={readOnly} onChange={(e) => set('venueName', e.target.value)} placeholder="e.g. Jio World Convention Centre" />
+                  <input className={inputCls} value={form.venueName} disabled={readOnly} onChange={(e) => set('venueName', e.target.value)} placeholder="e.g. Dubai World Trade Centre" />
                 </Field>
                 <Field label="Address" hint={hasMapsKey() ? 'Start typing and pick a suggestion.' : 'We’ll look up the map location when you continue.'}>
                   <input
@@ -493,12 +503,16 @@ export default function EventWizard() {
                     <MapPicker
                       lat={form.lat}
                       lng={form.lng}
-                      onPick={({ lat, lng, address, city }) => setForm((f) => ({
+                      onPick={({ lat, lng, address, city, country }) => setForm((f) => ({
                         ...f,
                         lat,
                         lng,
                         address: f.address || address || f.address,
                         city: f.city || city || f.city,
+                        country: country || f.country,
+                        // The pinned spot decides the timezone — unless the
+                        // organizer has explicitly chosen one themselves.
+                        timezone: tzTouched.current ? f.timezone : (timezoneForCoords(lat, lng) || f.timezone),
                       }))}
                     />
                   </Field>
@@ -509,11 +523,18 @@ export default function EventWizard() {
               </div>
             )}
 
-            <Field label="Event timezone" hint="Times below are the local wall-clock at the event — attendees see them in this zone.">
-              <select className={inputCls} value={form.timezone} disabled={readOnly} onChange={(e) => { tzTouched.current = true; set('timezone', e.target.value); }}>
-                {TIMEZONES.map(([tz, label]) => <option key={tz} value={tz}>{label} — {tz} ({tzOffsetLabel(tz)})</option>)}
-              </select>
-            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Event timezone" hint="Times below are the local wall-clock at the event — attendees see them in this zone.">
+                <select className={inputCls} value={form.timezone} disabled={readOnly} onChange={(e) => { tzTouched.current = true; set('timezone', e.target.value); }}>
+                  {TIMEZONES.map(([tz, label]) => <option key={tz} value={tz}>{label} — {tz} ({tzOffsetLabel(tz)})</option>)}
+                </select>
+              </Field>
+              <Field label="Currency" hint="Tickets are priced and charged in this currency.">
+                <select className={inputCls} value={form.currency} disabled={readOnly} onChange={(e) => set('currency', e.target.value)}>
+                  {CURRENCIES.map((c) => <option key={c} value={c}>{CURRENCY_LABEL[c] || c}</option>)}
+                </select>
+              </Field>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={`Starts at (${tzOffsetLabel(form.timezone)})`}><input type="datetime-local" className={inputCls} value={form.startAt} disabled={readOnly} onChange={(e) => set('startAt', e.target.value)} /></Field>
               <Field label={`Ends at (${tzOffsetLabel(form.timezone)})`}><input type="datetime-local" className={inputCls} value={form.endAt} disabled={readOnly} onChange={(e) => set('endAt', e.target.value)} /></Field>
@@ -531,8 +552,8 @@ export default function EventWizard() {
               {status === 'PUBLISHED' && (
                 <LiveBanner className="mb-4">Your event is live — you can still manage ticket inventory and promo codes here.</LiveBanner>
               )}
-              <p className="mb-4 text-[13px] text-[#6B7280]">Add the tickets attendees can buy. Use ₹0 for a free ticket. Every event needs at least one ticket type before it can sell.</p>
-              <TicketTypesEditor eventId={eventId} startAt={form.startAt} endAt={form.endAt} />
+              <p className="mb-4 text-[13px] text-[#6B7280]">Add the tickets attendees can buy — prices are in <span className="font-semibold text-[#111827]">{form.currency}</span> (set in Venue &amp; schedule). Use 0 for a free ticket. Every event needs at least one ticket type before it can sell.</p>
+              <TicketTypesEditor eventId={eventId} startAt={form.startAt} endAt={form.endAt} currency={form.currency} />
             </div>
           ) : (
             <p className="py-8 text-center text-[13px] text-[#6B7280]">Save the basics first (step 1) to add ticket types.</p>
@@ -667,7 +688,7 @@ export default function EventWizard() {
                 <p className="mt-1.5 text-[12px] text-[#6B7280]">Launches appear on the OBS Launchpad — product unveilings, book releases, openings.</p>
                 {form.isLaunch && (
                   <div className="mt-3 max-w-xs">
-                    <Field label="Launch moment (optional)" hint="Adds a countdown on the Launchpad.">
+                    <Field label={`Launch moment (optional, ${tzOffsetLabel(form.timezone)})`} hint="Adds a countdown on the Launchpad. Interpreted in the event's timezone.">
                       <input type="datetime-local" className={inputCls} value={form.launchAt} disabled={!extrasEditable} onChange={(e) => set('launchAt', e.target.value)} />
                     </Field>
                   </div>

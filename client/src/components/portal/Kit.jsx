@@ -16,10 +16,12 @@ const BTN_VARIANTS = {
   outline: 'bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50',
   subtle: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
 };
+// Pill buttons (rounded-full) — matches the SPECTRUM language used by the
+// tabs, profile pills and public-site CTAs.
 const BTN_SIZES = {
-  sm: 'h-8 px-3 text-xs rounded-lg',
-  md: 'h-9 px-4 text-sm rounded-lg',
-  lg: 'h-11 px-5 text-sm rounded-lg',
+  sm: 'h-8 px-3.5 text-xs rounded-full',
+  md: 'h-9 px-5 text-sm rounded-full',
+  lg: 'h-11 px-6 text-sm rounded-full',
 };
 
 export function Btn({ variant = 'primary', size = 'md', className = '', type = 'button', ...rest }) {

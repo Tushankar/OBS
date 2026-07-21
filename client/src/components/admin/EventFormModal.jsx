@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api, { apiError } from '../../lib/api';
+import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
 import { useApp } from '../../context/AppContext';
 import { Modal, Btn, Field, inputCls, selectCls } from '../portal/Kit';
 import TicketTypesEditor from '../organizer/TicketTypesEditor';
@@ -8,7 +9,8 @@ import EventAttendees from './EventAttendees';
 import ImagesUploader from '../common/ImagesUploader';
 import MapPicker from '../common/MapPicker';
 import CountryField from '../common/CountryField';
-import { zonedInputToISO, isoToZonedInput, tzOffsetLabel, TIMEZONES, suggestTimezone } from '../../lib/timezones';
+import { zonedInputToISO, isoToZonedInput, tzOffsetLabel, TIMEZONES, suggestTimezone, timezoneForCoords } from '../../lib/timezones';
+import { CURRENCIES, CURRENCY_LABEL } from '../../lib/currency';
 
 // Admin create / edit of an OBS-platform event (ownership OBS). Publishes
 // directly — no organizer submit→approve loop. `initial` (an admin event row)
@@ -20,8 +22,13 @@ const toLocal = (iso, tz) => isoToZonedInput(iso, tz || 'Asia/Dubai');
 
 export default function EventFormModal({ initial, onClose, onSaved }) {
   const { pushToast } = useApp();
-  const editing = !!initial?.id;
-  const STEPS = editing
+  // Draft-first (same model as the organizer wizard): creating an event can
+  // save a draft mid-flow so tickets/promos are editable BEFORE the final
+  // save — `eventId` is set either by `initial` (edit) or by that draft save.
+  const [eventId, setEventId] = useState(initial?.id || null);
+  const editing = !!eventId;
+  const openedAsEdit = !!initial?.id;
+  const STEPS = openedAsEdit
     ? ['Basics', 'Venue', 'Schedule & media', 'Speakers & extras', 'Tickets & promos', 'Attendees']
     : ['Basics', 'Venue', 'Schedule & media', 'Speakers & extras', 'Tickets & promos'];
   const [step, setStep] = useState(1);
@@ -44,6 +51,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     city: initial?.city || '',
     country: initial?.country || 'United Arab Emirates',
     timezone: initial?.timezone || 'Asia/Dubai',
+    currency: initial?.currency || 'AED',
     startAt: toLocal(initial?.startAt, initial?.timezone),
     endAt: toLocal(initial?.endAt, initial?.timezone),
     bannerUrl: initial?.bannerUrl || '',
@@ -78,7 +86,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
   // Edit mode: fetch the full event (the list row omits description/venue/etc.)
   // and prefill — so admins can edit live events without wiping hidden fields.
   useEffect(() => {
-    if (!editing) return;
+    if (!openedAsEdit) return;
     api.adminEvent(initial.id).then((e) => setForm((f) => ({
       ...f,
       title: e.title || '',
@@ -92,6 +100,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
       city: e.city || '',
       country: e.country || 'United Arab Emirates',
       timezone: e.timezone || 'Asia/Dubai',
+      currency: e.currency || 'AED',
       startAt: toLocal(e.startAt, e.timezone),
       endAt: toLocal(e.endAt, e.timezone),
       bannerUrl: e.bannerUrl || '',
@@ -107,7 +116,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
       launchAt: toLocal(e.launchAt, e.timezone),
       membersOnly: !!e.membersOnly,
     }))).catch(() => {});
-  }, [editing, initial]);
+  }, [openedAsEdit, initial]);
 
   // Venue country → suggested event timezone, until the admin picks one
   // manually (their explicit choice always wins).
@@ -117,6 +126,41 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     const s = suggestTimezone(form.country);
     if (s && s !== form.timezone) setForm((f) => ({ ...f, timezone: s }));
   }, [form.country]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Google Places Autocomplete on the venue address input (same as the
+  // organizer wizard) — when a browser key is configured; otherwise the map's
+  // search box + manual entry still work.
+  const addrRef = useRef(null);
+  useEffect(() => {
+    if (step !== 2 || form.isOnline || !hasMapsKey()) return undefined;
+    let ac;
+    loadGoogleMaps()
+      .then((maps) => {
+        if (!maps || !addrRef.current) return;
+        ac = new maps.places.Autocomplete(addrRef.current, {
+          fields: ['formatted_address', 'geometry', 'address_components'],
+        });
+        ac.addListener('place_changed', () => {
+          const place = ac.getPlace();
+          if (!place.geometry) return;
+          const comps = place.address_components || [];
+          const get = (t) => comps.find((c) => c.types.includes(t))?.long_name;
+          const la = place.geometry.location.lat();
+          const ln = place.geometry.location.lng();
+          setForm((f) => ({
+            ...f,
+            address: place.formatted_address || f.address,
+            lat: la,
+            lng: ln,
+            city: get('locality') || get('postal_town') || get('administrative_area_level_2') || f.city,
+            country: get('country') || f.country,
+            timezone: tzTouched.current ? f.timezone : (timezoneForCoords(la, ln) || f.timezone),
+          }));
+        });
+      })
+      .catch(() => {});
+    return () => { if (ac && window.google) window.google.maps.event.clearInstanceListeners(ac); };
+  }, [step, form.isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Day dropdown options come from the selected program's real generated days
   // (dates + any admin-set day titles) — no more typing a raw number.
@@ -137,19 +181,12 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     ? speakers.filter((s) => !form.speakerIds.includes(s.id) && `${s.name} ${s.company || ''}`.toLowerCase().includes(sq)).slice(0, 8)
     : [];
 
-  const save = async () => {
-    if (form.title.trim().length < 3) { pushToast('Title must be at least 3 characters', false); setStep(1); return; }
-    if (form.publish) {
-      if (!form.categoryId) { pushToast('Pick a category to publish', false); setStep(1); return; }
-      if (!form.description.trim()) { pushToast('Add a description to publish', false); setStep(1); return; }
-      if (!form.startAt || !form.endAt) { pushToast('Set start and end times to publish', false); setStep(3); return; }
-      if (form.isOnline ? !form.meetingLink.trim() : !form.venueName.trim()) { pushToast(form.isOnline ? 'Add a meeting link' : 'Add a venue name', false); setStep(2); return; }
-    }
+  const buildBody = ({ publish }) => {
     const body = {
       title: form.title.trim(),
       isOnline: form.isOnline,
       isFeatured: form.isFeatured,
-      publish: form.publish,
+      publish,
       country: form.country.trim() || undefined,
     };
     if (form.categoryId) body.categoryId = form.categoryId;
@@ -157,6 +194,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     body.membersOnly = !!(form.chapterId && form.membersOnly); // meaningless without a chapter
     if (form.description.trim()) body.description = form.description.trim();
     body.timezone = form.timezone || 'Asia/Dubai';
+    body.currency = form.currency || 'AED';
     if (form.startAt) body.startAt = zonedInputToISO(form.startAt, form.timezone);
     if (form.endAt) body.endAt = zonedInputToISO(form.endAt, form.timezone);
     body.images = form.images;
@@ -176,12 +214,41 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     body.programDayNumber = form.programId && form.programDayNumber ? Number(form.programDayNumber) : null;
     body.isLaunch = form.isLaunch;
     body.launchAt = form.isLaunch && form.launchAt ? zonedInputToISO(form.launchAt, form.timezone) : null;
+    return body;
+  };
 
+  // Mid-flow draft save (create mode): persists the event so the ticket/promo
+  // editors — which need a real event id — unlock without leaving the modal.
+  // The final Save then becomes an update. Same draft-first model as the
+  // organizer wizard.
+  const saveDraftForTickets = async () => {
+    if (form.title.trim().length < 3) { pushToast('Title must be at least 3 characters', false); setStep(1); return; }
     setBusy(true);
     try {
-      if (editing) await api.adminUpdateEvent(initial.id, body);
+      const ev = await api.adminCreateEvent(buildBody({ publish: false }));
+      setEventId(ev.id);
+      pushToast('Draft saved — add your tickets below');
+    } catch (e) {
+      pushToast(apiError(e, 'Could not save the draft'), false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = async () => {
+    if (form.title.trim().length < 3) { pushToast('Title must be at least 3 characters', false); setStep(1); return; }
+    if (form.publish) {
+      if (!form.categoryId) { pushToast('Pick a category to publish', false); setStep(1); return; }
+      if (!form.description.trim()) { pushToast('Add a description to publish', false); setStep(1); return; }
+      if (!form.startAt || !form.endAt) { pushToast('Set start and end times to publish', false); setStep(3); return; }
+      if (form.isOnline ? !form.meetingLink.trim() : !form.venueName.trim()) { pushToast(form.isOnline ? 'Add a meeting link' : 'Add a venue name', false); setStep(2); return; }
+    }
+    setBusy(true);
+    try {
+      const body = buildBody({ publish: form.publish });
+      if (eventId) await api.adminUpdateEvent(eventId, body);
       else await api.adminCreateEvent(body);
-      pushToast(editing ? 'Event updated' : form.publish ? 'Event published' : 'Draft created');
+      pushToast(openedAsEdit ? 'Event updated' : form.publish ? 'Event published' : 'Draft created');
       onSaved();
     } catch (e) {
       pushToast(apiError(e, 'Could not save event'), false);
@@ -190,19 +257,23 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
     }
   };
 
+  // If a draft was created mid-flow, closing must still refresh the parent
+  // list — the draft exists whether or not the admin hits the final Save.
+  const close = () => (eventId && !openedAsEdit ? onSaved() : onClose());
+
   return (
     <Modal
       open
-      onClose={onClose}
-      title={editing ? 'Edit OBS event' : 'New OBS event'}
+      onClose={close}
+      title={openedAsEdit ? 'Edit OBS event' : 'New OBS event'}
       subtitle="Published directly as an OBS-platform event — no organizer approval needed."
       width="max-w-3xl"
       footer={
         <>
-          <Btn variant="ghost" onClick={onClose} disabled={busy}>Cancel</Btn>
+          <Btn variant="ghost" onClick={close} disabled={busy}>Cancel</Btn>
           {step > 1 && <Btn variant="outline" onClick={() => setStep((s) => s - 1)} disabled={busy}>Back</Btn>}
           {step < STEPS.length && <Btn variant="outline" onClick={() => setStep((s) => s + 1)} disabled={busy}>Next</Btn>}
-          <Btn onClick={save} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : form.publish ? 'Publish event' : 'Save draft'}</Btn>
+          <Btn onClick={save} disabled={busy}>{busy ? 'Saving…' : openedAsEdit ? 'Save changes' : form.publish ? 'Publish event' : 'Save draft'}</Btn>
         </>
       }
     >
@@ -267,6 +338,11 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
           <Field label="Country">
             <CountryField value={form.country} onChange={(v) => set('country', v)} />
           </Field>
+          <Field label="Currency" hint="Tickets are priced and charged in this currency.">
+            <select value={form.currency} onChange={(e) => set('currency', e.target.value)} className={`${selectCls} w-full`}>
+              {CURRENCIES.map((c) => <option key={c} value={c}>{CURRENCY_LABEL[c] || c}</option>)}
+            </select>
+          </Field>
           <div className="sm:col-span-2">
             <Field label="Description"><textarea value={form.description} onChange={(e) => set('description', e.target.value)} rows={4} placeholder="What's the event about?" className={`${inputCls} resize-y`} /></Field>
           </div>
@@ -290,21 +366,27 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
           ) : (
             <>
               <Field label="Venue name"><input value={form.venueName} onChange={(e) => set('venueName', e.target.value)} placeholder="Grand Convention Hall" className={inputCls} /></Field>
-              <Field label="City"><input value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="Mumbai" className={inputCls} /></Field>
+              <Field label="City"><input value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="Dubai" className={inputCls} /></Field>
               <div className="sm:col-span-2">
-                <Field label="Address"><input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Street, area" className={inputCls} /></Field>
+                <Field label="Address" hint={hasMapsKey() ? 'Start typing and pick a suggestion — it pins the map and sets the timezone.' : undefined}>
+                  <input ref={addrRef} value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Street, area" className={inputCls} />
+                </Field>
               </div>
               <div className="sm:col-span-2">
                 <Field label="Pin the venue on the map" hint="Search or click to drop the pin — attendees get this exact spot with directions.">
                   <MapPicker
                     lat={form.lat}
                     lng={form.lng}
-                    onPick={({ lat, lng, address, city }) => setForm((f) => ({
+                    onPick={({ lat, lng, address, city, country }) => setForm((f) => ({
                       ...f,
                       lat,
                       lng,
                       address: f.address || address || f.address,
                       city: f.city || city || f.city,
+                      country: country || f.country,
+                      // The pinned venue decides the timezone — unless the
+                      // admin explicitly picked one in Schedule & media.
+                      timezone: tzTouched.current ? f.timezone : (timezoneForCoords(lat, lng) || f.timezone),
                     }))}
                   />
                 </Field>
@@ -419,7 +501,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
             </label>
             {form.isLaunch && (
               <div className="mt-2">
-                <Field label="Launch date & time" hint="Optional — defaults to the event start if left blank."><input type="datetime-local" value={form.launchAt} onChange={(e) => set('launchAt', e.target.value)} className={inputCls} /></Field>
+                <Field label={`Launch date & time (${tzOffsetLabel(form.timezone)})`} hint="Optional — defaults to the event start if left blank. Interpreted in the event's timezone."><input type="datetime-local" value={form.launchAt} onChange={(e) => set('launchAt', e.target.value)} className={inputCls} /></Field>
               </div>
             )}
           </div>
@@ -431,22 +513,23 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
         <div className="grid grid-cols-1 gap-4">
           <div>
             <div className="text-sm font-semibold text-gray-900">Tickets</div>
-            <p className="mb-3 mt-0.5 text-xs text-gray-500">Without at least one active ticket type, the public page shows “Tickets aren’t on sale”.</p>
+            <p className="mb-3 mt-0.5 text-xs text-gray-500">Without at least one active ticket type, the public page shows “Tickets aren’t on sale”. Prices are in <span className="font-semibold">{form.currency}</span> (set in Basics).</p>
             {editing ? (
-              <TicketTypesEditor eventId={initial.id} admin startAt={form.startAt} endAt={form.endAt} />
+              <TicketTypesEditor eventId={eventId} admin startAt={form.startAt} endAt={form.endAt} currency={form.currency} />
             ) : (
-              <p className="rounded-md border border-dashed border-gray-300 px-3 py-2.5 text-xs text-gray-500">
-                Save the event first — then reopen it with <span className="font-semibold">Edit</span> to add ticket types and prices.
-              </p>
+              <div className="rounded-md border border-dashed border-gray-300 px-3.5 py-3">
+                <p className="text-xs text-gray-600">Tickets need the event saved once. Save it as a draft now — you stay right here and can add tickets immediately; publish is still up to you at the end.</p>
+                <Btn size="sm" className="mt-2" onClick={saveDraftForTickets} disabled={busy}>{busy ? 'Saving…' : 'Save draft & add tickets'}</Btn>
+              </div>
             )}
           </div>
           <div className="border-t border-gray-100 pt-3">
             <div className="text-sm font-semibold text-gray-900">Promo codes</div>
             <p className="mb-3 mt-0.5 text-xs text-gray-500">Discount codes valid only for this event. Site-wide campaigns live under Admin → Promo codes.</p>
             {editing ? (
-              <PromoCodesEditor eventId={initial.id} admin />
+              <PromoCodesEditor eventId={eventId} admin />
             ) : (
-              <p className="rounded-md border border-dashed border-gray-300 px-3 py-2.5 text-xs text-gray-500">Available after the event is saved.</p>
+              <p className="rounded-md border border-dashed border-gray-300 px-3 py-2.5 text-xs text-gray-500">Unlocked together with tickets once the draft is saved.</p>
             )}
           </div>
         </div>

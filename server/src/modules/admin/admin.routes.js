@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as c from './admin.controller.js';
 import * as schemas from './admin.schemas.js';
+import { checkinSchema } from '../checkin/checkin.schemas.js';
 import { validate } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { requireRole } from '../../middleware/requireRole.js';
@@ -11,6 +12,10 @@ const router = Router();
 // Every admin route requires a signed-in ADMIN. More sections (events, users,
 // transactions, …) mount here in later tasks/phases.
 router.use(requireAuth, requireRole('ADMIN'));
+
+// --- Ticket verification (admin check-in, mirrors the organizer scanner) ---
+router.post('/checkin', validate({ body: checkinSchema }), asyncHandler(c.adminCheckin));
+router.post('/tickets/:id/checkin', validate({ params: schemas.idParam }), asyncHandler(c.adminManualCheckin));
 
 // --- Organizers (task 1.1) ---
 router.get('/organizers', validate({ query: schemas.listOrganizersQuery }), asyncHandler(c.listOrganizers));

@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-import { PageHead, Table, Pill, statusTone, Btn, Tabs, Loading, selectCls } from '../../components/portal/Kit';
+import { PageHead, Table, Pill, statusTone, Btn, Tabs, Loading, Modal } from '../../components/portal/Kit';
+import EventAttendees from '../../components/admin/EventAttendees';
+import RowMenu from '../../components/common/RowMenu';
 import ReasonDialog from '../../components/admin/ReasonDialog';
 import EventFormModal from '../../components/admin/EventFormModal';
 import { AdminIcon } from '../../components/admin/AdminIcons';
@@ -27,6 +29,7 @@ export default function Events() {
   const [rejecting, setRejecting] = useState(null); // event pending rejection
   const [cancelling, setCancelling] = useState(null); // published event pending cancellation
   const [editor, setEditor] = useState(null); // null | {} (new) | eventRow (edit)
+  const [attendeesFor, setAttendeesFor] = useState(null); // event whose attendees view is open
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
@@ -135,38 +138,48 @@ export default function Events() {
       case 'status':
         return <Pill tone={statusTone(ev.status)}>{ev.status.replace('_', ' ')}</Pill>;
       case 'actions': {
+        // Product rule: at most TWO visible buttons + a ⋯ menu per row, so the
+        // actions column has a stable width and destructive actions (Cancel)
+        // can never be pushed off-screen by the table's horizontal scroll.
         const edit = <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setEditor(ev)}><AdminIcon.Edit size={13} /> Edit</Btn>;
+        const isLive = ['PUBLISHED', 'COMPLETED'].includes(ev.status);
+        const menu = (
+          <RowMenu
+            disabled={busyId === ev.id}
+            items={[
+              isLive && ev.slug && { label: 'View live page', onClick: () => window.open(`/event/${ev.slug}`, '_blank', 'noopener,noreferrer') },
+              isLive && { label: 'Registrations & attendees', onClick: () => setAttendeesFor(ev) },
+              ev.status === 'PUBLISHED' && {
+                label: (ev.ownership || 'OBS') === 'OBS' ? 'Mark as Partner event' : 'Mark as OBS event',
+                onClick: () => setOwnership(ev, (ev.ownership || 'OBS') === 'OBS' ? 'PARTNER' : 'OBS'),
+              },
+              ev.status === 'PUBLISHED' && { label: 'Cancel event…', danger: true, onClick: () => setCancelling(ev) },
+            ]}
+          />
+        );
         if (ev.status === 'PENDING_APPROVAL') {
           return (
-            <div className="flex justify-end gap-2">
+            <div className="flex items-center justify-end gap-2">
               <Btn size="sm" disabled={busyId === ev.id} onClick={() => approve(ev)}>Approve</Btn>
               <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setRejecting(ev)} className="!text-[#B91C1C]">Reject</Btn>
               {edit}
             </div>
           );
         }
-        if (ev.status === 'PUBLISHED') {
+        if (isLive) {
           return (
             <div className="flex items-center justify-end gap-2">
-              <select
-                value={ev.ownership || 'OBS'}
-                disabled={busyId === ev.id}
-                onChange={(e) => setOwnership(ev, e.target.value)}
-                className={`${selectCls} !h-8 !text-[12px]`}
-                aria-label="Ownership"
-              >
-                <option value="OBS">OBS</option>
-                <option value="PARTNER">Partner</option>
-              </select>
-              <Btn size="sm" variant={ev.isFeatured ? 'outline' : 'ghost'} disabled={busyId === ev.id} onClick={() => toggleFeature(ev)}>
-                <AdminIcon.Star size={13} /> {ev.isFeatured ? 'Unfeature' : 'Feature'}
-              </Btn>
+              {ev.status === 'PUBLISHED' && (
+                <Btn size="sm" variant={ev.isFeatured ? 'outline' : 'ghost'} disabled={busyId === ev.id} onClick={() => toggleFeature(ev)}>
+                  <AdminIcon.Star size={13} /> {ev.isFeatured ? 'Unfeature' : 'Feature'}
+                </Btn>
+              )}
               {edit}
-              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setCancelling(ev)} className="!text-[#B91C1C]">Cancel</Btn>
+              {menu}
             </div>
           );
         }
-        // DRAFT / REJECTED / others — editable (rejection reason shown on hover)
+        // DRAFT / REJECTED — editable (rejection reason shown on hover)
         return (
           <div className="flex items-center justify-end gap-2">
             {ev.status === 'REJECTED' && ev.rejectionReason && <span className="text-[12px] text-[#6B7280]" title={ev.rejectionReason}>Rejected</span>}
@@ -217,6 +230,21 @@ export default function Events() {
       />
 
       {editor && <EventFormModal initial={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); load(); }} />}
+
+      {/* Registrations & attendees — a first-class view of its own (stats,
+          ticket verification, per-attendee actions), not a step of the edit
+          wizard. Same component the modal's Attendees step uses. */}
+      {attendeesFor && (
+        <Modal
+          open
+          onClose={() => setAttendeesFor(null)}
+          title="Registrations & attendees"
+          subtitle={`${attendeesFor.title}${attendeesFor.startAt ? ` · ${fmtDate(attendeesFor.startAt)}` : ''}`}
+          width="max-w-4xl"
+        >
+          <EventAttendees eventId={attendeesFor.id} />
+        </Modal>
+      )}
     </div>
   );
 }

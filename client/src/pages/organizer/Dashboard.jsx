@@ -10,7 +10,9 @@ import { useApp } from '../../context/AppContext';
 import { PageHead, Card, StatCard, Btn, Loading, Pill, statusTone, formatPrice } from '../../components/portal/Kit';
 import { AdminIcon } from '../../components/admin/AdminIcons';
 import { NavIcon } from '../../components/admin/NavIcons';
-import { BarList, DonutChart } from '../../components/admin/Charts';
+import { AreaChart, BarChart, BarList, DonutChart } from '../../components/admin/Charts';
+
+const REG_ACCENT = '#10B981'; // green — registrations series (distinct from gold revenue)
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'TBA');
 const num = (n) => Number(n || 0).toLocaleString('en-IN');
@@ -83,6 +85,26 @@ export default function Dashboard() {
         <StatCard icon={<AdminIcon.Star size={18} />} label="Live events" value={num(data.events.published)} />
       </div>
 
+      {/* ── Trends (last 6 months) — same panels as the admin reports ── */}
+      {(data.monthly || []).length > 0 && (
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:mb-6 sm:gap-6 lg:grid-cols-2">
+          <Card className="!p-4 sm:!p-6">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2 className="text-base font-semibold text-gray-800">Revenue · last 6 months</h2>
+              <span className="text-xs text-gray-500">{data.currency}</span>
+            </div>
+            <AreaChart data={data.monthly.map((m) => ({ label: m.month, value: m.revenue }))} format={money} height={190} />
+          </Card>
+          <Card className="!p-4 sm:!p-6">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2 className="text-base font-semibold text-gray-800">Registrations · last 6 months</h2>
+              <span className="text-xs text-gray-500">tickets issued</span>
+            </div>
+            <BarChart data={data.monthly.map((m) => ({ label: m.month, value: m.registrations }))} accent={REG_ACCENT} format={num} height={190} />
+          </Card>
+        </div>
+      )}
+
       {/* ── Main grid ── */}
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
         {/* Left — revenue + next event */}
@@ -101,6 +123,15 @@ export default function Dashboard() {
             {otherPayCurrencies.length > 0 && (
               <p className="mt-3 text-xs text-gray-400">Showing {payCur}. You also have revenue in {otherPayCurrencies.join(', ')} — see the full breakdown under Payouts.</p>
             )}
+          </Card>
+
+          <Card className="!p-4 sm:!p-6">
+            <h2 className="mb-3 border-b border-gray-200 pb-3 text-base font-semibold text-gray-800 sm:text-lg">Ticket sales by event</h2>
+            <BarList
+              items={(data.soldByEvent || []).map((e) => ({ label: e.title, value: e.sold }))}
+              format={num}
+              empty="No tickets sold yet — sales appear here as bookings come in."
+            />
           </Card>
 
           <Card className="!p-4 sm:!p-6">

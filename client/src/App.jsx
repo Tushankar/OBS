@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import AuthModal from './components/layout/AuthModal';
@@ -100,6 +101,7 @@ import CmsPublicPage from './pages/CmsPublicPage';
 export default function App() {
   const { authOpen, setAuthOpen } = useApp();
   const [ready, setReady] = useState(false);
+  const location = useLocation(); // drives public-page cross-fade transitions
 
   useEffect(() => {
     // Initial app load simulation (branded AppLoader fades out after 700ms)
@@ -163,10 +165,25 @@ export default function App() {
         <Route
           path="*"
           element={
+            // MotionConfig honours prefers-reduced-motion for every public
+            // animation; portals above render outside it and stay static.
+            <MotionConfig reducedMotion="user">
             <div className="flex min-h-screen flex-col">
               <Header onOpenAuth={() => setAuthOpen(true)} />
               <main className="flex-1">
-                <Routes>
+                {/* Cross-fade between public pages. Opacity-only on purpose:
+                    a transform here would re-anchor position:fixed children.
+                    `location` is pinned so the outgoing page keeps rendering
+                    its own route while it fades out. */}
+                <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={location.pathname}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                >
+                <Routes location={location}>
                   <Route path="/" element={<Home />} />
                   <Route path="/events" element={<EventsListing />} />
                   <Route path="/events/past" element={<PastEvents />} />
@@ -223,10 +240,13 @@ export default function App() {
 
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </motion.div>
+                </AnimatePresence>
               </main>
               <Footer />
               <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
             </div>
+            </MotionConfig>
           }
         />
       </Routes>

@@ -12,6 +12,7 @@ const router = Router();
 router.use(requireAuth, requireApprovedOrganizer);
 
 router.post('/checkin', validate({ body: schemas.checkinSchema }), asyncHandler(c.checkin));
+router.post('/tickets/:id/checkin', validate({ params: schemas.idParam }), asyncHandler(c.manualCheckin)); // manual verify from the registrations list
 router.get('/events/:id/checkin-stats', validate({ params: schemas.idParam }), asyncHandler(c.checkinStats));
 
 export default router;

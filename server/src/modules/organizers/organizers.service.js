@@ -201,7 +201,7 @@ export async function getMyProfile(userId) {
 export async function updateMyProfile(organizerId, body) {
   const profile = await OrganizerProfile.findById(organizerId);
   if (!profile) throw notFoundError('ORGANIZER_NOT_FOUND', 'Organizer profile not found');
-  for (const f of ['orgName', 'bio', 'website', 'logoUrl']) {
+  for (const f of ['orgName', 'bio', 'website', 'logoUrl', 'contactName', 'phone', 'orgType', 'city', 'socialUrl', 'experience', 'registrationNo']) {
     if (body[f] !== undefined) profile[f] = body[f];
   }
   await profile.save();
@@ -274,7 +274,45 @@ export async function getOrganizerDashboard(organizerId) {
     .filter((e) => e.status === 'PUBLISHED' && e.startAt && e.startAt >= now)
     .sort((a, b) => a.startAt - b.startAt)[0];
 
+  // Monthly trend (last 6 calendar months): tickets issued + paid revenue.
+  // Revenue is restricted to the PRIMARY currency so the chart shares one
+  // honest axis — other currencies surface via revenueByCurrency.
+  const since = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const [regAgg, revMonthlyAgg] = await Promise.all([
+    Ticket.aggregate([
+      { $match: { eventId: { $in: eventIds }, status: { $in: ['VALID', 'USED'] }, createdAt: { $gte: since } } },
+      { $group: { _id: { y: { $year: '$createdAt' }, m: { $month: '$createdAt' } }, count: { $sum: 1 } } },
+    ]),
+    Order.aggregate([
+      { $match: { eventId: { $in: eventIds }, status: 'PAID', currency: primary.currency, createdAt: { $gte: since } } },
+      { $group: { _id: { y: { $year: '$createdAt' }, m: { $month: '$createdAt' } }, revenue: { $sum: '$totalAmount' } } },
+    ]),
+  ]);
+  const regByKey = new Map(regAgg.map((r) => [`${r._id.y}-${r._id.m}`, r.count]));
+  const revByKey = new Map(revMonthlyAgg.map((r) => [`${r._id.y}-${r._id.m}`, r.revenue]));
+  const monthly = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+    return {
+      month: d.toLocaleDateString('en-GB', { month: 'short' }),
+      registrations: regByKey.get(key) || 0,
+      revenue: revByKey.get(key) || 0, // minor units, in `currency`
+    };
+  });
+
+  // Tickets sold per event (top 8) — powers the "sales by event" ranking.
+  const soldAgg = await Ticket.aggregate([
+    { $match: { eventId: { $in: eventIds }, status: { $in: ['VALID', 'USED'] } } },
+    { $group: { _id: '$eventId', sold: { $sum: 1 } } },
+    { $sort: { sold: -1 } },
+    { $limit: 8 },
+  ]);
+  const titleById = new Map(events.map((e) => [String(e._id), e.title]));
+  const soldByEvent = soldAgg.map((r) => ({ title: titleById.get(String(r._id)) || 'Event', sold: r.sold }));
+
   return {
+    monthly,
+    soldByEvent,
     events: {
       total: events.length,
       published: events.filter((e) => e.status === 'PUBLISHED').length,

@@ -55,6 +55,7 @@ import supportRoutes from './modules/support/support.routes.js';
 import { loyaltyAdminRoutes, myPromoRoutes } from './modules/promoCodes/promoGrants.routes.js';
 import supportAdminRoutes from './modules/support/support.admin.routes.js';
 import notificationAdminRoutes from './modules/notifications/notifications.admin.routes.js';
+import notificationOrganizerRoutes from './modules/notifications/notifications.organizer.routes.js';
 
 // Builds and configures the Express app. Domain modules mount under /api/v1;
 // auth is live from Phase 0.3, the rest arrive in later phases.
@@ -142,6 +143,7 @@ export function createApp() {
   app.use('/api/v1', supportRoutes); // /support-tickets (public report-an-issue form)
   app.use('/api/v1/admin/support-tickets', supportAdminRoutes);
   app.use('/api/v1/admin/notifications', notificationAdminRoutes);
+  app.use('/api/v1/organizer/notifications', notificationOrganizerRoutes);
   app.use('/api/v1/admin/loyalty', loyaltyAdminRoutes); // top bookers + promo grants
   app.use('/api/v1/me/promo-codes', myPromoRoutes); // the user's granted codes
   app.use('/api/v1/admin/reports', reportRoutes);

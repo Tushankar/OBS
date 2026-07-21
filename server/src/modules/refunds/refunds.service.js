@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
-import { Order, Payment, Refund, Ticket, TicketType, Event, User } from '../../models/index.js';
+import { Order, Payment, Refund, Ticket, TicketType, Event, User, OrganizerProfile } from '../../models/index.js';
 import { env } from '../../config/env.js';
 import { getStripe, isStripeConfigured } from '../../config/stripe.js';
 import { AppError, conflict, forbidden, notFoundError } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { sendMail } from '../../utils/mailer.js';
-import { notifyAdmins } from '../notifications/notifications.service.js';
+import { notifyAdmins, notifyUser } from '../notifications/notifications.service.js';
 
 const money = (paise, currency = 'INR') => (currency === 'INR' ? '₹' : `${currency} `) + (Number(paise) / 100).toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US');
 
@@ -31,7 +31,7 @@ function shapeRefund(r) {
 
 // ---- USER: request a full-order refund (§8.5) ----
 export async function requestRefund(userId, orderId, reason) {
-  const order = await Order.findById(orderId).populate('eventId', 'title startAt');
+  const order = await Order.findById(orderId).populate('eventId', 'title startAt organizerId');
   if (!order) throw notFoundError('ORDER_NOT_FOUND', 'Order not found');
   if (String(order.userId) !== String(userId)) throw forbidden('NOT_ORDER_OWNER', 'This order is not yours');
   if (order.status !== 'PAID') throw conflict('ORDER_NOT_REFUNDABLE', `A ${order.status.toLowerCase().replace('_', ' ')} order can't be refunded`);
@@ -56,6 +56,19 @@ export async function requestRefund(userId, orderId, reason) {
     entityType: 'Refund',
     entityId: refund._id,
   });
+  // Organizer bell — a refund on their event affects their settlement.
+  if (order.eventId?.organizerId) {
+    const orgProfile = await OrganizerProfile.findById(order.eventId.organizerId).select('userId').catch(() => null);
+    await notifyUser({
+      userId: orgProfile?.userId,
+      type: 'REFUND_REQUESTED',
+      title: `Refund requested on “${order.eventId.title}”`,
+      body: reason || `Order ${order.orderNumber || order._id}`,
+      link: '/organizer/payouts',
+      entityType: 'Refund',
+      entityId: refund._id,
+    });
+  }
   return shapeRefund(refund);
 }
 

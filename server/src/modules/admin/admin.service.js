@@ -8,6 +8,7 @@ import { OrganizerProfile, User, Event, Order, Payment, Category, Chapter, Chapt
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 import { cancelEventCascade, assertSubmittable } from '../events/events.service.js';
 import { notifyChapterMembersOfEvent } from '../chapters/chapters.service.js';
+import { notifyUser } from '../notifications/notifications.service.js';
 import { notFoundError, conflict } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
 import { sendMail } from '../../utils/mailer.js';
@@ -158,6 +159,16 @@ export async function approveOrganizer(adminId, id) {
     entityType: 'OrganizerProfile',
     entityId: profile._id,
     meta: { orgName: profile.orgName },
+  });
+
+  await notifyUser({
+    userId: uid,
+    type: 'ORGANIZER_APPROVED',
+    title: "You're approved to host events",
+    body: `“${profile.orgName}” can now create and submit events.`,
+    link: '/organizer',
+    entityType: 'OrganizerProfile',
+    entityId: profile._id,
   });
 
   if (user?.email) {
@@ -396,6 +407,16 @@ export async function approveEvent(adminId, id) {
   // Member perk: tell the chapter's members their chapter has a new live event.
   if (firstPublish && event.chapterId) notifyChapterMembersOfEvent(event._id).catch((err) => console.error('[admin] member notify failed:', err.message));
 
+  await notifyUser({
+    userId: event.organizerId?.userId?._id,
+    type: 'EVENT_APPROVED',
+    title: `“${event.title}” is live`,
+    body: 'Your event was approved and is now public.',
+    link: '/organizer/events',
+    entityType: 'Event',
+    entityId: event._id,
+  });
+
   const user = event.organizerId?.userId;
   if (user?.email) {
     const url = `${env.APP_URL}/event/${event.slug}`;
@@ -417,7 +438,19 @@ export async function approveEvent(adminId, id) {
 export async function adminCancelEvent(adminId, id, reason) {
   const event = await Event.findById(id);
   if (!event) throw notFoundError('EVENT_NOT_FOUND', 'Event not found');
-  return cancelEventCascade(event, { reason, actorId: adminId });
+  const result = await cancelEventCascade(event, { reason, actorId: adminId });
+  // Tell the owner their event was cancelled by the platform.
+  const orgProfile = await OrganizerProfile.findById(event.organizerId).select('userId').catch(() => null);
+  await notifyUser({
+    userId: orgProfile?.userId,
+    type: 'EVENT_CANCELLED',
+    title: `“${event.title}” was cancelled`,
+    body: reason || 'Cancelled by the OBS admin team. Attendees are notified and paid orders auto-refund.',
+    link: '/organizer/events',
+    entityType: 'Event',
+    entityId: event._id,
+  });
+  return result;
 }
 
 export async function rejectEvent(adminId, id, reason) {
@@ -430,6 +463,16 @@ export async function rejectEvent(adminId, id, reason) {
   await event.save();
 
   await writeAudit({ actorId: adminId, action: 'EVENT_REJECTED', entityType: 'Event', entityId: event._id, meta: { title: event.title, reason } });
+
+  await notifyUser({
+    userId: event.organizerId?.userId?._id,
+    type: 'EVENT_REJECTED',
+    title: `Changes needed on “${event.title}”`,
+    body: reason || 'Your event was sent back for changes.',
+    link: `/organizer/events/${event._id}/edit`,
+    entityType: 'Event',
+    entityId: event._id,
+  });
 
   const user = event.organizerId?.userId;
   if (user?.email) {

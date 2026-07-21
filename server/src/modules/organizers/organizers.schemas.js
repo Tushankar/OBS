@@ -28,12 +28,21 @@ export const applySchema = z.object({
   registrationNo: z.string().trim().max(60).optional().transform((v) => (v ? v : undefined)),
 });
 
-// PATCH /organizer/me — keep the public organizer page current.
+// PATCH /organizer/me — keep the public organizer page current. Covers the
+// full application detail set (contact, type, city, experience, links) so the
+// profile page can maintain everything submitted at apply time.
 export const updateMeSchema = z.object({
   orgName: z.string().trim().min(2).max(120).optional(),
   bio: z.string().trim().max(2000).nullable().optional().transform((v) => (v === null ? '' : v)),
   website: optionalWebsite,
   logoUrl: z.string().trim().url().max(500).nullable().optional().transform((v) => (v === null ? '' : v)),
+  contactName: z.string().trim().max(100).optional(),
+  phone: z.string().trim().max(20).optional().refine((v) => !v || /^[+\d][\d\s()-]{6,19}$/.test(v), 'Enter a valid phone number'),
+  orgType: z.enum(ORG_TYPES).optional(),
+  city: z.string().trim().max(80).optional(),
+  socialUrl: optionalWebsite,
+  experience: z.enum(ORG_EXPERIENCE).optional(),
+  registrationNo: z.string().trim().max(60).optional(),
 }).refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });
 
 // GET /organizer/emails — delivery log for the organizer's own events.

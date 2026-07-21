@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { PageHead, Table, Pill, statusTone, Btn, Loading, EmptyState, ConfirmDialog } from '../../components/portal/Kit';
 import ReasonDialog from '../../components/admin/ReasonDialog';
 import { AdminIcon } from '../../components/admin/AdminIcons';
+import RowMenu from '../../components/common/RowMenu';
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -88,31 +89,32 @@ export default function Events() {
         return <span className="text-[#4B5563]">{fmtDate(ev.startAt)}</span>;
       case 'status':
         return <Pill tone={statusTone(ev.status)}>{ev.status.replace('_', ' ')}</Pill>;
-      case 'actions':
+      case 'actions': {
+        // Product rule (matches the admin events table): at most TWO visible
+        // buttons + a ⋯ menu, so the actions column keeps one tidy line and
+        // nothing wraps or falls off-screen.
+        const isLive = ['PUBLISHED', 'COMPLETED'].includes(ev.status);
         return (
-          <div className="flex justify-end gap-2">
-            {['PUBLISHED', 'COMPLETED'].includes(ev.status) && ev.slug && (
-              <Btn size="sm" variant="ghost" onClick={() => window.open(`/event/${ev.slug}`, '_blank', 'noopener,noreferrer')}>
-                <AdminIcon.External size={13} /> View live page
-              </Btn>
+          <div className="flex items-center justify-end gap-2">
+            {isLive && (
+              <Btn size="sm" variant="ghost" className="whitespace-nowrap" onClick={() => navigate(`/organizer/events/${ev.id}/registrations`)}>Registrations</Btn>
             )}
-            {['PUBLISHED', 'COMPLETED'].includes(ev.status) && (
-              <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/registrations`)}>Registrations</Btn>
-            )}
-            <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/edit?step=6`)}>
-              <AdminIcon.Speakers size={13} /> Speakers &amp; sponsors
-            </Btn>
-            <Btn size="sm" variant="ghost" onClick={() => navigate(`/organizer/events/${ev.id}/edit`)}>
+            <Btn size="sm" variant="ghost" className="whitespace-nowrap" onClick={() => navigate(`/organizer/events/${ev.id}/edit`)}>
               {EDITABLE.includes(ev.status) ? <><AdminIcon.Edit size={13} /> Edit</> : <><AdminIcon.Eye size={13} /> View</>}
             </Btn>
-            {ev.status === 'PUBLISHED' && (
-              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setCancelling(ev)} className="!text-[#B91C1C]">Cancel event</Btn>
-            )}
-            {EDITABLE.includes(ev.status) && (
-              <Btn size="sm" variant="ghost" disabled={busyId === ev.id} onClick={() => setConfirm(ev)} className="!text-[#B91C1C]"><AdminIcon.Trash size={13} /></Btn>
-            )}
+            <RowMenu
+              disabled={busyId === ev.id}
+              items={[
+                isLive && ev.slug && { label: 'View live page', onClick: () => window.open(`/event/${ev.slug}`, '_blank', 'noopener,noreferrer') },
+                isLive && { label: 'Check-in scanner', onClick: () => navigate(`/organizer/events/${ev.id}/checkin`) },
+                { label: 'Speakers & sponsors', onClick: () => navigate(`/organizer/events/${ev.id}/edit?step=6`) },
+                ev.status === 'PUBLISHED' && { label: 'Cancel event…', danger: true, onClick: () => setCancelling(ev) },
+                EDITABLE.includes(ev.status) && { label: 'Delete draft…', danger: true, onClick: () => setConfirm(ev) },
+              ]}
+            />
           </div>
         );
+      }
       default:
         return null;
     }

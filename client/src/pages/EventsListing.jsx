@@ -4,6 +4,7 @@ import ApiEventCard from '../components/common/ApiEventCard';
 import { ChapterFlag } from '../components/common/ChapterMark';
 import { SkeletonGrid } from '../components/common/Skeleton';
 import { Icon } from '../components/common/Icon';
+import { Stagger, StaggerItem } from '../components/common/Motion';
 import { useApp } from '../context/AppContext';
 import api, { apiError } from '../lib/api';
 
@@ -231,9 +232,9 @@ export default function EventsListing() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 xl:gap-6">
-                {events.map((e) => <ApiEventCard key={e.id} event={e} />)}
-              </div>
+              <Stagger interval={0.05} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 xl:gap-6">
+                {events.map((e) => <StaggerItem key={e.id}><ApiEventCard event={e} /></StaggerItem>)}
+              </Stagger>
               {events.length < total && (
                 <div className="mt-8 text-center">
                   <button onClick={loadMore} disabled={loadingMore} className="rounded-md border border-brand bg-white px-7 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand-soft disabled:opacity-60">

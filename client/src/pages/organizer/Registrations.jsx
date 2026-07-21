@@ -13,6 +13,7 @@ const COLUMNS = [
   { key: 'amount', label: 'Amount', align: 'right' },
   { key: 'status', label: 'Status' },
   { key: 'checkedInAt', label: 'Checked in' },
+  { key: 'verify', label: '', align: 'right' },
 ];
 const fmtTime = (iso) => (iso ? new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 
@@ -27,6 +28,29 @@ export default function Registrations() {
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [busyRow, setBusyRow] = useState(null); // manual check-in in flight
+
+  // Manual verify — for attendees at the door without their QR. Uses the same
+  // rules as the scanner (day passes, double-entry guard); the row updates in
+  // place from the server response so the list stays accurate without a reload.
+  const checkInRow = async (row) => {
+    setBusyRow(row.ticketId);
+    try {
+      const r = await api.manualCheckin(row.ticketId);
+      const day = r.day && r.day.totalDays > 1 ? ` (Day ${r.day.number}/${r.day.totalDays})` : '';
+      pushToast(`✓ ${r.ticket.attendeeName || row.ticketNumber} checked in${day}`);
+      setData((cur) => ({
+        ...cur,
+        registrations: cur.registrations.map((x) =>
+          x.ticketId === row.ticketId ? { ...x, status: r.ticket.status, checkedInAt: r.ticket.checkedInAt } : x
+        ),
+      }));
+    } catch (e) {
+      pushToast(apiError(e, 'Could not check in'), false);
+    } finally {
+      setBusyRow(null);
+    }
+  };
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => { const t = setTimeout(() => setDebounced(search.trim()), 300); return () => clearTimeout(t); }, [search]);
@@ -73,6 +97,12 @@ export default function Registrations() {
       case 'amount': return <span className="font-medium text-[#111827]">{formatPrice(row.amount, data?.event?.currency)}</span>;
       case 'status': return <Pill tone={statusTone(row.status)}>{row.status}</Pill>;
       case 'checkedInAt': return <span className="text-[#6B7280]">{fmtTime(row.checkedInAt)}</span>;
+      case 'verify':
+        return row.status === 'VALID' ? (
+          <Btn size="sm" disabled={busyRow === row.ticketId} onClick={() => checkInRow(row)}>
+            {busyRow === row.ticketId ? 'Checking…' : 'Check in'}
+          </Btn>
+        ) : null;
       default: return null;
     }
   };

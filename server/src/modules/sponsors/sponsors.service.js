@@ -1,7 +1,7 @@
-import { Sponsor, PartnerApplication, Event } from '../../models/index.js';
+import { Sponsor, PartnerApplication, Event, OrganizerProfile } from '../../models/index.js';
 import { notFoundError } from '../../utils/errors.js';
 import { writeAudit } from '../../utils/audit.js';
-import { notifyAdmins } from '../notifications/notifications.service.js';
+import { notifyAdmins, notifyUser } from '../notifications/notifications.service.js';
 import { uniqueSlug } from '../../utils/slugify.js';
 import { publicEventCard, loadOwnedEvent } from '../events/events.service.js';
 
@@ -83,12 +83,27 @@ export async function createSponsor(adminId, body) {
 export async function updateSponsor(adminId, id, body) {
   const sponsor = await Sponsor.findById(id);
   if (!sponsor) throw notFoundError('SPONSOR_NOT_FOUND', 'Sponsor not found');
+  const prevStatus = sponsor.status;
   if (body.name && body.name !== sponsor.name) { sponsor.name = body.name; sponsor.slug = await uniqueSlug(Sponsor, body.name, { ignoreId: sponsor._id }); }
   for (const f of ['logoUrl', 'website', 'tier', 'scope', 'eventId', 'programId', 'blurb', 'sortOrder', 'isActive', 'status']) {
     if (body[f] !== undefined) sponsor[f] = body[f];
   }
   await sponsor.save();
   await writeAudit({ actorId: adminId, action: 'SPONSOR_UPDATED', entityType: 'Sponsor', entityId: sponsor._id, meta: { name: sponsor.name } });
+
+  // Organizer bell — the submitter hears the decision on their event sponsor.
+  if (sponsor.organizerId && body.status && body.status !== prevStatus && ['APPROVED', 'REJECTED'].includes(body.status)) {
+    const orgProfile = await OrganizerProfile.findById(sponsor.organizerId).select('userId').catch(() => null);
+    await notifyUser({
+      userId: orgProfile?.userId,
+      type: body.status === 'APPROVED' ? 'EVENT_SPONSOR_APPROVED' : 'EVENT_SPONSOR_REJECTED',
+      title: `Sponsor “${sponsor.name}” ${body.status === 'APPROVED' ? 'approved' : 'rejected'}`,
+      body: body.status === 'APPROVED' ? 'It now shows on your event page.' : 'It will not appear on your event page.',
+      link: '/organizer/sponsors',
+      entityType: 'Sponsor',
+      entityId: sponsor._id,
+    });
+  }
   return shapeSponsor(sponsor);
 }
 export async function deleteSponsor(adminId, id) {

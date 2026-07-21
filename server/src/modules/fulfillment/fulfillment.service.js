@@ -1,12 +1,12 @@
 import mongoose from 'mongoose';
-import { Order, Ticket, User, Event } from '../../models/index.js';
+import { Order, Ticket, User, Event, OrganizerProfile } from '../../models/index.js';
 import { nextSeq, formatTicketNumber, formatInvoiceNumber } from '../../utils/counters.js';
 import { sendMail } from '../../utils/mailer.js';
 import { qrPng } from '../../utils/qr.js';
 import { buildTicketPdf, buildInvoicePdf } from '../../utils/pdf.js';
 import { putObject, isS3Configured } from '../../utils/s3.js';
 import { env } from '../../config/env.js';
-import { notifyAdmins } from '../notifications/notifications.service.js';
+import { notifyAdmins, notifyUser } from '../notifications/notifications.service.js';
 
 const MAX_EMAIL_ATTACH_BYTES = 8 * 1024 * 1024; // §8.3.5 — over 8 MB → send links, not attachments
 
@@ -116,6 +116,22 @@ async function runFulfilmentSideEffects({ order, user, event, tickets }) {
     entityType: 'Order',
     entityId: order._id,
   });
+
+  // Organizer bell — the event owner hears about their own sales too.
+  if (event?.organizerId) {
+    const orgProfile = await OrganizerProfile.findById(event.organizerId).select('userId').catch(() => null);
+    await notifyUser({
+      userId: orgProfile?.userId,
+      type: 'ORDER_PAID',
+      title: order.totalAmount > 0
+        ? `New booking — ${money(order.totalAmount, order.currency)} · ${tickets.length} ticket${tickets.length === 1 ? '' : 's'}`
+        : `New free registration — ${tickets.length} ticket${tickets.length === 1 ? '' : 's'}`,
+      body: `${user?.name || 'A user'} · ${event.title}`,
+      link: `/organizer/events/${event._id}/registrations`,
+      entityType: 'Order',
+      entityId: order._id,
+    });
+  }
 
   // QR + PDF per ticket → local storage (best-effort) + collect email attachments.
   const nameByType = new Map(order.items.map((i) => [String(i.ticketTypeId), i.name]));

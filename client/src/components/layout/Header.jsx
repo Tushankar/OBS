@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { dropdownMotion } from '../common/Motion';
 import { useApp } from '../../context/AppContext';
 import api from '../../lib/api';
 import { fmtDate } from '../../lib/format';
@@ -10,18 +12,25 @@ import PickerModal from '../common/PickerModal';
 
 // Durable entry points for every public browse section — the signature sections
 // (Speakers, Sponsors, 100 Days, Launchpad, Newsroom) must stay reachable even
-// when the home rails self-hide.
-const BROWSE_NAV = [
+// when the home rails self-hide. Primary sections sit directly in the subnav;
+// the rest live under the "More" dropdown so the bar stays uncluttered.
+const PRIMARY_NAV = [
   ['Events', '/events'],
   ['Webinars', '/webinars'],
   ['Summits', '/summits'],
   ['Chapters', '/chapters'],
   ['Organizers', '/organizers'],
+];
+const MORE_NAV = [
   ['Speakers', '/speakers'],
   ['Sponsors', '/sponsors'],
-  ['100 Days', '/program'],
+  ['100 Days program', '/program'],
   ['Launchpad', '/launches'],
   ['Newsroom', '/news'],
+];
+const MORE_LINKS = [
+  ['About', '/about'],
+  ['FAQs', '/faqs'],
 ];
 
 // City picker is fully dynamic — every city with an upcoming published event,
@@ -69,6 +78,7 @@ export default function Header({ onOpenAuth }) {
   const [acctOpen, setAcctOpen] = useState(false);
   const [mSearch, setMSearch] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false); // subnav "More" dropdown
   const blurT = useRef(null);
   const chaptersReq = useRef(null); // cached api.chapters() promise — fetched once per session
 
@@ -199,17 +209,19 @@ export default function Header({ onOpenAuth }) {
               <button onClick={() => setAcctOpen((v) => !v)} className="flex h-[28px] w-[28px] items-center justify-center rounded-full bg-brand-soft text-[13px] font-bold text-brand">
                 {user.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
               </button>
-              {acctOpen && (
-                <>
-                  <div className="fixed inset-0 z-[59]" onClick={() => setAcctOpen(false)} />
-                  <div className="absolute right-0 top-[42px] z-[60] w-[190px] rounded-lg border border-line bg-white p-1.5 shadow-pop">
-                    {acctMenu.map(([label, to]) => (
-                      <button key={to} onClick={() => { setAcctOpen(false); navigate(to); }} className="block w-full rounded-md px-3 py-2 text-left text-sm text-ink hover:bg-surface">{label}</button>
-                    ))}
-                    <button onClick={() => { signOut(); setAcctOpen(false); pushToast('Signed out'); }} className="block w-full rounded-md px-3 py-2 text-left text-sm text-ink hover:bg-surface">Sign out</button>
-                  </div>
-                </>
-              )}
+              <AnimatePresence>
+                {acctOpen && (
+                  <>
+                    <div className="fixed inset-0 z-[59]" onClick={() => setAcctOpen(false)} />
+                    <motion.div {...dropdownMotion} className="absolute right-0 top-[42px] z-[60] w-[190px] rounded-lg border border-line bg-white p-1.5 shadow-pop">
+                      {acctMenu.map(([label, to]) => (
+                        <button key={to} onClick={() => { setAcctOpen(false); navigate(to); }} className="block w-full rounded-md px-3 py-2 text-left text-sm text-ink hover:bg-surface">{label}</button>
+                      ))}
+                      <button onClick={() => { signOut(); setAcctOpen(false); pushToast('Signed out'); }} className="block w-full rounded-md px-3 py-2 text-left text-sm text-ink hover:bg-surface">Sign out</button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
           )}
           <button onClick={() => setDrawer(true)} aria-label="Menu" className="text-ink flex items-center justify-center h-[28px] w-[28px] hover:opacity-80 transition-opacity"><Icon.Menu width={22} height={22} /></button>
@@ -244,19 +256,40 @@ export default function Header({ onOpenAuth }) {
         </div>
       </div>
 
-      {/* Subnav */}
+      {/* Subnav — primary sections up front, everything else behind "More" */}
       <div className="border-b border-[#F2F2F3] bg-[#FAFAFA]">
-        <nav className="no-scrollbar mx-auto hidden h-[40px] max-w-container items-center justify-between gap-8 overflow-x-auto px-6 lg:flex">
-          <div className="flex shrink-0 gap-5 whitespace-nowrap text-[13px] text-ink-soft">
-            {BROWSE_NAV.map(([label, to]) => (
+        <nav className="mx-auto hidden h-[40px] max-w-container items-center justify-between gap-8 px-6 lg:flex">
+          <div className="flex shrink-0 items-center gap-5 whitespace-nowrap text-[13px] text-ink-soft">
+            {PRIMARY_NAV.map(([label, to]) => (
               <button key={to} onClick={() => navigate(to)} className="hover:text-brand transition py-2 font-medium">{label}</button>
             ))}
+            <div className="relative">
+              <button
+                onClick={() => setMoreOpen((v) => !v)}
+                className={`flex items-center gap-1.5 py-2 font-medium transition hover:text-brand ${moreOpen ? 'text-brand' : ''}`}
+              >
+                More <Icon.ChevronDown width={9} height={9} />
+              </button>
+              <AnimatePresence>
+                {moreOpen && (
+                  <>
+                    <div className="fixed inset-0 z-[59]" onClick={() => setMoreOpen(false)} />
+                    <motion.div {...dropdownMotion} className="absolute left-0 top-[36px] z-[60] w-[185px] rounded-lg border border-line bg-white p-1.5 shadow-pop">
+                      {MORE_NAV.map(([label, to]) => (
+                        <button key={to} onClick={() => { setMoreOpen(false); navigate(to); }} className="block w-full rounded-md px-3 py-2 text-left text-sm text-ink hover:bg-surface">{label}</button>
+                      ))}
+                      <div className="my-1.5 border-t border-line" />
+                      {MORE_LINKS.map(([label, to]) => (
+                        <button key={to} onClick={() => { setMoreOpen(false); navigate(to); }} className="block w-full rounded-md px-3 py-2 text-left text-sm text-ink hover:bg-surface">{label}</button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
           <div className="flex shrink-0 gap-5 whitespace-nowrap text-[13px] text-ink-soft">
-            <button onClick={() => navigate('/chapters/create')} className="hover:text-brand transition py-2 font-semibold text-[#C99E25]">＋ Create chapter</button>
             <button onClick={() => navigate('/list-your-event')} className="hover:text-brand transition py-2 font-medium">List your event</button>
-            <button onClick={() => navigate('/about')} className="hover:text-brand transition py-2 font-medium">About</button>
-            <button onClick={() => navigate('/faqs')} className="hover:text-brand transition py-2 font-medium">FAQs</button>
             <button onClick={() => navigate('/help')} className="hover:text-brand transition py-2 font-medium">Help</button>
           </div>
         </nav>

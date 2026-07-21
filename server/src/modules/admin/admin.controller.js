@@ -1,6 +1,18 @@
 import * as adminService from './admin.service.js';
 import * as settingsService from '../settings/settings.service.js';
 import { adminSetChapterStatus } from '../chapters/chapters.service.js';
+import { adminCheckIn, adminManualCheckIn } from '../checkin/checkin.service.js';
+
+// --- Ticket verification (admin door duty / support) ---
+export async function adminCheckin(req, res) {
+  const result = await adminCheckIn(req.body, req.user.id);
+  res.status(200).json(result);
+}
+
+export async function adminManualCheckin(req, res) {
+  const result = await adminManualCheckIn(req.params.id, req.user.id);
+  res.status(200).json(result);
+}
 
 export async function listOrganizers(req, res) {
   const organizers = await adminService.listOrganizers(req.query);

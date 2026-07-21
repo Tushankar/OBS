@@ -28,23 +28,40 @@ export default function Footer() {
               <span style={{ color: '#B3B3B8', fontSize: 13 }}>Hosting a summit, webinar or chapter meetup? Partner with us &amp; get listed on OBS Events</span>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/list-your-event')}
-            style={{
-              background: 'linear-gradient(90deg, #E5C060, #C99E25, #8E6B1D)',
-              color: '#000',
-              border: 'none',
-              borderRadius: 20,
-              padding: '10px 22px',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            Contact today!
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => navigate('/chapters/create')}
+              style={{
+                background: 'transparent',
+                color: '#E5C060',
+                border: '1px solid #C99E25',
+                borderRadius: 20,
+                padding: '9px 20px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              ＋ Create chapter
+            </button>
+            <button
+              onClick={() => navigate('/list-your-event')}
+              style={{
+                background: 'linear-gradient(90deg, #E5C060, #C99E25, #8E6B1D)',
+                color: '#000',
+                border: 'none',
+                borderRadius: 20,
+                padding: '10px 22px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Contact today!
+            </button>
+          </div>
         </div>
       </div>
 

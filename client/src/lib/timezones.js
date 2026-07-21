@@ -1,7 +1,9 @@
 // Event timezone handling. The rule: the wall-clock time an organizer types
 // is in the EVENT's timezone (the venue's), never the creator's browser zone —
 // a Dubai organizer typing 19:00 for a London event means 7 PM London.
-// Conversions use Intl (built-in IANA data, DST-correct); no dependencies.
+// Conversions use Intl (built-in IANA data, DST-correct). tz-lookup maps venue
+// coordinates → exact IANA zone, fully offline.
+import tzLookup from 'tz-lookup';
 
 // Zone offset (ms) at a given instant — positive when ahead of UTC.
 function tzOffset(ts, timeZone) {
@@ -131,4 +133,12 @@ export const COUNTRY_TZ = {
 
 export function suggestTimezone(country) {
   return COUNTRY_TZ[(country || '').trim()] || null;
+}
+
+// Exact IANA zone for a venue's coordinates (offline lookup — no API call).
+// Beats the country map: a New York pin gets America/New_York, a Los Angeles
+// pin America/Los_Angeles. Returns null for invalid/missing coords.
+export function timezoneForCoords(lat, lng) {
+  if (lat == null || lng == null) return null;
+  try { return tzLookup(Number(lat), Number(lng)); } catch { return null; }
 }

@@ -2,13 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { Btn, Field, inputCls, Loading, Pill } from '../portal/Kit';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
+import { CURRENCY_SYMBOL } from '../../lib/currency';
 
-// ₹ (rupees) in the UI ↔ integer paise on the wire (money rule).
-const toPaise = (rupees) => Math.round(Number(rupees) * 100);
-const toRupees = (paise) => (Number(paise) / 100).toString();
-const fmt = (paise) => `₹${(Number(paise) / 100).toLocaleString('en-IN')}`;
+// Major units in the UI ↔ integer minor units on the wire (money rule):
+// ₹ ↔ paise, AED ↔ fils, $ ↔ cents — always ×100.
+const toMinor = (major) => Math.round(Number(major) * 100);
+const toMajor = (minor) => (Number(minor) / 100).toString();
 
-const BLANK = { name: '', priceRupees: '0', quantityTotal: '100', minPerOrder: '1', maxPerOrder: '10', validDays: [] };
+const BLANK = { name: '', priceMajor: '0', quantityTotal: '100', minPerOrder: '1', maxPerOrder: '10', validDays: [] };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const dayCount = (startAt, endAt) => {
@@ -30,11 +31,16 @@ const dayLabel = (startAt, n) => {
 // manages tickets on any event (OBS platform events have no organizer session).
 // `startAt`/`endAt` (optional) enable the per-day validity picker for
 // multi-day events: which event days each ticket type admits.
-export default function TicketTypesEditor({ eventId, admin = false, startAt = null, endAt = null }) {
+// `currency` is the EVENT's settlement currency (platform default AED) — every
+// price here renders in it, never a hardcoded ₹.
+export default function TicketTypesEditor({ eventId, admin = false, startAt = null, endAt = null, currency = 'AED' }) {
   const { pushToast } = useApp();
   const [items, setItems] = useState(null);
   const [form, setForm] = useState(null); // { id? , ...fields } when adding/editing
   const [busy, setBusy] = useState(false);
+
+  const sym = (CURRENCY_SYMBOL[currency] || `${currency} `).trim();
+  const fmt = (minor) => `${sym}${(Number(minor) / 100).toLocaleString('en-IN')}`;
 
   const ep = admin
     ? { list: api.adminEventTicketTypes, create: api.adminCreateTicketType, update: api.adminUpdateTicketType, remove: api.adminDeleteTicketType }
@@ -50,7 +56,7 @@ export default function TicketTypesEditor({ eventId, admin = false, startAt = nu
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const startAdd = () => setForm({ ...BLANK });
-  const startEdit = (t) => setForm({ id: t.id, name: t.name, priceRupees: toRupees(t.price), quantityTotal: String(t.quantityTotal), minPerOrder: String(t.minPerOrder), maxPerOrder: String(t.maxPerOrder), validDays: t.validDays || [] });
+  const startEdit = (t) => setForm({ id: t.id, name: t.name, priceMajor: toMajor(t.price), quantityTotal: String(t.quantityTotal), minPerOrder: String(t.minPerOrder), maxPerOrder: String(t.maxPerOrder), validDays: t.validDays || [] });
   const toggleDay = (n) => setForm((f) => ({
     ...f,
     validDays: (f.validDays || []).includes(n) ? f.validDays.filter((d) => d !== n) : [...(f.validDays || []), n].sort((a, b) => a - b),
@@ -60,7 +66,7 @@ export default function TicketTypesEditor({ eventId, admin = false, startAt = nu
     if (!form.name.trim()) { pushToast('Ticket name is required', false); return; }
     const body = {
       name: form.name.trim(),
-      price: toPaise(form.priceRupees || 0),
+      price: toMinor(form.priceMajor || 0),
       quantityTotal: parseInt(form.quantityTotal, 10) || 0,
       minPerOrder: parseInt(form.minPerOrder, 10) || 1,
       maxPerOrder: parseInt(form.maxPerOrder, 10) || 1,
@@ -101,7 +107,7 @@ export default function TicketTypesEditor({ eventId, admin = false, startAt = nu
   return (
     <div className="grid gap-4">
       {items.length === 0 && !form && (
-        <p className="text-[13px] text-[#6B7280]">No ticket types yet. Add at least one (use price ₹0 for a free ticket).</p>
+        <p className="text-[13px] text-[#6B7280]">No ticket types yet. Add at least one (use price 0 for a free ticket).</p>
       )}
 
       {items.map((t) => (
@@ -130,7 +136,7 @@ export default function TicketTypesEditor({ eventId, admin = false, startAt = nu
         <div className="rounded-md border border-[#C99E25]/30 bg-[#FBF6E9] p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Name"><input className={inputCls} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="General / VIP / Early Bird" /></Field>
-            <Field label="Price (₹) — 0 for free"><input type="number" min="0" step="1" className={inputCls} value={form.priceRupees} onChange={(e) => set('priceRupees', e.target.value)} /></Field>
+            <Field label={`Price (${sym || currency}) — 0 for free`}><input type="number" min="0" step="1" className={inputCls} value={form.priceMajor} onChange={(e) => set('priceMajor', e.target.value)} /></Field>
             <Field label="Quantity"><input type="number" min="1" className={inputCls} value={form.quantityTotal} onChange={(e) => set('quantityTotal', e.target.value)} /></Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Min / order"><input type="number" min="1" className={inputCls} value={form.minPerOrder} onChange={(e) => set('minPerOrder', e.target.value)} /></Field>

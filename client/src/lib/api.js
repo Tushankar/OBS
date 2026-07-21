@@ -166,6 +166,9 @@ api.organizerRegistrations = (eventId, params) => unwrap(api.get(`/organizer/eve
 api.registrationsExportBlob = (eventId) => api.get(`/organizer/events/${eventId}/registrations/export`, { responseType: 'blob' }).then((r) => r.data);
 api.checkin = (body) => unwrap(api.post('/organizer/checkin', body));
 api.checkinStats = (eventId) => unwrap(api.get(`/organizer/events/${eventId}/checkin-stats`));
+api.manualCheckin = (ticketId) => unwrap(api.post(`/organizer/tickets/${ticketId}/checkin`)); // organizer manual verify (registrations row)
+api.adminCheckin = (body) => unwrap(api.post('/admin/checkin', body)); // admin scan / code entry
+api.adminManualCheckin = (ticketId) => unwrap(api.post(`/admin/tickets/${ticketId}/checkin`)); // admin manual verify (attendee row)
 api.requestRefund = (orderId, reason) => unwrap(api.post(`/orders/${orderId}/refund-request`, { reason })).then((d) => d.refund);
 api.adminRefunds = (params) => unwrap(api.get('/admin/refunds', { params })).then((d) => d.refunds);
 api.approveRefund = (id) => unwrap(api.post(`/admin/refunds/${id}/approve`)).then((d) => d.refund);
@@ -331,6 +334,10 @@ api.myPromoCodes = () => unwrap(api.get('/me/promo-codes')).then((d) => d.promos
 api.adminNotifications = (params) => unwrap(api.get('/admin/notifications', { params })); // { notifications, unread }
 api.readNotification = (id) => unwrap(api.post(`/admin/notifications/${id}/read`));
 api.readAllNotifications = () => unwrap(api.post('/admin/notifications/read-all'));
+// Organizer inbox (bookings, approvals, refunds on their events)
+api.organizerNotifications = (params) => unwrap(api.get('/organizer/notifications', { params })); // { notifications, unread }
+api.organizerReadNotification = (id) => unwrap(api.post(`/organizer/notifications/${id}/read`));
+api.organizerReadAllNotifications = () => unwrap(api.post('/organizer/notifications/read-all'));
 
 // Articles / media (Phase 5.4)
 api.articles = (params) => unwrap(api.get('/articles', { params })).then((d) => d.articles);

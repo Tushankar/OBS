@@ -23,6 +23,10 @@ export default function EventAttendees({ eventId }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [emailFor, setEmailFor] = useState(null); // ticket row being emailed
+  const [code, setCode] = useState(''); // manual ticket code / QR link entry
+  const [verifying, setVerifying] = useState(false);
+  const [busyRow, setBusyRow] = useState(null); // per-row check-in in flight
+  const [refresh, setRefresh] = useState(0); // bump after a check-in → auto-update list + stats
 
   useEffect(() => {
     let alive = true;
@@ -35,7 +39,41 @@ export default function EventAttendees({ eventId }) {
         .finally(() => { if (alive) setLoading(false); });
     }, 250);
     return () => { alive = false; clearTimeout(t); };
-  }, [eventId, page, status, search]);
+  }, [eventId, page, status, search, refresh]);
+
+  const onCheckedIn = (r) => {
+    const day = r.day && r.day.totalDays > 1 ? ` (Day ${r.day.number}/${r.day.totalDays})` : '';
+    pushToast(`✓ ${r.ticket.attendeeName || r.ticket.ticketNumber} checked in${day}`);
+    setRefresh((n) => n + 1); // stats + rows re-fetch
+  };
+
+  // Verify by pasted ticket code / /t/ link (same codes the QR encodes).
+  const verifyCode = async () => {
+    if (!code.trim()) return;
+    setVerifying(true);
+    try {
+      const r = await api.adminCheckin({ qrToken: code.trim(), eventId });
+      setCode('');
+      onCheckedIn(r);
+    } catch (e) {
+      pushToast(apiError(e, 'Could not check in'), false);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Manual verify from the row (attendee has no QR handy).
+  const checkInRow = async (row) => {
+    setBusyRow(row.id);
+    try {
+      const r = await api.adminManualCheckin(row.id);
+      onCheckedIn(r);
+    } catch (e) {
+      pushToast(apiError(e, 'Could not check in'), false);
+    } finally {
+      setBusyRow(null);
+    }
+  };
 
   const currency = data?.event?.currency || 'INR';
   const s = data?.summary;
@@ -50,6 +88,20 @@ export default function EventAttendees({ eventId }) {
           <StatCard label="Cancelled / refunded" value={s.cancelled + s.refunded} hint={`${s.refunded} refunded`} />
         </StatGrid>
       )}
+
+      {/* Verify by code — paste the ticket QR value or /t/ link; the row
+          buttons below cover attendees who show up without their code. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[#E8ECF2] bg-[#FAFBFC] p-2.5">
+        <span className="px-1 text-[12px] font-semibold uppercase tracking-wider text-[#6B7280]">Verify ticket</span>
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && !verifying && verifyCode()}
+          placeholder="Paste ticket code or /t/ link…"
+          className={`${inputCls} !h-9 min-w-[220px] flex-1 font-mono !text-[12.5px]`}
+        />
+        <Btn size="sm" disabled={verifying || !code.trim()} onClick={verifyCode}>{verifying ? 'Checking…' : 'Check in'}</Btn>
+      </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <SearchInput
@@ -101,7 +153,14 @@ export default function EventAttendees({ eventId }) {
               );
               if (key === 'order') return <span className="font-mono text-[12px] text-[#6B7280]">{row.orderNumber || '—'}</span>;
               if (key === 'action') return (
-                <Btn size="sm" variant="outline" onClick={() => setEmailFor(row)}>Email</Btn>
+                <div className="flex justify-end gap-1.5">
+                  {row.status === 'VALID' && (
+                    <Btn size="sm" disabled={busyRow === row.id} onClick={() => checkInRow(row)} className="whitespace-nowrap">
+                      {busyRow === row.id ? 'Checking…' : 'Check in'}
+                    </Btn>
+                  )}
+                  <Btn size="sm" variant="outline" onClick={() => setEmailFor(row)}>Email</Btn>
+                </div>
               );
               return null;
             }}

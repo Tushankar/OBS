@@ -4,6 +4,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../../context/AppContext';
 import { AdminIcon } from '../admin/AdminIcons';
 import { NavIcon } from '../admin/NavIcons';
+import NotificationsBell from '../common/NotificationsBell';
+import api from '../../lib/api';
+
+// Icon per organizer notification type (shared bell component).
+const ORG_NOTIF_ICON = {
+  ORDER_PAID: ['Transactions', true],
+  EVENT_APPROVED: ['Events', true],
+  EVENT_REJECTED: ['Events', false],
+  EVENT_CANCELLED: ['Events', false],
+  REFUND_REQUESTED: ['Refunds', false],
+  ORGANIZER_APPROVED: ['Organizers', true],
+  EVENT_SPONSOR_APPROVED: ['Sponsors', true],
+  EVENT_SPONSOR_REJECTED: ['Sponsors', false],
+};
 
 // Standalone organizer workspace chrome — SPECTRUM design language, matching
 // the admin shell: 300px white sidebar, gradient active nav items, profile +
@@ -40,7 +54,7 @@ const itemIdle = 'text-gray-700 hover:bg-gray-100 hover:text-[#E5B700]';
 // across OrganizerShell's re-renders. Defined inline, each route change would
 // create a new function type and remount the sidebar — resetting the nav's
 // scroll position on every navigation.
-function SidebarExpanded({ onNavigate, onCollapse, orgName, initials, user, navigate, onSignOut }) {
+function SidebarExpanded({ onNavigate, onCollapse, orgName, initials, user, onSignOut }) {
   return (
     <div className="font-portal flex h-full flex-col">
       <div className="relative px-8 py-6">
@@ -80,12 +94,6 @@ function SidebarExpanded({ onNavigate, onCollapse, orgName, initials, user, navi
             </NavLink>
           );
         })}
-        <button
-          onClick={() => { onNavigate?.(); navigate('/organizer/events/new'); }}
-          className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#E5B700] to-[#DE8806] p-3 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-        >
-          <AdminIcon.Plus size={16} /> New event
-        </button>
       </nav>
 
       <div className="border-t border-gray-100 p-4">
@@ -110,7 +118,7 @@ function SidebarExpanded({ onNavigate, onCollapse, orgName, initials, user, navi
   );
 }
 
-function SidebarCollapsed({ onExpand, initials, navigate, onSignOut }) {
+function SidebarCollapsed({ onExpand, initials, onSignOut }) {
   return (
     <div className="font-portal flex h-full flex-col items-center">
       <div className="flex flex-col items-center gap-2 py-6">
@@ -142,13 +150,6 @@ function SidebarCollapsed({ onExpand, initials, navigate, onSignOut }) {
             </NavLink>
           );
         })}
-        <button
-          onClick={() => navigate('/organizer/events/new')}
-          title="New event"
-          className="mt-2 grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-r from-[#E5B700] to-[#DE8806] text-white shadow-sm transition-opacity hover:opacity-90"
-        >
-          <AdminIcon.Plus size={18} />
-        </button>
       </nav>
       <div className="flex flex-col items-center gap-2 border-t border-gray-100 py-4">
         <span className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-[#E5B700] to-[#F7931E] text-xs font-semibold text-white ring-2 ring-[#E5B700]/20">{initials}</span>
@@ -184,9 +185,9 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
         className={`fixed inset-y-0 left-0 z-40 hidden border-r border-gray-200 bg-white shadow-lg transition-[width] duration-300 ease-in-out lg:block ${collapsed ? 'w-[80px]' : 'w-[300px]'}`}
       >
         {collapsed ? (
-          <SidebarCollapsed onExpand={() => setCollapsed(false)} initials={initials} navigate={navigate} onSignOut={signOut} />
+          <SidebarCollapsed onExpand={() => setCollapsed(false)} initials={initials} onSignOut={signOut} />
         ) : (
-          <SidebarExpanded onCollapse={() => setCollapsed(true)} orgName={orgName} initials={initials} user={user} navigate={navigate} onSignOut={signOut} />
+          <SidebarExpanded onCollapse={() => setCollapsed(true)} orgName={orgName} initials={initials} user={user} onSignOut={signOut} />
         )}
       </aside>
 
@@ -210,7 +211,7 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
             transition={{ duration: 0.26, ease: 'easeInOut' }}
             className="fixed inset-y-0 left-0 z-[81] w-[300px] border-r border-gray-200 bg-white shadow-lg lg:hidden"
           >
-            <SidebarExpanded onNavigate={() => setDrawer(false)} onCollapse={() => setCollapsed(true)} orgName={orgName} initials={initials} user={user} navigate={navigate} onSignOut={signOut} />
+            <SidebarExpanded onNavigate={() => setDrawer(false)} onCollapse={() => setCollapsed(true)} orgName={orgName} initials={initials} user={user} onSignOut={signOut} />
           </motion.aside>
         )}
       </AnimatePresence>
@@ -227,7 +228,7 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
           <div className="flex items-center gap-2 lg:gap-4">
             <button
               onClick={() => navigate('/organizer/events/new')}
-              className="hidden h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#E5B700] to-[#DE8806] px-4 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:flex"
+              className="hidden h-9 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#E5B700] to-[#DE8806] px-5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:flex"
             >
               <AdminIcon.Plus size={15} /> New event
             </button>
@@ -235,10 +236,17 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
               href="/"
               target="_blank"
               rel="noreferrer"
-              className="hidden h-9 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 md:flex"
+              className="hidden h-9 items-center gap-1.5 rounded-full border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 md:flex"
             >
               View site <AdminIcon.ArrowUpRight size={13} />
             </a>
+            <NotificationsBell
+              fetch={api.organizerNotifications}
+              readOne={api.organizerReadNotification}
+              readAll={api.organizerReadAllNotifications}
+              iconMap={ORG_NOTIF_ICON}
+              fallbackLink="/organizer"
+            />
             <div className="relative">
               <button
                 onClick={() => setMenu((v) => !v)}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ApiEventCard from '../components/common/ApiEventCard';
 import EvImage from '../components/common/EvImage';
@@ -15,6 +15,7 @@ import HeroCarousel from '../components/home/HeroCarousel';
 import RouteLines from '../components/common/RouteLines';
 import { SkeletonGrid } from '../components/common/Skeleton';
 import Seo from '../components/common/Seo';
+import { Reveal, Stagger, StaggerItem } from '../components/common/Motion';
 import api from '../lib/api';
 
 // Phase 1 home: real events + categories + chapters. The mock hero carousel and
@@ -93,19 +94,69 @@ function Rail({ title, events, seeAllTo, navigate, empty, doodle = false }) {
     <section className="relative">
       {doodle && <RouteLines />}
       <div className="relative mx-auto max-w-container px-4 pt-8 sm:px-6">
-      <div className="relative mb-4 flex items-center justify-between">
+      <Reveal y={14} duration={0.45} className="relative mb-4 flex items-center justify-between">
         <h2 className="text-2xl font-bold text-ink">{title}</h2>
         {seeAllTo && <button onClick={() => navigate(seeAllTo)} className="text-sm font-semibold text-brand transition hover:text-brand-dark">See all ›</button>}
-      </div>
+      </Reveal>
       {events === null ? (
         <SkeletonGrid />
       ) : events.length ? (
-        <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 xl:gap-6">
-          {events.map((e) => <ApiEventCard key={e.id} event={e} />)}
-        </div>
+        <Stagger className="relative grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 xl:gap-6">
+          {events.map((e) => <StaggerItem key={e.id}><ApiEventCard event={e} /></StaggerItem>)}
+        </Stagger>
       ) : (
         <div className="rounded-xl border border-dashed border-line py-12 text-center text-sm text-ink-mute">{empty || 'No events yet — check back soon.'}</div>
       )}
+      </div>
+    </section>
+  );
+}
+
+// Category chip rail — always a single line, never wraps, never clips.
+// When the chips overflow the container they drift marquee-style (pause on
+// hover, slim edge fades); when they fit they render as a plain static row.
+// The visible row itself is measured (no hidden probe layer), so the two
+// modes can never render on top of each other.
+function CategoryRail({ cats }) {
+  const navigate = useNavigate();
+  const wrapRef = useRef(null); // the section container (available width)
+  const rowRef = useRef(null); // one copy of the chip row (natural width)
+  const [overflows, setOverflows] = useState(true); // assume marquee until measured
+
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return undefined;
+    const check = () => {
+      const row = rowRef.current;
+      if (!row) return;
+      // Static mode: scrollWidth = content width. Marquee mode: the ref sits
+      // on one w-max copy, so offsetWidth = content width. Max covers both.
+      const content = Math.max(row.scrollWidth, row.offsetWidth);
+      setOverflows(content > wrap.clientWidth + 1);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, [cats]);
+
+  const chips = cats.map((c) => (
+    <button key={c.slug} onClick={() => navigate(`/events?category=${c.slug}`)} className="shrink-0 rounded-full border border-line bg-white px-4 py-2 text-[13px] font-medium text-ink-soft transition hover:border-brand hover:text-brand">
+      {c.name}
+    </button>
+  ));
+
+  return (
+    <section className="mx-auto max-w-container px-4 pt-8 sm:px-6">
+      {/* wrapRef sits inside the padding so clientWidth = true available width */}
+      <div ref={wrapRef}>
+        {overflows ? (
+          <Marquee speed={45} fadeColor="#FFFFFF" fadeWidthClass="w-8">
+            <div ref={rowRef} className="flex gap-2.5 pr-2.5">{chips}</div>
+          </Marquee>
+        ) : (
+          <div ref={rowRef} className="flex gap-2.5 overflow-hidden py-2">{chips}</div>
+        )}
       </div>
     </section>
   );
@@ -224,43 +275,33 @@ export default function Home() {
         <HeroCarousel slides={heroSlides} />
       ) : (
         <section className="bg-footer">
-          <div className="mx-auto max-w-container px-4 py-14 sm:px-6 sm:py-20">
-            <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-brand-light">One Business Season</div>
-            <h1 className="mt-3 max-w-[720px] text-3xl font-extrabold leading-tight text-white sm:text-[42px]">
+          <Stagger interval={0.1} className="mx-auto max-w-container px-4 py-14 sm:px-6 sm:py-20">
+            <StaggerItem y={14} className="text-[12px] font-bold uppercase tracking-[0.14em] text-brand-light">One Business Season</StaggerItem>
+            <StaggerItem as="h1" className="mt-3 max-w-[720px] text-3xl font-extrabold leading-tight text-white sm:text-[42px]">
               Discover business events across <span className="text-brand-light">OBS chapters</span> worldwide.
-            </h1>
-            <p className="mt-3 max-w-[560px] text-sm leading-relaxed text-white/70">
+            </StaggerItem>
+            <StaggerItem as="p" y={14} className="mt-3 max-w-[560px] text-sm leading-relaxed text-white/70">
               Summits, conferences, networking and more — find your next event and connect with the OBS community.
-            </p>
-            <div className="mt-7 flex flex-wrap gap-3">
+            </StaggerItem>
+            <StaggerItem y={14} className="mt-7 flex flex-wrap gap-3">
               <button onClick={() => navigate('/events')} className="rounded-full bg-gold-gradient px-7 py-3 text-[13px] font-extrabold uppercase tracking-wider text-black transition hover:brightness-110">Browse events</button>
               <button onClick={() => navigate('/chapters')} className="rounded-full border border-white/25 px-7 py-3 text-[13px] font-semibold text-white transition hover:bg-white/10">Explore chapters</button>
-            </div>
-          </div>
+            </StaggerItem>
+          </Stagger>
         </section>
       )}
 
-      {/* Category chips */}
-      {cats.length > 0 && (
-        <section className="mx-auto max-w-container px-4 pt-8 sm:px-6">
-          <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1">
-            {cats.map((c) => (
-              <button key={c.slug} onClick={() => navigate(`/events?category=${c.slug}`)} className="shrink-0 rounded-full border border-line bg-white px-4 py-2 text-[13px] font-medium text-ink-soft transition hover:border-brand hover:text-brand">
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Category chips — single-line rail; drifts when it overflows */}
+      {cats.length > 0 && <CategoryRail cats={cats} />}
 
       {/* Chapter-highlight hero band (§5.7) — real /stats counters */}
-      <ChapterHighlightBand stats={stats} />
+      <Reveal y={18}><ChapterHighlightBand stats={stats} /></Reveal>
 
       {/* 100 Days Program banner (§5.5). Admin-set banner image (Admin →
           Programs → Banner image) renders behind the copy with a dark scrim
           for readability; without one, the gold gradient is the fallback. */}
       {program && (
-        <section className="mx-auto max-w-container px-4 pt-8 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-container px-4 pt-8 sm:px-6">
           <button onClick={() => navigate('/program')} className={`relative flex w-full flex-col items-start gap-3 overflow-hidden rounded-2xl p-6 text-left text-white shadow-card transition hover:brightness-105 sm:flex-row sm:items-center sm:justify-between ${program.coverUrl ? '' : 'bg-gold-gradient'}`}>
             {program.coverUrl && (
               <>
@@ -275,7 +316,7 @@ export default function Home() {
             </div>
             <span className="relative shrink-0 rounded-full bg-white px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider text-black">View program ›</span>
           </button>
-        </section>
+        </Reveal>
       )}
 
       {featured.length > 0 && <Rail title="Featured on OBS" events={featured} seeAllTo="/events?owner=obs&featured=true" navigate={navigate} />}
@@ -287,23 +328,23 @@ export default function Home() {
       {/* Featured speakers rail (§5.2) */}
       {speakers.length > 0 && (
         <section className="mx-auto max-w-container px-4 pt-16 sm:px-6">
-          <div className="relative mb-10 text-center">
+          <Reveal y={14} duration={0.45} className="relative mb-10 text-center">
             <h2 className="text-2xl font-bold text-ink sm:text-3xl">Speakers</h2>
             <button onClick={() => navigate('/speakers')} className="mt-1 text-[13px] font-semibold text-brand hover:underline sm:absolute sm:right-0 sm:top-1/2 sm:mt-0 sm:-translate-y-1/2">See all ›</button>
-          </div>
+          </Reveal>
           <div className="no-scrollbar overflow-x-auto pb-2">
-          <div className="mx-auto flex w-max gap-8 sm:gap-12">
+          <Stagger interval={0.06} className="mx-auto flex w-max gap-8 sm:gap-12">
             {speakers.map((s) => (
-              <button key={s.id} onClick={() => navigate(`/speakers/${s.slug}`)} className="group w-[168px] shrink-0 text-center sm:w-[190px]">
+              <StaggerItem key={s.id} as="button" onClick={() => navigate(`/speakers/${s.slug}`)} className="group w-[168px] shrink-0 text-center sm:w-[190px]">
                 <span className="relative mx-auto block h-32 w-32 overflow-hidden rounded-full bg-surface ring-2 ring-line transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-cardHover group-hover:ring-brand sm:h-36 sm:w-36">
                   {s.photoUrl && <img src={s.photoUrl} alt={s.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />}
                 </span>
                 <span className="mt-4 block truncate text-base font-bold text-ink transition-colors group-hover:text-brand sm:text-[17px]">{s.name}</span>
                 {s.title && <span className="mt-0.5 block truncate text-[13px] font-medium text-ink-soft">{s.title}</span>}
                 <span className="block truncate text-[12px] text-ink-mute">{s.company || ''}</span>
-              </button>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
           </div>
         </section>
       )}
@@ -313,10 +354,10 @@ export default function Home() {
           hovering pauses the scroll, each logo still links to its profile. */}
       {sponsors.length > 0 && (
         <section className="pb-8 pt-24">
-          <div className="relative mx-auto mb-14 max-w-container px-4 text-center sm:px-6">
+          <Reveal y={14} duration={0.45} className="relative mx-auto mb-14 max-w-container px-4 text-center sm:px-6">
             <h2 className="text-2xl font-bold text-ink sm:text-3xl">Our partners</h2>
             <button onClick={() => navigate('/sponsors')} className="mt-1 text-[13px] font-semibold text-brand hover:underline sm:absolute sm:right-6 sm:top-1/2 sm:mt-0 sm:-translate-y-1/2">See all ›</button>
-          </div>
+          </Reveal>
           <Marquee speed={30} pauseOnHover fadeColor="#F5F5F5">
             {(sponsors.length >= 8 ? sponsors : Array.from({ length: Math.ceil(8 / sponsors.length) }, () => sponsors).flat()).map((sp, i) => (
               <button
@@ -339,18 +380,18 @@ export default function Home() {
       {/* Newsroom rail (§5.4) */}
       {articles.length > 0 && (
         <section className="mx-auto max-w-container px-4 pt-16 sm:px-6">
-          <div className="relative mb-10 text-center">
+          <Reveal y={14} duration={0.45} className="relative mb-10 text-center">
             <h2 className="text-2xl font-bold text-ink sm:text-3xl">From the newsroom</h2>
             <button onClick={() => navigate('/news')} className="mt-1 text-[13px] font-semibold text-brand hover:underline sm:absolute sm:right-0 sm:top-1/2 sm:mt-0 sm:-translate-y-1/2">See all ›</button>
-          </div>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <LeadStory article={articles[0]} navigate={navigate} />
+          </Reveal>
+          <Stagger interval={0.12} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <StaggerItem className="lg:col-span-2"><LeadStory article={articles[0]} navigate={navigate} /></StaggerItem>
             {articles.length > 1 && (
-              <div className="flex flex-col gap-6">
+              <StaggerItem className="flex flex-col gap-6">
                 {articles.slice(1, 3).map((a) => <MiniStory key={a.id} article={a} navigate={navigate} />)}
-              </div>
+              </StaggerItem>
             )}
-          </div>
+          </Stagger>
         </section>
       )}
 
@@ -358,18 +399,18 @@ export default function Home() {
       <section className="relative">
         <RouteLines flip />
         <div className="relative mx-auto max-w-container px-4 pt-10 sm:px-6">
-        <div className="relative mb-4 flex items-center justify-between">
+        <Reveal y={14} duration={0.45} className="relative mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-ink">Explore OBS chapters</h2>
           <button onClick={() => navigate('/chapters')} className="text-[13px] font-semibold text-brand hover:underline">See all ›</button>
-        </div>
+        </Reveal>
 
         {/* Live chapter globe — gold dots are chapters; bigger dots have more
             upcoming events. Data-driven: markers grow as events get linked. */}
         <div className="relative mb-10 grid items-center gap-8 lg:grid-cols-2">
-          <div className="mx-auto w-full max-w-[430px]">
+          <Reveal y={0} duration={0.7} className="mx-auto w-full max-w-[430px]">
             <ChapterGlobe markers={globeMarkers} chips={globeChips} onChipClick={(c) => navigate(`/chapters/${c.slug}`)} />
-          </div>
-          <div className="text-center lg:text-left">
+          </Reveal>
+          <Reveal delay={0.1} className="text-center lg:text-left">
             <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">The OBS map</div>
             <h3 className="mt-2 text-2xl font-black leading-tight text-ink sm:text-[30px]">
               One network, live in {stats?.countries ? `${stats.countries} countries` : 'countries worldwide'}.
@@ -393,11 +434,12 @@ export default function Home() {
               <button onClick={() => navigate('/events')} className="rounded-full bg-gold-gradient px-6 py-2.5 text-[12.5px] font-extrabold uppercase tracking-wider text-black transition hover:brightness-110">Browse events</button>
               <button onClick={() => navigate('/chapters')} className="rounded-full border border-line bg-white px-6 py-2.5 text-[12.5px] font-bold uppercase tracking-wider text-ink-soft transition hover:border-brand hover:text-brand">All chapters</button>
             </div>
-          </div>
+          </Reveal>
         </div>
 
-        <div className="no-scrollbar relative flex gap-3.5 overflow-x-auto pb-2">
-          <button
+        <Stagger interval={0.05} className="no-scrollbar relative flex gap-3.5 overflow-x-auto pb-2">
+          <StaggerItem
+            as="button"
             onClick={() => navigate('/chapters')}
             className="group relative flex h-[104px] w-[210px] shrink-0 flex-col justify-between overflow-hidden rounded-2xl bg-gold-gradient p-4 text-left shadow-card transition hover:-translate-y-0.5 hover:shadow-cardHover"
           >
@@ -406,9 +448,10 @@ export default function Home() {
               <span className="block text-[15px] font-extrabold leading-tight text-black">{chapters.length ? `All ${chapters.length} chapters` : 'All chapters'}</span>
               <span className="mt-0.5 flex items-center gap-1 text-[11.5px] font-semibold text-black/70">Across the globe <span className="transition-transform group-hover:translate-x-0.5">›</span></span>
             </span>
-          </button>
+          </StaggerItem>
           {spotlight.map((c) => (
-            <button
+            <StaggerItem
+              as="button"
               key={c.slug}
               onClick={() => navigate(`/chapters/${c.slug}`)}
               className="group flex h-[104px] w-[210px] shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-4 text-left shadow-card transition hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-cardHover"
@@ -420,14 +463,14 @@ export default function Home() {
                   {c.tier || c.pillarGroup || chapterTypeLabel(c.type) || 'Chapter'}
                 </div>
               </div>
-            </button>
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
         </div>
       </section>
 
       {/* Organizer CTA */}
-      <section className="mx-auto max-w-container px-4 pt-10 sm:px-6">
+      <Reveal as="section" className="mx-auto max-w-container px-4 pt-10 sm:px-6">
         <div className="flex flex-col items-start justify-between gap-4 rounded-2xl bg-footer px-6 py-8 sm:flex-row sm:items-center sm:px-10">
           <div>
             <div className="text-xl font-bold text-white">Hosting an event?</div>
@@ -435,7 +478,7 @@ export default function Home() {
           </div>
           <button onClick={() => navigate('/list-your-event')} className="shrink-0 rounded-full bg-gold-gradient px-7 py-3 text-[13px] font-extrabold uppercase tracking-wider text-black transition hover:brightness-110">List your event</button>
         </div>
-      </section>
+      </Reveal>
     </div>
   );
 }

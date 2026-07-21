@@ -17,14 +17,18 @@ const PIN_ICON = L.divIcon({
   popupAnchor: [0, -36],
 });
 
-const OSM_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-const DEFAULT_CENTER = [19.076, 72.8777]; // Mumbai
+// CARTO Voyager tiles: same OSM data, but labels render in Latin script — the
+// default OSM tiles label each region in its local language (Arabic across the
+// Gulf, etc.), which reads wrong for an international admin/organizer UI.
+const TILES = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+const TILES_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const DEFAULT_CENTER = [25.2048, 55.2708]; // Dubai — UAE-first platform default
 
 // Interactive venue picker (OpenStreetMap). Search an address (server-side
 // Google geocode) or click/drag the pin — pinning reverse-geocodes the spot so
 // the input above the map always shows the address of wherever the pin sits.
-// Reports { lat, lng, address?, city? } via onPick.
+// Reports { lat, lng, address?, city?, country? } via onPick — callers use the
+// coords/country to auto-set the event's timezone and country fields.
 export function MapPicker({ lat, lng, onPick }) {
   const boxRef = useRef(null);
   const mapRef = useRef(null);
@@ -47,7 +51,7 @@ export function MapPicker({ lat, lng, onPick }) {
       if (seq !== reverseSeq.current) return; // a newer pin superseded this one
       if (r?.formattedAddress) {
         setQ(r.formattedAddress);
-        onPick({ lat: la, lng: ln, address: r.formattedAddress, city: r.city || undefined });
+        onPick({ lat: la, lng: ln, address: r.formattedAddress, city: r.city || undefined, country: r.country || undefined });
       }
     } catch {
       /* pin stays valid even if the address lookup hiccups */
@@ -61,7 +65,7 @@ export function MapPicker({ lat, lng, onPick }) {
     if (!boxRef.current || mapRef.current) return undefined;
     const start = lat != null && lng != null ? [lat, lng] : DEFAULT_CENTER;
     const map = L.map(boxRef.current).setView(start, lat != null ? 15 : 11);
-    L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19 }).addTo(map);
+    L.tileLayer(TILES, { attribution: TILES_ATTR, maxZoom: 19 }).addTo(map);
     const marker = L.marker(start, { draggable: true, icon: PIN_ICON }).addTo(map);
     marker.on('dragend', () => {
       const p = marker.getLatLng();
@@ -96,7 +100,7 @@ export function MapPicker({ lat, lng, onPick }) {
       const r = await api.geocode(q.trim());
       if (r?.lat != null && r?.lng != null) {
         if (r.formattedAddress) setQ(r.formattedAddress);
-        onPick({ lat: r.lat, lng: r.lng, address: r.formattedAddress || undefined, city: r.city || undefined });
+        onPick({ lat: r.lat, lng: r.lng, address: r.formattedAddress || undefined, city: r.city || undefined, country: r.country || undefined });
       } else {
         setErr('No match found — try a more specific address');
       }
@@ -141,7 +145,7 @@ export function EventMap({ lat, lng, title, venueName }) {
   useEffect(() => {
     if (!boxRef.current || lat == null || lng == null) return undefined;
     const map = L.map(boxRef.current, { scrollWheelZoom: false }).setView([lat, lng], 15);
-    L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19 }).addTo(map);
+    L.tileLayer(TILES, { attribution: TILES_ATTR, maxZoom: 19 }).addTo(map);
     L.marker([lat, lng], { icon: PIN_ICON }).addTo(map).bindPopup(`<b>${title || 'Event venue'}</b>${venueName ? `<br/>${venueName}` : ''}`);
     setTimeout(() => map.invalidateSize(), 120);
     return () => map.remove();
