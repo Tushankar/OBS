@@ -53,6 +53,9 @@ export default function Checkout() {
   }
 
   const ev = order.event || {};
+  // Same rule as the booking card: show the visitor's display currency, charge
+  // in the order's own currency (stated exactly wherever they differ).
+  const show = (paise) => displayMoney(paise, order.currency, displayCurrency);
   const expired = order.status === 'EXPIRED' || left === 0;
   const notPayable = ['CANCELLED', 'FAILED', 'REFUNDED', 'REFUND_REQUESTED'].includes(order.status);
   const mm = left != null ? Math.floor(left / 60) : 0;
@@ -105,11 +108,20 @@ export default function Checkout() {
                     <StripePaymentForm clientSecret={stripe.clientSecret} publishableKey={stripe.publishableKey} orderId={orderId} />
                   ) : (
                     <button onClick={payStripe} disabled={paying} className="flex h-[46px] w-full items-center justify-center gap-2.5 rounded-md bg-brand text-[15px] font-semibold text-white transition hover:bg-brand-dark disabled:opacity-70">
-                      {paying ? 'Starting…' : `Pay ${money(order.totalAmount, order.currency)}`}
+                      {paying
+                        ? 'Starting…'
+                        : displayCurrency !== order.currency
+                          ? `Pay ≈ ${displayMoney(order.totalAmount, order.currency, displayCurrency)}`
+                          : `Pay ${money(order.totalAmount, order.currency)}`}
                     </button>
                   )}
                 </div>
-                <div className="mt-3 text-center text-xs text-ink-mute">Secure checkout · webhook-confirmed · instant e-ticket</div>
+                <div className="mt-3 text-center text-xs text-ink-mute">
+                  {displayCurrency !== order.currency && (
+                    <span className="mb-0.5 block">Your card is charged exactly {money(order.totalAmount, order.currency)} ({order.currency}).</span>
+                  )}
+                  Secure checkout · webhook-confirmed · instant e-ticket
+                </div>
               </>
             ) : (
               !expired && !notPayable && <div className="text-[13px] text-ink-mute">This order is {order.status.toLowerCase()}.</div>
@@ -126,18 +138,22 @@ export default function Checkout() {
             </div>
           </div>
           <div className="my-4 h-px bg-line" />
+          {/* Prices render in the visitor's DISPLAY currency (same as the event
+              page and booking card), so switching currency carries through to
+              checkout. The actual charge stays in the event's currency — stated
+              exactly under the total and beside the pay button. */}
           <div className="flex flex-col gap-2.5">
             {order.items.map((l) => (
-              <div key={l.ticketTypeId} className="flex justify-between text-sm text-ink-soft"><span>{l.name} × {l.quantity}</span><span className="font-medium">{l.totalPrice === 0 ? 'Free' : money(l.totalPrice, order.currency)}</span></div>
+              <div key={l.ticketTypeId} className="flex justify-between text-sm text-ink-soft"><span>{l.name} × {l.quantity}</span><span className="font-medium">{l.totalPrice === 0 ? 'Free' : show(l.totalPrice)}</span></div>
             ))}
           </div>
           <div className="my-4 h-px bg-line" />
-          <div className="flex justify-between text-[13px] text-ink-soft"><span>Subtotal</span><span>{money(order.subtotal, order.currency)}</span></div>
-          {order.discountAmount > 0 && <div className="mt-2 flex justify-between text-[13px] text-success"><span>Discount</span><span>− {money(order.discountAmount, order.currency)}</span></div>}
-          <div className="mt-2 flex justify-between text-[13px] text-ink-soft"><span>Service fee</span><span>{money(order.serviceFee, order.currency)}</span></div>
-          <div className="mt-3.5 flex items-baseline justify-between"><span className="text-base font-bold text-ink">Total</span><span className="text-base font-bold text-ink">{money(order.totalAmount, order.currency)}</span></div>
+          <div className="flex justify-between text-[13px] text-ink-soft"><span>Subtotal</span><span>{show(order.subtotal)}</span></div>
+          {order.discountAmount > 0 && <div className="mt-2 flex justify-between text-[13px] text-success"><span>Discount</span><span>− {show(order.discountAmount)}</span></div>}
+          <div className="mt-2 flex justify-between text-[13px] text-ink-soft"><span>Service fee</span><span>{show(order.serviceFee)}</span></div>
+          <div className="mt-3.5 flex items-baseline justify-between"><span className="text-base font-bold text-ink">Total</span><span className="text-base font-bold text-ink">{show(order.totalAmount)}</span></div>
           {displayCurrency !== order.currency && (
-            <div className="mt-1 text-right text-[11px] text-ink-mute">≈ {displayMoney(order.totalAmount, order.currency, displayCurrency)} · charged in {order.currency}</div>
+            <div className="mt-1 text-right text-[11px] text-ink-mute">Approx in {displayCurrency} — charged exactly {money(order.totalAmount, order.currency)} ({order.currency})</div>
           )}
         </aside>
       </div>

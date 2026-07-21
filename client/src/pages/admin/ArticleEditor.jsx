@@ -110,13 +110,12 @@ export default function ArticleEditor() {
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  // Load the article to edit (admin list carries full content — find by id).
+  // Load the edit target directly by id (the admin list is paginated now).
   useEffect(() => {
     if (!editing) return;
     let live = true;
-    api.adminArticles()
-      .then((rows) => {
-        const a = (rows || []).find((r) => r.id === id);
+    api.adminArticle(id)
+      .then((a) => {
         if (!live) return;
         if (!a) { pushToast('Article not found', false); navigate('/admin/articles'); return; }
         setForm({

@@ -6,6 +6,8 @@ import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
 import { SPONSOR_TIER_LABELS, sponsorTierLabel } from '../../lib/labels';
 import { fmtDate } from '../../lib/format';
+import { usePagedList } from '../../lib/usePagedList';
+import { useAdminCounts } from '../../components/admin/AdminCounts';
 
 const TIERS = Object.keys(SPONSOR_TIER_LABELS);
 // "Placement" = where the sponsor shows, orthogonal to tier (= benefit level).
@@ -230,15 +232,17 @@ function SponsorEditor({ initial, onClose, onSaved }) {
 
 export default function Sponsors() {
   const { pushToast } = useApp();
-  const [rows, setRows] = useState(null);
+  const { rows, total, load, loadMore, loadingMore, hasMore, remaining } = usePagedList({
+    fetch: api.adminSponsors, key: 'sponsors', limit: 50,
+    onError: (e) => pushToast(apiError(e), false),
+  });
   const [editor, setEditor] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
+  const { refresh: refreshCounts } = useAdminCounts(); // sidebar pending badge
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  const load = () => api.adminSponsors().then(setRows).catch((e) => { setRows([]); pushToast(apiError(e), false); });
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const setStatus = async (s, status) => {
     setBusyId(s.id);
@@ -246,6 +250,7 @@ export default function Sponsors() {
       await api.updateSponsor(s.id, { status });
       pushToast(status === 'APPROVED' ? `${s.name} approved — now live` : `${s.name} rejected`);
       load();
+      refreshCounts();
     } catch (e) { pushToast(apiError(e), false); }
     finally { setBusyId(null); }
   };
@@ -267,6 +272,8 @@ export default function Sponsors() {
 
   if (!rows) return <Loading />;
 
+  // Backend already sorts PENDING first (statusRank), so the review queue tops
+  // page 1; this re-sort just keeps any locally appended pages consistent.
   const pending = rows.filter((s) => s.status === 'PENDING').length;
   const sorted = [...rows].sort((a, b) => Number(b.status === 'PENDING') - Number(a.status === 'PENDING'));
 
@@ -274,7 +281,7 @@ export default function Sponsors() {
     <div>
       <PageHead
         title="Sponsors"
-        subtitle={rows.length ? `${rows.length} sponsor${rows.length === 1 ? '' : 's'}${pending ? ` · ${pending} awaiting review` : ''}` : 'Sponsor showcase'}
+        subtitle={total ? `${total} sponsor${total === 1 ? '' : 's'}${pending ? ` · ${pending} awaiting review` : ''}` : 'Sponsor showcase'}
         actions={<Btn onClick={() => setEditor({})}><AdminIcon.Plus size={15} /> New sponsor</Btn>}
       />
 
@@ -315,6 +322,11 @@ export default function Sponsors() {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+      {hasMore && (
+        <div className="mt-4 text-center">
+          <Btn variant="ghost" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : `Load more (${remaining} left)`}</Btn>
         </div>
       )}
 

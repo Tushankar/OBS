@@ -16,9 +16,9 @@ function SendPromoModal({ userIds, onClose, onSent }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.adminPromos()
-      .then((rows) => {
-        const live = (rows || []).filter((p) => p.isActive !== false);
+    api.adminPromos({ limit: 200 })
+      .then((d) => {
+        const live = (d.promoCodes || []).filter((p) => p.isActive !== false);
         setPromos(live);
         if (live[0]) setPromoCodeId(live[0].id);
       })

@@ -3,6 +3,7 @@ import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../../context/AppContext';
 import { AdminIcon } from '../admin/AdminIcons';
+import LogoutConfirm from './LogoutConfirm';
 import { NavIcon } from '../admin/NavIcons';
 import NotificationsBell from '../common/NotificationsBell';
 import api from '../../lib/api';
@@ -65,9 +66,9 @@ function SidebarExpanded({ onNavigate, onCollapse, orgName, initials, user, onSi
         <button
           onClick={onCollapse}
           title="Collapse sidebar"
-          className="absolute right-3 top-4 hidden h-8 w-8 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:grid"
+          className="absolute right-3 top-4 hidden h-8 w-8 place-items-center rounded-lg text-gray-900 transition-colors hover:bg-gray-100 lg:grid"
         >
-          <AdminIcon.Collapse size={16} strokeWidth={2.2} />
+          <AdminIcon.Collapse size={17} strokeWidth={2.6} />
         </button>
       </div>
 
@@ -96,23 +97,24 @@ function SidebarExpanded({ onNavigate, onCollapse, orgName, initials, user, onSi
         })}
       </nav>
 
-      <div className="border-t border-gray-100 p-4">
-        <div className="mb-3 flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#E5B700] to-[#F7931E] text-sm font-semibold text-white ring-2 ring-[#E5B700]/20">
+      {/* Profile + logout — compact single row (identity left, logout icon right) */}
+      <div className="border-t border-gray-100 p-3">
+        <div className="flex items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-gray-50">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#E5B700] to-[#F7931E] text-xs font-semibold text-white ring-2 ring-[#E5B700]/20">
             {initials}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-semibold text-gray-800">{user?.name || 'Organizer'}</p>
-            <p className="truncate text-sm text-gray-500">Organizer</p>
+            <p className="truncate text-sm font-semibold leading-tight text-gray-800">{user?.name || 'Organizer'}</p>
+            <p className="truncate text-xs text-gray-500">Organizer</p>
           </div>
+          <button
+            onClick={onSignOut}
+            title="Logout"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-gray-200 text-gray-500 transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+          >
+            <AdminIcon.Logout size={16} />
+          </button>
         </div>
-        <button
-          onClick={onSignOut}
-          className="flex w-full items-center justify-center rounded-xl border border-gray-200 p-3.5 font-medium text-gray-600 transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-        >
-          <AdminIcon.Logout size={18} />
-          <span className="ml-3 text-sm">Logout</span>
-        </button>
       </div>
     </div>
   );
@@ -121,14 +123,13 @@ function SidebarExpanded({ onNavigate, onCollapse, orgName, initials, user, onSi
 function SidebarCollapsed({ onExpand, initials, onSignOut }) {
   return (
     <div className="font-portal flex h-full flex-col items-center">
-      <div className="flex flex-col items-center gap-2 py-6">
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand text-base font-bold text-white">O</span>
+      <div className="flex flex-col items-center py-5">
         <button
           onClick={onExpand}
           title="Expand sidebar"
-          className="grid h-8 w-8 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          className="grid h-9 w-9 place-items-center rounded-lg text-gray-900 transition-colors hover:bg-gray-100"
         >
-          <AdminIcon.Expand size={16} strokeWidth={2.2} />
+          <AdminIcon.Expand size={18} strokeWidth={2.6} />
         </button>
       </div>
       <nav className="no-scrollbar flex flex-1 flex-col items-center gap-1.5 overflow-y-auto pb-3">
@@ -173,7 +174,12 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
 
   useEffect(() => { localStorage.setItem('obs.org.sidebar', collapsed ? 'collapsed' : 'open'); }, [collapsed]);
 
-  const signOut = async () => {
+  // Logout is two-step: every call site opens the confirm modal; the actual
+  // sign-out only runs from the modal's confirm button.
+  const [confirmOut, setConfirmOut] = useState(false);
+  const signOut = () => setConfirmOut(true);
+  const performSignOut = async () => {
+    setConfirmOut(false);
     await logout();
     pushToast('Signed out');
     navigate('/');
@@ -294,6 +300,7 @@ export default function OrganizerShell({ orgName = 'Organizer', children }) {
           {children}
         </main>
       </div>
+      <LogoutConfirm open={confirmOut} onCancel={() => setConfirmOut(false)} onConfirm={performSignOut} />
     </div>
   );
 }

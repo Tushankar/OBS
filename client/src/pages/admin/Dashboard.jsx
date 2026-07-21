@@ -220,12 +220,12 @@ export default function Dashboard() {
           <p className="mt-1 text-sm text-gray-500">Bookings, revenue and attendance across the platform — updating in real time.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="hidden items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 shadow-sm md:flex">
+          <span className="hidden items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-xs font-medium text-gray-600 shadow-sm md:flex">
             <AdminIcon.Events size={14} className="text-gray-500" /> {today}
           </span>
           <button
             onClick={() => load()}
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+            className="flex h-9 items-center gap-1.5 rounded-full border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
           >
             <AdminIcon.Refresh size={14} /> Refresh
           </button>
@@ -233,7 +233,7 @@ export default function Dashboard() {
             href="/"
             target="_blank"
             rel="noreferrer"
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#E5B700] to-[#DE8806] px-4 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
+            className="flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#E5B700] to-[#DE8806] px-5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
           >
             <AdminIcon.External size={14} /> Open site
           </a>

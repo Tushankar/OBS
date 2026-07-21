@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
 import { fmtDate } from '../../lib/format';
+import { usePagedList } from '../../lib/usePagedList';
 
 const TYPE_LABELS = { NEWS: 'News', ARTICLE: 'Article', PRESS: 'Press release' };
 const STATUS_LABELS = { DRAFT: 'Draft', PUBLISHED: 'Published' };
@@ -12,13 +13,14 @@ const STATUS_LABELS = { DRAFT: 'Draft', PUBLISHED: 'Published' };
 export default function Articles() {
   const { pushToast } = useApp();
   const navigate = useNavigate();
-  const [rows, setRows] = useState(null);
+  const { rows, total, load, loadMore, loadingMore, hasMore, remaining } = usePagedList({
+    fetch: api.adminArticles, key: 'articles', limit: 24,
+    onError: (e) => pushToast(apiError(e), false),
+  });
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  const load = () => api.adminArticles().then(setRows).catch((e) => { setRows([]); pushToast(apiError(e), false); });
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const remove = async () => {
     if (!confirm) return;
@@ -41,7 +43,7 @@ export default function Articles() {
     <div>
       <PageHead
         title="Articles"
-        subtitle={rows.length ? `${rows.length} article${rows.length === 1 ? '' : 's'}` : 'Newsroom'}
+        subtitle={total ? `${total} article${total === 1 ? '' : 's'}` : 'Newsroom'}
         actions={<Btn onClick={() => navigate('/admin/articles/new')}><AdminIcon.Plus size={15} /> New article</Btn>}
       />
 
@@ -75,6 +77,11 @@ export default function Articles() {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+      {hasMore && (
+        <div className="mt-4 text-center">
+          <Btn variant="ghost" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : `Load more (${remaining} left)`}</Btn>
         </div>
       )}
 

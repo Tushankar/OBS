@@ -1,16 +1,20 @@
 import { useEffect, useState, useCallback } from 'react';
 import api, { apiError } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-import { PageHead, Table, Pill, statusTone, Btn, Tabs, Loading, Modal, Avatar, Field, inputCls, selectCls } from '../../components/portal/Kit';
+import { PageHead, Table, Pill, statusTone, Btn, Tabs, Loading, Modal, Avatar, Field, inputCls, selectCls, Card, SearchInput } from '../../components/portal/Kit';
 import ReasonDialog from '../../components/admin/ReasonDialog';
 import { AdminIcon } from '../../components/admin/AdminIcons';
+import { useAdminCounts } from '../../components/admin/AdminCounts';
 
-const TABS = [
-  ['PENDING', 'Pending'],
+// Approved first (the day-to-day roster); Pending carries a live count badge.
+const TAB_DEFS = [
   ['APPROVED', 'Approved'],
+  ['PENDING', 'Pending'],
   ['REJECTED', 'Rejected'],
+  ['SUSPENDED', 'Suspended'],
   ['ALL', 'All'],
 ];
+const PAGE_SIZE = 25;
 
 const ORG_TYPE_LABELS = {
   COMPANY: 'Company / Agency',
@@ -187,24 +191,47 @@ function CreateOrganizerModal({ onClose, onCreated }) {
 
 export default function Organizers() {
   const { pushToast } = useApp();
-  const [tab, setTab] = useState('PENDING');
-  const [orgs, setOrgs] = useState(null);
+  const { refresh: refreshCounts } = useAdminCounts(); // sidebar/tab badges
+  const [tab, setTab] = useState('APPROVED'); // approved-first
+  const [query, setQuery] = useState('');
+  const [debounced, setDebounced] = useState('');
+  const [data, setData] = useState(null); // { organizers, total, page, pages, counts }
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [rejecting, setRejecting] = useState(null); // organizer pending rejection
   const [detail, setDetail] = useState(null); // application drill-down
   const [creating, setCreating] = useState(false); // admin add-organizer modal
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => { const t = setTimeout(() => setDebounced(query.trim()), 300); return () => clearTimeout(t); }, [query]);
+
+  const buildParams = useCallback((pg) => ({
+    ...(tab !== 'ALL' ? { status: tab } : {}),
+    ...(debounced ? { q: debounced } : {}),
+    page: pg,
+    limit: PAGE_SIZE,
+  }), [tab, debounced]);
 
   const load = useCallback(() => {
-    setOrgs(null);
-    const params = tab === 'ALL' ? undefined : { status: tab };
-    api.adminOrganizers(params)
-      .then((d) => setOrgs(d || []))
-      .catch((e) => { setOrgs([]); pushToast(apiError(e), false); });
-  }, [tab, pushToast]);
+    setData(null);
+    setPage(1);
+    api.adminOrganizers(buildParams(1))
+      .then(setData)
+      .catch((e) => { setData({ organizers: [], total: 0, pages: 0, counts: {} }); pushToast(apiError(e), false); });
+  }, [buildParams, pushToast]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const d = await api.adminOrganizers(buildParams(next));
+      setData((cur) => ({ ...d, organizers: [...cur.organizers, ...d.organizers] }));
+      setPage(next);
+    } catch (e) { pushToast(apiError(e, 'Could not load more'), false); } finally { setLoadingMore(false); }
+  }
 
   async function approve(o) {
     setBusyId(o.id);
@@ -213,6 +240,7 @@ export default function Organizers() {
       pushToast(`Approved ${o.orgName}`);
       setDetail(null);
       load();
+      refreshCounts(); // pending badge drops immediately
     } catch (e) {
       pushToast(apiError(e, 'Action failed'), false);
     } finally {
@@ -229,6 +257,7 @@ export default function Organizers() {
       setRejecting(null);
       setDetail(null);
       load();
+      refreshCounts();
     } catch (e) {
       pushToast(apiError(e, 'Action failed'), false);
     } finally {
@@ -289,18 +318,36 @@ export default function Organizers() {
     }
   };
 
+  // Tab labels carry live per-status counts — Pending shows its queue size
+  // even while you're on another tab.
+  const counts = data?.counts || {};
+  const tabs = TAB_DEFS.map(([key, label]) => [key, counts[key] ? `${label} (${counts[key]})` : label]);
+  const rows = data?.organizers || [];
+
   return (
     <div>
       <PageHead
         title="Organizers"
-        subtitle={orgs ? `${orgs.length} ${tab === 'ALL' ? 'total' : tab.toLowerCase()}` : 'Review organizer applications.'}
+        subtitle={data ? `${data.total} ${tab === 'ALL' ? 'total' : tab.toLowerCase()}` : 'Review organizer applications.'}
         actions={<Btn onClick={() => setCreating(true)}><AdminIcon.Plus size={15} /> Add organizer</Btn>}
       />
-      <Tabs tabs={TABS} active={tab} onChange={setTab} />
-      {orgs === null ? (
+      <Card className="mb-5">
+        <SearchInput value={query} onChange={setQuery} placeholder="Search organization, contact or city…" className="max-w-xs" />
+      </Card>
+      <Tabs tabs={tabs} active={tab} onChange={setTab} />
+      {data === null ? (
         <Loading />
       ) : (
-        <Table columns={columns} rows={orgs} renderCell={renderCell} empty="No organizer applications here." />
+        <>
+          <Table columns={columns} rows={rows} renderCell={renderCell} empty="No organizer applications here." />
+          {rows.length < (data.total || 0) && (
+            <div className="mt-4 text-center">
+              <Btn variant="ghost" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? 'Loading…' : `Load more (${data.total - rows.length} left)`}
+              </Btn>
+            </div>
+          )}
+        </>
       )}
 
       {creating && (

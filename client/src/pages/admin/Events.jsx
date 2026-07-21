@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { PageHead, Table, Pill, statusTone, Btn, Tabs, Loading, Modal } from '../../components/portal/Kit';
 import EventAttendees from '../../components/admin/EventAttendees';
 import RowMenu from '../../components/common/RowMenu';
+import { useAdminCounts } from '../../components/admin/AdminCounts';
 import ReasonDialog from '../../components/admin/ReasonDialog';
 import EventFormModal from '../../components/admin/EventFormModal';
 import { AdminIcon } from '../../components/admin/AdminIcons';
@@ -23,6 +24,7 @@ const fmtDate = (d) =>
 // Admin event moderation queue (task 1.4). The feature toggle is Phase 3.
 export default function Events() {
   const { pushToast } = useApp();
+  const { counts, refresh: refreshCounts } = useAdminCounts(); // Pending tab + sidebar badge
   const [tab, setTab] = useState('PUBLISHED');
   const [data, setData] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -48,6 +50,7 @@ export default function Events() {
       await api.approveEvent(ev.id);
       pushToast(`Published “${ev.title}”`);
       load();
+      refreshCounts();
     } catch (e) {
       pushToast(apiError(e, 'Action failed'), false);
     } finally {
@@ -63,6 +66,7 @@ export default function Events() {
       pushToast(`Rejected “${ev.title}”`);
       setRejecting(null);
       load();
+      refreshCounts();
     } catch (e) {
       pushToast(apiError(e, 'Action failed'), false);
     } finally {
@@ -199,7 +203,11 @@ export default function Events() {
         subtitle={data ? `${data.total} ${tab ? TABS.find(([k]) => k === tab)[1].toLowerCase() : 'total'}` : 'Moderation queue'}
         actions={<Btn onClick={() => setEditor({})}><AdminIcon.Plus size={15} /> New OBS event</Btn>}
       />
-      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      <Tabs
+        tabs={TABS.map(([k, l]) => [k, k === 'PENDING_APPROVAL' && counts.pendingEvents ? `${l} (${counts.pendingEvents})` : l])}
+        active={tab}
+        onChange={setTab}
+      />
       {data === null ? (
         <Loading />
       ) : (

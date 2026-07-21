@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PageHead, Card, Btn, Loading, EmptyState, Pill, Modal, ConfirmDialog, Field, inputCls } from '../../components/portal/Kit';
 import ImageField from '../../components/common/ImageField';
+import { usePagedList } from '../../lib/usePagedList';
 import { useApp } from '../../context/AppContext';
 import api, { apiError } from '../../lib/api';
 import { AdminIcon } from '../../components/admin/AdminIcons';
@@ -92,14 +93,15 @@ function SpeakerEditor({ initial, onClose, onSaved }) {
 
 export default function Speakers() {
   const { pushToast } = useApp();
-  const [rows, setRows] = useState(null);
+  const { rows, total, load, loadMore, loadingMore, hasMore, remaining } = usePagedList({
+    fetch: api.adminSpeakers, key: 'speakers', limit: 50,
+    onError: (e) => pushToast(apiError(e), false),
+  });
   const [editor, setEditor] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  const load = () => api.adminSpeakers().then(setRows).catch((e) => { setRows([]); pushToast(apiError(e), false); });
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const remove = async () => {
     if (!confirm) return;
@@ -122,7 +124,7 @@ export default function Speakers() {
     <div>
       <PageHead
         title="Speakers"
-        subtitle={rows.length ? `${rows.length} speaker${rows.length === 1 ? '' : 's'}` : 'Directory of speakers'}
+        subtitle={total ? `${total} speaker${total === 1 ? '' : 's'}` : 'Directory of speakers'}
         actions={<Btn onClick={() => setEditor({})}><AdminIcon.Plus size={15} /> New speaker</Btn>}
       />
 
@@ -160,6 +162,11 @@ export default function Speakers() {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+      {hasMore && (
+        <div className="mt-4 text-center">
+          <Btn variant="ghost" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : `Load more (${remaining} left)`}</Btn>
         </div>
       )}
 

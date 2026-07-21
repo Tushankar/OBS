@@ -10,6 +10,7 @@ import {
   inputCls, selectCls, statusTone, Loading, formatPrice,
 } from '../../components/portal/Kit';
 import { AdminIcon } from '../../components/admin/AdminIcons';
+import { usePagedList } from '../../lib/usePagedList';
 
 const toLocal = (iso) => {
   if (!iso) return '';
@@ -131,13 +132,15 @@ const fmtWindow = (from, until) => {
 
 export default function Promos() {
   const { pushToast } = useApp();
-  const [rows, setRows] = useState(null);
+  const { rows, load, loadMore, loadingMore, hasMore, remaining } = usePagedList({
+    fetch: api.adminPromos, key: 'promoCodes', limit: 50,
+    onError: (e) => pushToast(apiError(e), false),
+  });
   const [editing, setEditing] = useState(null); // row or {} for new
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const load = () => api.adminPromos().then(setRows).catch((e) => { setRows([]); pushToast(apiError(e), false); });
-  useEffect(() => { window.scrollTo(0, 0); load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const del = async () => {
     setBusy(true);
@@ -204,6 +207,11 @@ export default function Promos() {
               ? <span className="text-[#4B5563]">{row.eventTitle || '—'}</span>
               : renderCell(row, key)}
           />
+        </div>
+      )}
+      {hasMore && (
+        <div className="mt-4 text-center">
+          <Btn variant="ghost" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : `Load more (${remaining} left)`}</Btn>
         </div>
       )}
 
