@@ -10,7 +10,8 @@ import ImagesUploader from '../common/ImagesUploader';
 import MapPicker from '../common/MapPicker';
 import CountryField from '../common/CountryField';
 import { zonedInputToISO, isoToZonedInput, tzOffsetLabel, TIMEZONES, suggestTimezone, timezoneForCoords } from '../../lib/timezones';
-import { CURRENCIES, CURRENCY_LABEL } from '../../lib/currency';
+import CurrencyField from '../common/CurrencyField';
+import ChapterField from '../common/ChapterField';
 
 // Admin create / edit of an OBS-platform event (ownership OBS). Publishes
 // directly — no organizer submit→approve loop. `initial` (an admin event row)
@@ -318,10 +319,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
             )}
           </Field>
           <Field label="Chapter" hint="Optional — links the event to a city/community chapter page.">
-            <select value={form.chapterId} onChange={(e) => set('chapterId', e.target.value)} className={`${selectCls} w-full`}>
-              <option value="">No chapter</option>
-              {chapters.map((c) => <option key={c.id} value={c.id}>{c.flagEmoji ? `${c.flagEmoji} ` : ''}{c.name}</option>)}
-            </select>
+            <ChapterField value={form.chapterId} chapters={chapters} onChange={(v) => set('chapterId', v)} />
             {form.chapterId && (
               <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-gray-600">
                 <input type="checkbox" checked={!!form.membersOnly} onChange={(e) => set('membersOnly', e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#E5B700]" />
@@ -339,9 +337,7 @@ export default function EventFormModal({ initial, onClose, onSaved }) {
             <CountryField value={form.country} onChange={(v) => set('country', v)} />
           </Field>
           <Field label="Currency" hint="Tickets are priced and charged in this currency.">
-            <select value={form.currency} onChange={(e) => set('currency', e.target.value)} className={`${selectCls} w-full`}>
-              {CURRENCIES.map((c) => <option key={c} value={c}>{CURRENCY_LABEL[c] || c}</option>)}
-            </select>
+            <CurrencyField value={form.currency} onChange={(v) => set('currency', v)} />
           </Field>
           <div className="sm:col-span-2">
             <Field label="Description"><textarea value={form.description} onChange={(e) => set('description', e.target.value)} rows={4} placeholder="What's the event about?" className={`${inputCls} resize-y`} /></Field>

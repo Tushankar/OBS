@@ -5,16 +5,16 @@
  * trend and a real audit-trail activity feed. Every figure is a backend
  * aggregate (no mock data); charts follow dataviz rules.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import api, { apiError } from '../../lib/api';
+import { cityCoords } from '../../lib/geo';
 import { useApp } from '../../context/AppContext';
 import { Card, Loading, StatCard, Avatar, formatPrice } from '../../components/portal/Kit';
 import { AdminIcon } from '../../components/admin/AdminIcons';
 import { NavIcon } from '../../components/admin/NavIcons';
 import { AreaChart, GroupedBars, MultiLineChart } from '../../components/admin/Charts';
+import ReachMap from '../../components/admin/ReachMap';
 
 const num = (n) => Number(n || 0).toLocaleString('en-IN');
 const SERIES = ['#E5B700', '#4B5563', '#F4A920']; // SPECTRUM palette — gold lead, dark-gray second
@@ -51,39 +51,6 @@ const MANAGE = [
     ],
   },
 ];
-
-// Sales-reach map — floating white city chips with a pulsing live dot on a
-// light basemap, fitted to the cities that actually have coordinates.
-function ReachMap({ cities }) {
-  const boxRef = useRef(null);
-  useEffect(() => {
-    const pins = (cities || []).filter((c) => c.lat != null && c.lng != null);
-    if (!boxRef.current) return undefined;
-    const map = L.map(boxRef.current, { zoomControl: false, scrollWheelZoom: false, attributionControl: true });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      maxZoom: 18,
-    }).addTo(map);
-    if (pins.length) {
-      pins.forEach((c) => {
-        L.marker([c.lat, c.lng], {
-          icon: L.divIcon({
-            className: '',
-            html: `<div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.96);color:#111827;padding:6px 11px;border-radius:10px;border:1px solid #E8ECF2;font:600 11.5px Inter,Roboto,sans-serif;white-space:nowrap;box-shadow:0 4px 10px rgba(16,24,40,.08),0 12px 32px rgba(16,24,40,.14)"><span class="pulse-dot" style="width:7px;height:7px;border-radius:99px;background:#E5B700;color:#E5B700"></span><span>${c.city}</span><span style="color:#6B7280;font-weight:700">${Number(c.tickets).toLocaleString('en-IN')}</span></div>`,
-            iconSize: null,
-            iconAnchor: [24, 34],
-          }),
-        }).addTo(map);
-      });
-      map.fitBounds(L.latLngBounds(pins.map((c) => [c.lat, c.lng])).pad(0.6));
-    } else {
-      map.setView([21.5, 78.9], 4); // India — no pinned cities yet
-    }
-    setTimeout(() => map.invalidateSize(), 120);
-    return () => map.remove();
-  }, [cities]);
-  return <div ref={boxRef} className="h-full min-h-[280px] w-full overflow-hidden rounded-[14px]" />;
-}
 
 // Recent privileged actions (audit trail) → timeline feed.
 const feedIcon = (action) => {
@@ -209,17 +176,36 @@ export default function Dashboard() {
   return (
     <div>
       {/* ── Hero ── */}
-      <div className="rise flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-semibold text-gray-800 sm:text-2xl">Overview</h1>
-            <span className="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
-              <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-green-500 text-green-500" /> Live
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-gray-500">Bookings, revenue and attendance across the platform — updating in real time.</p>
+      <div className="rise min-w-0">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-semibold text-gray-800 sm:text-2xl">Overview</h1>
+          <span className="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-green-500 text-green-500" /> Live
+          </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <p className="mt-1 text-sm text-gray-500">Bookings, revenue and attendance across the platform — updating in real time.</p>
+      </div>
+
+      {/* ── Controls row: range filter (left) + actions (right) ── */}
+      <div className="rise rise-1 mt-5 flex flex-wrap items-center justify-between gap-3">
+        {/* Range (SPECTRUM segmented filter) */}
+        <div className="inline-flex items-center rounded-full border border-gray-200 bg-white shadow-sm">
+          {RANGES.map((r, index) => (
+            <button
+              key={r.key}
+              onClick={() => setRange(r.key)}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                range === r.key ? 'rounded-full text-white shadow-sm' : 'bg-transparent text-gray-600 hover:text-gray-800'
+              } ${index < RANGES.length - 1 && range !== r.key ? 'border-r border-[#D0D5DD]' : ''}`}
+              style={range === r.key ? { background: 'linear-gradient(168deg, #E5B700 0%, #DE8806 100%)' } : {}}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
           <span className="hidden items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-xs font-medium text-gray-600 shadow-sm md:flex">
             <AdminIcon.Events size={14} className="text-gray-500" /> {today}
           </span>
@@ -238,22 +224,6 @@ export default function Dashboard() {
             <AdminIcon.External size={14} /> Open site
           </a>
         </div>
-      </div>
-
-      {/* ── Range (SPECTRUM segmented filter) ── */}
-      <div className="rise rise-1 mt-5 inline-flex items-center rounded-full border border-gray-200 bg-white shadow-sm">
-        {RANGES.map((r, index) => (
-          <button
-            key={r.key}
-            onClick={() => setRange(r.key)}
-            className={`whitespace-nowrap px-4 py-2 text-sm font-medium transition-all duration-200 ${
-              range === r.key ? 'rounded-full text-white shadow-sm' : 'bg-transparent text-gray-600 hover:text-gray-800'
-            } ${index < RANGES.length - 1 && range !== r.key ? 'border-r border-[#D0D5DD]' : ''}`}
-            style={range === r.key ? { background: 'linear-gradient(168deg, #E5B700 0%, #DE8806 100%)' } : {}}
-          >
-            {r.label}
-          </button>
-        ))}
       </div>
 
       {/* ── Pending approvals — honest alert strip, only when real ── */}
@@ -362,6 +332,7 @@ export default function Dashboard() {
             </div>
             <div className="h-[280px] sm:h-[320px]"><ReachMap cities={data.cities} /></div>
             <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
+              {(data.cities || []).some((c) => (c.lat == null || c.lng == null) && cityCoords(c)) && <span>* approximate — event has no map location</span>}
               {ago != null && <span>Updated {agoTick >= 0 && ago < 60 ? `${ago}s` : `${Math.round(ago / 60)}m`} ago</span>}
               <button onClick={() => load()} className="flex items-center gap-1 font-medium text-[#E5B700] transition-opacity hover:opacity-80">
                 <AdminIcon.Refresh size={12} /> Refresh

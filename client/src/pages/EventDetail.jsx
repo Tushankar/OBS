@@ -4,6 +4,7 @@ import EvImage from '../components/common/EvImage';
 import ApiEventCard, { seedOf } from '../components/common/ApiEventCard';
 import BookingCard from '../components/booking/BookingCard';
 import { ChapterFlag } from '../components/common/ChapterMark';
+import { EventMap } from '../components/common/MapPicker';
 import Seo from '../components/common/Seo';
 import { Icon } from '../components/common/Icon';
 import SponsorLogo from '../components/cards/SponsorLogo';
@@ -257,9 +258,9 @@ export default function EventDetail() {
                 </div>
               </div>
             </div>
-            {mapEmbed && (
-              <div className="mt-4 overflow-hidden rounded-xl border border-line">
-                <iframe title="Event location" src={mapEmbed} className="h-[240px] w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+            {!event.isOnline && event.lat != null && event.lng != null && (
+              <div className="mt-4">
+                <EventMap lat={event.lat} lng={event.lng} title={event.title} venueName={event.venueName} />
               </div>
             )}
           </Section>

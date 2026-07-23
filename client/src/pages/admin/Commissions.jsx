@@ -133,7 +133,7 @@ export default function Commissions() {
 
   const load = () => {
     api.adminCommission().then(setSettings).catch((e) => pushToast(apiError(e), false));
-    api.adminOrganizers().then((rows) => setOrgs((rows || []).filter((o) => o.slug !== 'obs-events'))).catch((e) => { setOrgs([]); pushToast(apiError(e), false); });
+    api.adminOrganizers({ limit: 100 }).then((res) => setOrgs((res?.organizers || []).filter((o) => o.slug !== 'obs-events'))).catch((e) => { setOrgs([]); pushToast(apiError(e), false); });
   };
   useEffect(() => { window.scrollTo(0, 0); load(); /* eslint-disable-next-line */ }, []);
 

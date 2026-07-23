@@ -9,7 +9,7 @@ import { NavIcon } from './NavIcons';
 import NotificationsBell from '../common/NotificationsBell';
 import { AdminCountsProvider, useAdminCounts, BADGE_BY_PATH, CountBadge } from './AdminCounts';
 
-// Admin chrome — SPECTRUM design language: 300px white sidebar (shadow-lg)
+// Admin chrome — SPECTRUM design language: 256px white sidebar (shadow-lg)
 // with centered gold wordmark, 44px rounded-2xl nav items whose active state
 // is a gold→orange gradient with white text, a profile + bordered logout block
 // at the bottom; white topbar with page icon+title on the left and pill
@@ -400,7 +400,7 @@ export default function AdminShell({ children }) {
     <div className="font-portal min-h-screen bg-gray-100 text-gray-900">
       {/* Fixed sidebar (desktop) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 hidden border-r border-gray-200 bg-white shadow-lg transition-[width] duration-300 ease-in-out lg:block ${collapsed ? 'w-[80px]' : 'w-[300px]'}`}
+        className={`fixed inset-y-0 left-0 z-40 hidden border-r border-gray-200 bg-white shadow-lg transition-[width] duration-300 ease-in-out lg:block ${collapsed ? 'w-[80px]' : 'w-[256px]'}`}
       >
         {collapsed ? (
           <SidebarCollapsed onExpand={() => setCollapsed(false)} initials={initials} onSignOut={signOut} />
@@ -428,14 +428,14 @@ export default function AdminShell({ children }) {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ duration: 0.26, ease: 'easeInOut' }}
-            className="fixed inset-y-0 left-0 z-[81] w-[300px] border-r border-gray-200 bg-white shadow-lg lg:hidden"
+            className="fixed inset-y-0 left-0 z-[81] w-[256px] border-r border-gray-200 bg-white shadow-lg lg:hidden"
           >
             <SidebarExpanded onNavigate={() => setDrawer(false)} onCollapse={() => setCollapsed(true)} initials={initials} user={user} onSignOut={signOut} />
           </motion.aside>
         )}
       </AnimatePresence>
 
-      <div className={`transition-[padding] duration-300 ease-in-out ${collapsed ? 'lg:pl-[80px]' : 'lg:pl-[300px]'}`}>
+      <div className={`transition-[padding] duration-300 ease-in-out ${collapsed ? 'lg:pl-[80px]' : 'lg:pl-[256px]'}`}>
         {/* Topbar — SPECTRUM: page icon+title left, pill search / bell / profile pill right */}
         <header className="sticky top-0 z-30 flex w-full items-center justify-between border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4 md:px-6 lg:px-10">
           <div className="flex items-center gap-3">

@@ -6,7 +6,8 @@ import api, { apiError, apiErrorCode } from '../../lib/api';
 import { fmtDateTime } from '../../lib/format';
 import { hasMapsKey, loadGoogleMaps } from '../../lib/googleMaps';
 import { zonedInputToISO, isoToZonedInput, tzOffsetLabel, TIMEZONES, suggestTimezone, timezoneForCoords } from '../../lib/timezones';
-import { CURRENCIES, CURRENCY_LABEL } from '../../lib/currency';
+import CurrencyField from '../../components/common/CurrencyField';
+import ChapterField from '../../components/common/ChapterField';
 import TicketTypesEditor from '../../components/organizer/TicketTypesEditor';
 import PromoCodesEditor from '../../components/organizer/PromoCodesEditor';
 import SponsorsEditor from '../../components/organizer/SponsorsEditor';
@@ -424,10 +425,7 @@ export default function EventWizard() {
                 )}
               </Field>
               <Field label="Chapter (optional)">
-                <select className={inputCls} value={form.chapterId} disabled={readOnly} onChange={(e) => set('chapterId', e.target.value)}>
-                  <option value="">No chapter</option>
-                  {chapters.map((c) => <option key={c.id} value={c.id}>{c.flagEmoji ? `${c.flagEmoji} ` : ''}{c.name}</option>)}
-                </select>
+                <ChapterField value={form.chapterId} chapters={chapters} disabled={readOnly} onChange={(v) => set('chapterId', v)} />
                 {form.chapterId && (
                   <label className={`mt-2 flex items-start gap-2 text-[12.5px] text-[#4B5563] ${readOnly ? 'opacity-60' : 'cursor-pointer'}`}>
                     <input
@@ -530,9 +528,7 @@ export default function EventWizard() {
                 </select>
               </Field>
               <Field label="Currency" hint="Tickets are priced and charged in this currency.">
-                <select className={inputCls} value={form.currency} disabled={readOnly} onChange={(e) => set('currency', e.target.value)}>
-                  {CURRENCIES.map((c) => <option key={c} value={c}>{CURRENCY_LABEL[c] || c}</option>)}
-                </select>
+                <CurrencyField value={form.currency} disabled={readOnly} onChange={(v) => set('currency', v)} />
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
